@@ -31,6 +31,25 @@ function debitFromSV(s, v) {
 
 // Masse volumique dans les conditions réelles (kg/m³) — formule VBA
 // ρ = 1,293 × (273 / (273 + T)) × ((101300 + P) / 101300)
+// Cabines de peinture : nombre de points de mesure sur un axe donné, selon la dimension
+// de la cabine (m) et l'espacement cible (1,5 m ou 2 m) — reproduit la boucle VBA
+// (répartition régulière, max 20 points, aucune valeur si dimension absente ou > 28 m)
+function cdpNbPoints(dimension, spacing) {
+  var d = num(dimension);
+  if (isNaN(d) || d > 28) return '';
+  var n = Math.ceil((d - 1) / spacing);
+  if (n <= 0) return 1;
+  var step = Math.round(((d - 1) / n) * 10) / 10;
+  if (step <= 0) return 1;
+  var count = 0;
+  for (var i = 0.5; i <= 27.5 + 1e-9; i += step) {
+    if (d >= i - 1e-9) count++;
+    else break;
+    if (count === 20) break;
+  }
+  return count || 1;
+}
+
 function masseVolumique(temperature, pression) {
   var T = num(temperature), P = num(pression);
   if (isNaN(T) || isNaN(P)) return '';
@@ -50,6 +69,88 @@ function chargerDebit(c) {
 
 // Table INRS ED 695 : type de polluant -> vitesse de transport recommandée
 // ⚠ Valeurs standard ED 695 à valider (la table d'origine est dans une feuille cachée du classeur)
+// Bras d'aspiration — vitesse de captage recommandée selon la condition de dispersion du polluant
+var BRAS_DISPERSION = {
+  'Emission sans vitesse initiale en air calme': 0.25,
+  'Emission à faible vitesse en air modérément calme': 0.5,
+  'Génération active en zone agitée': 1,
+  'Emission à grande vitesse initiale dans une zone à mouvement d\u2019air très rapide': 2.5,
+  'Gaz et vapeurs': null
+};
+
+// Installations diverses — même principe mais en plage de vitesses (guide INRS ED695)
+var EQUIP_DISPERSION = {
+  'Emission sans vitesse initiale en air calme': '0,25 - 0,5',
+  'Emission à faible vitesse en air modérément calme': '0,5 - 1',
+  'Génération active en zone agitée': '1 - 2,5',
+  'Emission à grande vitesse initiale dans une zone à mouvement d\u2019air très rapide': '2,5 - 10',
+  'Gaz et vapeurs': '/'
+};
+
+// Avis vitesse au point d'émission (Installations diverses) : réf numérique -> ×0,8 ;
+// sinon compare à la borne basse de la plage recommandée (VBA : satisfaisant dès que mesuré ≥ borne basse)
+function avisDispersionRange(mesuree, reference, rangeStr) {
+  var mes = num(mesuree);
+  var ref = String(reference === undefined ? '' : reference).trim();
+  if (isNaN(mes) || ref === '') return 'Impossible de se prononcer';
+  if (ref !== '/' && !isNaN(num(ref))) {
+    return mes >= num(ref) * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
+  }
+  var range = String(rangeStr || '').trim();
+  if (range === '' || range === '/') return 'Impossible de se prononcer';
+  var parts = range.split(' - ');
+  if (parts.length < 2) return 'Impossible de se prononcer';
+  var lower = num(parts[0]);
+  if (isNaN(lower)) return 'Impossible de se prononcer';
+  return mes >= lower ? 'Satisfaisant' : 'Non Satisfaisant';
+}
+
+// Génère les règles de calcul répétées pour une mesure de transport "Installations diverses"
+function buildEquipTransportCalcRules(prefix, showIfLabel) {
+  return [
+    { target: prefix + '_surface', decimals: 4, fn: function (d) {
+        return surfaceSection(d[prefix + '_forme_conduit'], d[prefix + '_diametre_cote1'], d[prefix + '_cote2']);
+      } },
+    { target: prefix + '_masse_volumique', decimals: 3, fn: function (d) {
+        return masseVolumique(d[prefix + '_temperature'], d[prefix + '_pression_statique']);
+      } },
+    { target: prefix + '_vitesse_moyenne_grille', decimals: 3, fn: function (d) {
+        if (d[prefix + '_vitesse_mode'] !== 'Grille de points') return '';
+        var s = gridStats(d[prefix + '_vitesse_grid'], d[prefix + '_vitesse_nb_axes'], d[prefix + '_vitesse_nb_points']);
+        if (!s || s.incomplete) return '';
+        return s.moyenne;
+      } },
+    { target: prefix + '_mesuree', decimals: 3, fn: function (d) {
+        return (d[prefix + '_vitesse_mode'] === 'Grille de points') ? (d[prefix + '_vitesse_moyenne_grille'] || '') : (d[prefix + '_vitesse_directe'] || '');
+      } },
+    { target: prefix + '_debit', fn: function (d) {
+        var v = debitFromSV(d[prefix + '_surface'], d[prefix + '_mesuree']);
+        return isNaN(v) ? '' : v;
+      } },
+    { target: prefix + '_inrs', fn: function (d) {
+        return HOTTE_POLLUANTS[d[prefix + '_type_polluant']] || '';
+      } },
+    { target: 'avis_' + prefix, fn: function (d) {
+        var mesures = Array.isArray(d.mesures_choisies) ? d.mesures_choisies : [];
+        if (mesures.indexOf(showIfLabel) === -1) return '';
+        return avisTransport(d[prefix + '_mesuree'], d[prefix + '_reference'], d[prefix + '_inrs']);
+      } }
+  ];
+}
+
+// Gaz d'échappement — débit minimal préconisé INRS selon type d'équipement + type de captage
+// (Locomotive / Outillage portatif / Autres : pas de valeur fixe -> "/")
+var ECHAP_INRS = {
+  'Véhicule léger': {
+    "Captage enveloppant (fixé à l'échappement)": 400,
+    "Captage récepteur (non fixé à l'échappement)": 1000
+  },
+  'Poids-Lourd et Bus': {
+    "Captage enveloppant (fixé à l'échappement)": 1000,
+    "Captage récepteur (non fixé à l'échappement)": 2000
+  }
+};
+
 var HOTTE_POLLUANTS = {
   'Gaz et vapeurs': 'pas de vitesse de transport minimum nécessaire',
   'Fumées': '7 à 10',
@@ -74,20 +175,17 @@ var LOCAL_LPNS = {
 };
 
 // Débit minimal réglementaire sanitaires (R4212-6). N = nombre d'équipements.
-function debitSanitaire(typeLocal, collectif, N) {
-  var n = num(N);
-  switch (typeLocal) {
-    case "Cabinet d'aisances isolé":
-    case 'Salle de bains ou de douches isolée':
-    case "Salle de bains ou de douches commune avec un cabinet d'aisances":
-      return (collectif === 'Non') ? 15 : 30;
-    case "Bains, douches et cabinets d'aisances groupés":
-      return isNaN(n) ? NaN : 30 + 15 * n;
-    case 'Lavabos groupés':
-      return isNaN(n) ? NaN : 10 + 5 * n;
-    default:
-      return NaN;
-  }
+// Débit minimal réglementaire sanitaires (R4212-6) — calculé à partir du nombre
+// d'équipements, pas du type de local (WC/urinoirs + douches combinés ; lavabos séparés)
+function debitSanitaire(nbWcUrinoirs, nbDouches, nbLavabos) {
+  var wc = num(nbWcUrinoirs), douches = num(nbDouches), lavabos = num(nbLavabos);
+  var nWcDouches = (isNaN(wc) ? 0 : wc) + (isNaN(douches) ? 0 : douches);
+  var nLavabos = isNaN(lavabos) ? 0 : lavabos;
+  if (nWcDouches <= 0 && nLavabos <= 0) return NaN;
+  var total = 0;
+  if (nWcDouches > 0) total += (nWcDouches === 1) ? 30 : (30 + 15 * nWcDouches);
+  if (nLavabos > 0) total += 10 + 5 * nLavabos;
+  return total;
 }
 
 // Débit d'air neuf effectivement introduit selon le type de ventilation (VBA)
@@ -106,8 +204,8 @@ function debitAirNeufMesure(d) {
 function gridStats(grid, rows, cols) {
   // Reproduit la logique VBA : toutes les cases doivent être remplies (nombre ou "/"),
   // "/" exclut le point ; sinon résultat impossible.
-  var r = Math.min(parseInt(rows, 10) || 0, 5);
-  var c = Math.min(parseInt(cols, 10) || 0, 5);
+  var r = Math.min(parseInt(rows, 10) || 0, 20);
+  var c = Math.min(parseInt(cols, 10) || 0, 20);
   if (!r || !c || !Array.isArray(grid)) return null;
   var sum = 0, count = 0, min = Infinity, incomplete = false;
   for (var i = 0; i < r; i++) {
@@ -136,6 +234,23 @@ function avisVitesse(mesuree, reference, inrs) {
     return mes >= vi ? 'Satisfaisant' : 'Non Satisfaisant';
   }
   return mes >= num(ref) * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
+}
+
+// Variante Sorbonnes : deux colonnes d'avis séparées (référence seule, ED795 seule),
+// avec priorité à la référence si elle est renseignée (numérique)
+function avisRefSeule(mesuree, reference) {
+  var ref = String(reference === undefined ? '' : reference).trim();
+  if (ref === '' || ref === '/') return 'Sans objet';
+  var mes = num(mesuree), r = num(ref);
+  if (isNaN(mes) || isNaN(r)) return 'Impossible de se prononcer';
+  return mes >= r * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
+}
+function avisAltSeul(mesuree, reference, altValue) {
+  var ref = String(reference === undefined ? '' : reference).trim();
+  if (ref !== '' && ref !== '/') return 'Sans objet';
+  var mes = num(mesuree), alt = num(altValue);
+  if (isNaN(mes) || isNaN(alt)) return 'Impossible de se prononcer';
+  return mes >= alt ? 'Satisfaisant' : 'Non Satisfaisant';
 }
 
 // Avis vitesse de transport (VBA) : parse "X à Y", "> X", ou "pas de vitesse..."
@@ -181,6 +296,40 @@ function conclusionHotte(d) {
 
 // Règles de calcul par type : { target, fn(data) }
 // fn retourne NaN si les entrées sont incomplètes -> le champ cible n'est pas modifié
+// Génère les règles de calcul répétées pour un circuit CTA (neuf / souffle / recycle)
+function buildCtaCircuitCalcRules(prefix) {
+  return [
+    { target: prefix + '_surface', decimals: 4, fn: function (d) {
+        return surfaceSection(d[prefix + '_forme_section'], d[prefix + '_diametre_cote1'], d[prefix + '_cote2']);
+      } },
+    { target: prefix + '_masse_volumique', decimals: 3, fn: function (d) {
+        return masseVolumique(d[prefix + '_temperature'], d[prefix + '_pression_statique']);
+      } },
+    { target: prefix + '_vitesse_moyenne_grille', decimals: 3, fn: function (d) {
+        if (d[prefix + '_vitesse_mode'] !== 'Grille de points') return '';
+        var s = gridStats(d[prefix + '_vitesse_grid'], d[prefix + '_vitesse_nb_axes'], d[prefix + '_vitesse_nb_points']);
+        if (!s || s.incomplete) return '';
+        return s.moyenne;
+      } },
+    { target: prefix + '_ecart_norme', fn: function (d) {
+        if (d[prefix + '_vitesse_mode'] !== 'Grille de points') return '';
+        var axes = num(d[prefix + '_vitesse_nb_axes']), pts = num(d[prefix + '_vitesse_nb_points']);
+        if (isNaN(axes) || isNaN(pts)) return '';
+        var total = axes * pts;
+        if (total < 25 && axes < 5) {
+          return "Ecart à la norme X10-112 : le nombre de points préconisé par la norme (25 points) n'a pas pu être réalisé compte tenu de la configuration de l'installation (nombre d'axes insuffisant)";
+        }
+        return '';
+      } },
+    { target: prefix + '_debit_en_cours', fn: function (d) {
+        var v = (d[prefix + '_vitesse_mode'] === 'Grille de points') ? num(d[prefix + '_vitesse_moyenne_grille']) : num(d[prefix + '_vitesse']);
+        var s = num(d[prefix + '_surface']);
+        var res = debitFromSV(s, v);
+        return isNaN(res) ? '' : res;
+      } }
+  ];
+}
+
 var CALC_RULES = {
 
   bureaux: [
@@ -188,6 +337,14 @@ var CALC_RULES = {
         var t = LOCAL_LPNS[d.type_local]; var eff = num(d.effectif);
         if (!t || t.vol === null || isNaN(eff)) return '';
         return t.vol * eff;
+      } },
+    { target: 'volume_apparent', fn: function (d) {
+        // Le volume n'est masqué que si Soufflage/Double flux ET ouvrant=Non ET entrée d'air permanente=Non
+        var vt = d.type_ventilation;
+        if ((vt === 'Soufflage' || vt === 'Double flux') && d.ouvrant_exterieur === 'Non' && d.entree_air_permanente === 'Non') {
+          return 'false';
+        }
+        return 'true';
       } },
     { target: 'debit_min_air_neuf', fn: function (d) {
         var t = LOCAL_LPNS[d.type_local]; var eff = num(d.effectif);
@@ -213,7 +370,7 @@ var CALC_RULES = {
 
   sanitaires: [
     { target: 'debit_min_reglementaire', fn: function (d) {
-        var v = debitSanitaire(d.type_local, d.usage_collectif, d.nombre_equipements);
+        var v = debitSanitaire(d.nb_wc_urinoirs, d.nb_douches, d.nb_lavabos);
         return isNaN(v) ? '' : v;
       } },
     { target: 'avis', fn: function (d) {
@@ -224,6 +381,13 @@ var CALC_RULES = {
   ],
 
   erp: [
+    { target: 'volume_apparent', fn: function (d) {
+        var vt = d.type_ventilation;
+        if ((vt === 'Soufflage' || vt === 'Double flux') && d.ouvrant_exterieur === 'Non' && d.entree_air_permanente === 'Non') {
+          return 'false';
+        }
+        return 'true';
+      } },
     { target: 'debit_min_air_neuf', fn: function (d) {
         var t = LOCAL_LPNS[d.type_local];
         var occ = num(d.travailleur) + (isNaN(num(d.public)) ? 0 : num(d.public));
@@ -254,30 +418,37 @@ var CALC_RULES = {
         var L = num(d.largeur), l = num(d.longueur), h = num(d.hauteur);
         return (isNaN(L) || isNaN(l) || isNaN(h)) ? NaN : L * l * h;
       } },
-    { target: 'crit_surface_35', fn: function (d) {
-        var s = num(d.surface);
-        if (isNaN(s)) return '';
-        return s < 35 ? 'Oui' : 'Non';
-      } },
-    { target: 'crit_ratio_20', fn: function (d) {
-        var s = num(d.surface), et = num(d.surface_etablissement);
-        if (isNaN(s) || isNaN(et) || et === 0) return '';
-        return s <= 0.20 * et ? 'Oui' : 'Non';
-      } },
-    { target: 'taux_renouvellement', fn: function (d) {
-        var q = num(d.debit_extraction), vol = num(d.volume);
+    { target: 'taux_renouvellement_valeur', fn: function (d) {
+        var q = num(d.reprise_totale), vol = num(d.volume);
         if (isNaN(q) || isNaN(vol) || vol === 0) return '';
         return q / vol;
       } },
-    { target: 'crit_renouvellement', fn: function (d) {
-        var t = num(d.taux_renouvellement);
+    { target: 'crit_taux_renouvellement', fn: function (d) {
+        var t = num(d.taux_renouvellement_valeur);
         if (isNaN(t)) return '';
-        return t >= 10 ? 'Oui' : 'Non';
+        return t >= 10 ? 'Satisfaisant' : 'Non Satisfaisant';
       } },
-    { target: 'avis_csp', fn: function (d) {
-        var c1 = d.crit_surface_35, c2 = d.crit_ratio_20, c3 = d.crit_renouvellement;
-        if (!c1 || !c2 || !c3) return 'Impossible de se prononcer';
-        return (c1 === 'Oui' && c2 === 'Oui' && c3 === 'Oui') ? 'Conforme' : 'Non Conforme';
+    { target: 'crit_depression', fn: function (d) {
+        var p = num(d.depression_mesuree);
+        if (isNaN(p)) return '';
+        return p >= 5 ? 'Satisfaisant' : 'Non Satisfaisant';
+      } },
+    { target: 'crit_ratio_surface', fn: function (d) {
+        var s = num(d.surface), et = num(d.superficie_etablissement);
+        if (isNaN(s) || isNaN(et) || et === 0) return '';
+        return (s < 35 && s <= 0.20 * et) ? 'Satisfaisant' : 'Non Satisfaisant';
+      } },
+    { target: 'avis_global', fn: function (d) {
+        var criteres = [
+          'crit_salle_close', 'crit_aucune_prestation', 'crit_organisation_entretien',
+          'crit_dispositif_extraction', 'crit_rejet_exterieur', 'crit_rejet_distance_passage',
+          'crit_rejet_distance_prises', 'crit_taux_renouvellement', 'crit_ventilation_independante',
+          'crit_depression', 'crit_fermetures_auto', 'crit_pas_lieu_passage', 'crit_ratio_surface',
+          'crit_attestation_installateur', 'crit_document_possession_chef', 'crit_entretien_regulier',
+          'crit_consultation_chsct', 'crit_panneau_avertissement', 'crit_panneau_interdiction'
+        ];
+        var tousSatisfaisants = criteres.every(function (k) { return d[k] === 'Satisfaisant'; });
+        return tousSatisfaisants ? 'Satisfaisant' : 'Non Satisfaisant';
       } }
   ],
 
@@ -339,6 +510,11 @@ var CALC_RULES = {
         var s = num(d.surface_m2);
         return (isNaN(v) || isNaN(s)) ? NaN : s * v * 3600;
       } },
+    { target: 'debit_min_inrs', fn: function (d) {
+        var table = ECHAP_INRS[d.type_equipement];
+        if (!table) return '/';
+        return table[d.type_captage] !== undefined ? table[d.type_captage] : '/';
+      } },
     { target: 'debit_min_calcule', fn: function (d) {
         // Formule VBA : 1,2 × cylindrée (L) × 0,0363 × régime (tr/min)
         var V = num(d.cylindree), n = num(d.regime_moteur);
@@ -386,39 +562,27 @@ var CALC_RULES = {
       } }
   ],
 
-  cta: [
-    { target: 'souf_surface', decimals: 4, fn: function (d) {
-        return surfaceSection(d.souf_forme, d.souf_diametre_cote1, d.souf_cote2);
-      } },
-    { target: 'souf_debit', fn: function (d) {
-        return debitFromSV(d.souf_surface, d.souf_vitesse);
-      } },
-    { target: 'rep_surface', decimals: 4, fn: function (d) {
-        if (d.rep_active !== 'Oui') return '';
-        return surfaceSection(d.rep_forme, d.rep_diametre_cote1, d.rep_cote2);
-      } },
-    { target: 'rep_debit', fn: function (d) {
-        if (d.rep_active !== 'Oui') return '';
-        var v = debitFromSV(d.rep_surface, d.rep_vitesse);
-        return isNaN(v) ? '' : v;
-      } },
-    { target: 'masse_volumique', decimals: 3, fn: function (d) {
-        return masseVolumique(d.temperature_conduit, d.pression_statique);
-      } },
-    { target: 'avis', fn: function (d) {
-        // VBA : soufflage débit >= réf × 0.8 ; si reprise mesurée, les deux doivent être satisfaisants
-        var sd = num(d.souf_debit), sr = num(d.souf_reference);
-        if (isNaN(sd) || isNaN(sr)) return 'Impossible de se prononcer';
-        var okSouf = sd >= sr * POURCENTAGE_REF;
-        if (d.rep_active === 'Oui') {
-          var rd = num(d.rep_debit), rr = num(d.rep_reference);
-          if (isNaN(rd) || isNaN(rr)) return 'Impossible de se prononcer';
-          var okRep = rd >= rr * POURCENTAGE_REF;
-          return (okSouf && okRep) ? 'Satisfaisant' : 'Non Satisfaisant';
-        }
-        return okSouf ? 'Satisfaisant' : 'Non Satisfaisant';
-      } }
-  ],
+  cta: []
+    .concat(buildCtaCircuitCalcRules('neuf'))
+    .concat(buildCtaCircuitCalcRules('souffle'))
+    .concat(buildCtaCircuitCalcRules('recycle'))
+    .concat([
+      { target: 'avis_inrs', fn: function (d) {
+          var circuits = (d.mode_fonctionnement === 'AIR NEUF / AIR RECYCLE')
+            ? ['neuf', 'souffle', 'recycle']
+            : ['neuf', 'souffle'];
+          var actifs = circuits.filter(function (p) { return d[p + '_forme_section']; });
+          if (actifs.length === 0) return 'Impossible de se prononcer';
+          var manque = false;
+          var conforme = actifs.every(function (p) {
+            var mes = num(d[p + '_debit_en_cours']), ref = num(d[p + '_debit_reference']);
+            if (isNaN(mes) || isNaN(ref)) { manque = true; return false; }
+            return mes >= ref * POURCENTAGE_REF;
+          });
+          if (manque) return 'Impossible de se prononcer';
+          return conforme ? 'Satisfaisant' : 'Non Satisfaisant';
+        } }
+    ]),
 
   menuiserie_bis: [
     { target: 'debit', fn: function (d) {
@@ -531,34 +695,31 @@ var CALC_RULES = {
   ],
 
   installations_diverses: [
-    { target: 'vt_inrs', fn: function (d) {
-        return HOTTE_POLLUANTS[d.vt_type_polluant] || '';
+    { target: 'vpe_inrs', fn: function (d) {
+        return EQUIP_DISPERSION[d.condition_dispersion] || '';
       } },
     { target: 'avis_vpe', fn: function (d) {
         var mesures = Array.isArray(d.mesures_choisies) ? d.mesures_choisies : [];
         if (mesures.indexOf("Vitesse au point d'émission") === -1) return '';
-        return avisVitesse(d.vpe_mesuree, d.vpe_reference, d.vpe_inrs);
-      } },
-    { target: 'avis_vt', fn: function (d) {
-        var mesures = Array.isArray(d.mesures_choisies) ? d.mesures_choisies : [];
-        if (mesures.indexOf('Vitesse de transport') === -1) return '';
-        return avisTransport(d.vt_mesuree, d.vt_reference, d.vt_inrs);
-      } },
-    { target: 'masse_volumique', decimals: 3, fn: function (d) {
-        return masseVolumique(d.temperature_conduit, d.pression_statique);
-      } },
+        return avisDispersionRange(d.vpe_mesuree, d.vpe_reference, d.vpe_inrs);
+      } }
+  ]
+    .concat(buildEquipTransportCalcRules('vt1', "Vitesse de transport"))
+    .concat(buildEquipTransportCalcRules('vt2', 'Vitesse de transport secondaire'))
+    .concat([
     { target: 'avis', fn: function (d) {
         var mesures = Array.isArray(d.mesures_choisies) ? d.mesures_choisies : [];
         var avis = [];
         if (mesures.indexOf("Vitesse au point d'émission") !== -1) avis.push(d.avis_vpe);
-        if (mesures.indexOf('Vitesse de transport') !== -1 && d.avis_vt !== '/') avis.push(d.avis_vt);
+        if (mesures.indexOf('Vitesse de transport') !== -1 && d.avis_vt1 !== '/') avis.push(d.avis_vt1);
+        if (mesures.indexOf('Vitesse de transport secondaire') !== -1 && d.avis_vt2 !== '/') avis.push(d.avis_vt2);
         avis = avis.filter(function (a) { return a; });
         if (avis.length === 0) return '';
         if (avis.some(function (a) { return a === 'Impossible de se prononcer'; })) return 'Impossible de se prononcer';
         if (avis.some(function (a) { return a === 'Non Satisfaisant'; })) return 'Non Satisfaisant';
         return 'Satisfaisant';
       } }
-  ],
+  ]),
 
   bras_aspiration: [
     { target: 'surface_bouche', decimals: 4, fn: function (d) {
@@ -577,51 +738,127 @@ var CALC_RULES = {
         }
         return '';
       } },
+    { target: 'surface_point_mesure', decimals: 4, fn: function (d) {
+        if (d.localisation_point_mesure === 'Conduit') {
+          var Dc = num(d.diametre_conduit);
+          return isNaN(Dc) ? '' : Math.PI * Math.pow(Dc / 200, 2);
+        }
+        if (d.localisation_point_mesure === 'Bouche') {
+          return num(d.surface_bouche);
+        }
+        return '';
+      } },
     { target: 'debit_calcule', fn: function (d) {
-        // VBA : débit = surface bouche × vitesse moyenne × 3600
-        var s = num(d.surface_bouche), v = num(d.vitesse_moyenne);
-        return (isNaN(s) || isNaN(v)) ? '' : s * v * 3600;
+        var s = num(d.surface_point_mesure), v = num(d.vitesse_moyenne);
+        return (isNaN(s) || isNaN(v)) ? '' : Math.round(s * v * 3600);
+      } },
+    { target: 'vitesse_captage_recommandee', fn: function (d) {
+        var vc = BRAS_DISPERSION[d.condition_dispersion];
+        if (vc === undefined) return '';
+        return (vc === null) ? '/' : vc;
       } },
     { target: 'distance_max_captage', fn: function (d) {
-        // VBA : (débit / (3600 × Vcaptage) − surface) / 10, min 0 (résultat en cm)
-        var q = num(d.debit_calcule), vc = num(d.vitesse_captage), s = num(d.surface_bouche);
+        // VBA : dist = (Débit / (3600 × facteur × Vcaptage) − Aire_bouche) / K ; puis sqrt(dist)×100, min 0
+        var q = num(d.debit_calcule), s = num(d.surface_bouche);
+        var vcRaw = d.vitesse_captage_recommandee;
+        if (vcRaw === '/' || vcRaw === '' || vcRaw === undefined) return '';
+        var vc = num(vcRaw);
         if (isNaN(q) || isNaN(vc) || isNaN(s) || vc === 0) return '';
-        var dist = (q / (3600 * vc) - s) / 10;
-        return dist < 0 ? 0 : dist;
+        var K, facteur;
+        switch (d.type_bouche) {
+          case 'Sans collerette': K = 10; facteur = 1; break;
+          case 'Avec collerette': K = 10; facteur = 0.75; break;
+          case 'Sans collerette reposant sur un plan': K = 5; facteur = 1; break;
+          case 'Avec collerette reposant sur un plan': K = 5; facteur = 0.75; break;
+          default: return '';
+        }
+        var inner = (q / (3600 * facteur * vc) - s) / K;
+        if (inner < 0) inner = 0;
+        return Math.sqrt(inner) * 100;
       } },
-    { target: 'conclusion_distance', fn: function (d) {
+    { target: 'avis', fn: function (d) {
+        if (d.recyclage === 'Oui') return 'Non Satisfaisant';
+        if (d.adapte_situation === 'Non') return 'Non Satisfaisant';
         var dmax = num(d.distance_max_captage), dutil = num(d.distance_utilisation);
-        if (isNaN(dmax) || isNaN(dutil)) return '';
-        return dutil <= dmax ? 'Satisfaisant' : 'Non Satisfaisant';
+        if (isNaN(dmax) || isNaN(dutil)) return 'Impossible de se prononcer';
+        return dmax > dutil ? 'Satisfaisant' : 'Non Satisfaisant';
       } },
     { target: 'evolution_pct', decimals: 1, fn: function (d) {
         var prev = num(d.debit_precedent), cur = num(d.debit_calcule);
-        return (isNaN(prev) || isNaN(cur) || prev === 0) ? '' : ((cur - prev) / prev) * 100;
+        return (isNaN(prev) || isNaN(cur) || cur === 0) ? '' : ((cur - prev) / cur) * 100;
       } }
   ],
 
   sorbonnes: [
-    { target: 'v90_avis_reference', fn: function (d) {
-        return avisVitesse(d.v90_mesuree, d.v90_reference, d.valeur_norme);
+    { target: 'nb_colonnes_actives', fn: function (d) {
+        var l = num(d.largeur_mm);
+        if (isNaN(l)) return '';
+        if (l > 2210) return 6;
+        if (l > 1810) return 5;
+        if (l > 1410) return 4;
+        if (l > 1010) return 3;
+        if (l > 610) return 2;
+        return 1;
       } },
-    { target: 'v90_avis_norme', fn: function (d) {
-        var mes = num(d.v90_mesuree), norme = num(d.valeur_norme);
-        if (isNaN(mes) || isNaN(norme)) return '';
-        return mes >= norme ? 'Satisfaisant' : 'Non Satisfaisant';
+    { target: 'nb_lignes_mesure', fn: function () { return 3; } },
+    { target: 'hauteur_ouverture_valeur', fn: function (d) {
+        if (d.annee_construction === 'Avant janvier 2005 - Norme XP X15-203 (400 mm)') return 400;
+        if (d.annee_construction === 'Après janvier 2005 - Norme NF EN 14175-4 (500 mm)') return 500;
+        if (d.annee_construction === 'Autre') return num(d.hauteur_ouverture_autre);
+        return '';
       } },
-    { target: 'v140_avis_reference', fn: function (d) {
-        return avisVitesse(d.v140_mesuree, d.v140_reference, d.valeur_norme);
+    { target: 'surface_ouverture', decimals: 4, fn: function (d) {
+        var l = num(d.largeur_mm), h = num(d.hauteur_ouverture_valeur);
+        if (isNaN(l) || isNaN(h)) return '';
+        return (l / 1000) * (h / 1000);
       } },
-    { target: 'v140_avis_norme', fn: function (d) {
-        var mes = num(d.v140_mesuree), norme = num(d.valeur_norme);
-        if (isNaN(mes) || isNaN(norme)) return '';
-        return mes >= norme ? 'Satisfaisant' : 'Non Satisfaisant';
+    { target: 'espace_horizontal', fn: function (d) {
+        var l = num(d.largeur_mm), n = num(d.nb_colonnes_actives);
+        if (isNaN(l) || isNaN(n) || n === 0) return '';
+        return (l - 200) / n;
       } },
-    { target: 'conclusion', fn: function (d) {
-        var avis = [d.v90_avis_reference, d.v140_avis_reference].filter(function (a) { return a; });
-        if (avis.length === 0) return '';
-        if (avis.some(function (a) { return a === 'Impossible de se prononcer'; })) return 'Impossible de se prononcer';
-        if (avis.some(function (a) { return a === 'Non Satisfaisant'; })) return 'Non Satisfaisant';
+    { target: 'espace_vertical', fn: function (d) {
+        var h = num(d.hauteur_ouverture_valeur);
+        if (isNaN(h)) return '';
+        return (h - 200) / 2;
+      } },
+    { target: 'vitesse_min_mesuree', decimals: 3, fn: function (d) {
+        var s = gridStats(d.vitesse_grid, d.nb_lignes_mesure, d.nb_colonnes_actives);
+        if (!s || s.incomplete) return '';
+        return s.min;
+      } },
+    { target: 'vitesse_moy_mesuree', decimals: 3, fn: function (d) {
+        var s = gridStats(d.vitesse_grid, d.nb_lignes_mesure, d.nb_colonnes_actives);
+        if (!s || s.incomplete) return '';
+        return s.moyenne;
+      } },
+    { target: 'vitesse_min_ed795', fn: function () { return 0.4; } },
+    { target: 'debit_mesure', fn: function (d) {
+        return debitFromSV(d.surface_ouverture, d.vitesse_moy_mesuree);
+      } },
+    { target: 'vitesse_min_avis_reference', fn: function (d) {
+        return avisRefSeule(d.vitesse_min_mesuree, d.vitesse_min_reference);
+      } },
+    { target: 'vitesse_min_avis_ed795', fn: function (d) {
+        return avisAltSeul(d.vitesse_min_mesuree, d.vitesse_min_reference, d.vitesse_min_ed795);
+      } },
+    { target: 'vitesse_moy_avis_reference', fn: function (d) {
+        return avisRefSeule(d.vitesse_moy_mesuree, d.vitesse_moy_reference);
+      } },
+    { target: 'vitesse_moy_avis_ed795', fn: function () { return 'Sans objet'; } },
+    { target: 'debit_avis_reference', fn: function (d) {
+        return avisRefSeule(d.debit_mesure, d.debit_reference);
+      } },
+    { target: 'debit_avis_ed795', fn: function () { return 'Sans objet'; } },
+    { target: 'avis_global', fn: function (d) {
+        var avisPertinents = [
+          (d.vitesse_min_avis_reference !== 'Sans objet') ? d.vitesse_min_avis_reference : d.vitesse_min_avis_ed795,
+          d.vitesse_moy_avis_reference,
+          d.debit_avis_reference
+        ].filter(function (a) { return a && a !== 'Sans objet'; });
+        if (avisPertinents.length === 0) return '';
+        if (avisPertinents.some(function (a) { return a === 'Non Satisfaisant'; })) return 'Non Satisfaisant';
+        if (avisPertinents.some(function (a) { return a === 'Impossible de se prononcer'; })) return 'Impossible de se prononcer';
         return 'Satisfaisant';
       } }
   ],
@@ -630,20 +867,73 @@ var CALC_RULES = {
     { target: 'masse_volumique', decimals: 3, fn: function (d) {
         return masseVolumique(d.temperature_conduit, d.pression_statique);
       } },
-    { target: 'v1_avis', fn: function (d) {
-        return avisVitesse(d.v1_mesuree, d.v1_reference, null);
+    { target: 'nb_lignes', fn: function (d) {
+        if (d.sous_type === 'CDP Fosse') return 1;
+        var spacing = (d.sous_type === 'CDP Camion' || d.sous_type === 'CDP Encombrant') ? 2 : 1.5;
+        return cdpNbPoints(d.cabine_longueur, spacing);
       } },
-    { target: 'v2_avis', fn: function (d) {
-        if (d.v2_active !== 'Oui') return '';
-        return avisVitesse(d.v2_mesuree, d.v2_reference, null);
+    { target: 'nb_colonnes', fn: function (d) {
+        var spacing = (d.sous_type === 'CDP Camion' || d.sous_type === 'CDP Encombrant') ? 2 : 1.5;
+        var dim = (d.sous_type === 'CDP Fosse') ? d.fosse_longueur : d.cabine_largeur;
+        return cdpNbPoints(dim, spacing);
+      } },
+    { target: 'vitesse_moy_avec', decimals: 3, fn: function (d) {
+        var s = gridStats(d.vitesse_grid_avec, d.nb_lignes, d.nb_colonnes);
+        if (!s || s.incomplete) return '';
+        return s.moyenne;
+      } },
+    { target: 'vitesse_min_avec', decimals: 3, fn: function (d) {
+        var s = gridStats(d.vitesse_grid_avec, d.nb_lignes, d.nb_colonnes);
+        if (!s || s.incomplete) return '';
+        return s.min;
+      } },
+    { target: 'vitesse_moy_avec_avis', fn: function (d) {
+        return avisVitesse(d.vitesse_moy_avec, d.vitesse_moy_avec_reference, d.vitesse_moy_avec_inrs);
+      } },
+    { target: 'vitesse_min_avec_avis', fn: function (d) {
+        return avisVitesse(d.vitesse_min_avec, d.vitesse_min_avec_reference, d.vitesse_min_avec_inrs);
+      } },
+    { target: 'vitesse_moy_vide', decimals: 3, fn: function (d) {
+        var s = gridStats(d.vitesse_grid_vide, d.nb_lignes, d.nb_colonnes);
+        if (!s || s.incomplete) return '';
+        return s.moyenne;
+      } },
+    { target: 'vitesse_min_vide', decimals: 3, fn: function (d) {
+        var s = gridStats(d.vitesse_grid_vide, d.nb_lignes, d.nb_colonnes);
+        if (!s || s.incomplete) return '';
+        return s.min;
+      } },
+    { target: 'vitesse_moy_vide_avis', fn: function (d) {
+        return avisVitesse(d.vitesse_moy_vide, d.vitesse_moy_vide_reference, d.vitesse_moy_vide_inrs);
+      } },
+    { target: 'vitesse_min_vide_avis', fn: function (d) {
+        return avisVitesse(d.vitesse_min_vide, d.vitesse_min_vide_reference, d.vitesse_min_vide_inrs);
+      } },
+    { target: 'debit_mesure', fn: function (d) {
+        // VBA : débit = 3600 × vitesse moyenne × longueur × largeur (Fosse : × largeur seule)
+        var vMoy = (d.sous_type === 'CDP Voiture' || d.sous_type === 'CDP Camion') ? num(d.vitesse_moy_avec) : num(d.vitesse_moy_vide);
+        if (isNaN(vMoy)) return '';
+        if (d.sous_type === 'CDP Fosse') {
+          var largeurFosse = num(d.fosse_longueur);
+          return isNaN(largeurFosse) ? '' : 3600 * vMoy * largeurFosse;
+        }
+        var L = num(d.cabine_longueur), l = num(d.cabine_largeur);
+        return (isNaN(L) || isNaN(l)) ? '' : 3600 * vMoy * L * l;
+      } },
+    { target: 'debit_avis', fn: function (d) {
+        return avisRefSeule(d.debit_mesure, d.debit_reference);
       } },
     { target: 'conclusion', fn: function (d) {
-        var avis = [d.v1_avis];
-        if (d.v2_active === 'Oui') avis.push(d.v2_avis);
-        avis = avis.filter(function (a) { return a; });
+        var avecTypes = ['CDP Voiture', 'CDP Camion', 'CDP Encombrant'];
+        var videTypes = ['CDP Ouverte', 'CDP Fermee', 'CDP Encombrant', 'CDP Fosse'];
+        var avis = [];
+        if (avecTypes.indexOf(d.sous_type) !== -1) avis.push(d.vitesse_moy_avec_avis, d.vitesse_min_avec_avis);
+        if (videTypes.indexOf(d.sous_type) !== -1) avis.push(d.vitesse_moy_vide_avis, d.vitesse_min_vide_avis);
+        avis.push(d.debit_avis);
+        avis = avis.filter(function (a) { return a && a !== 'Sans objet'; });
         if (avis.length === 0) return '';
-        if (avis.some(function (a) { return a === 'Impossible de se prononcer'; })) return 'Impossible de se prononcer';
         if (avis.some(function (a) { return a === 'Non Satisfaisant'; })) return 'Non Satisfaisant';
+        if (avis.some(function (a) { return a === 'Impossible de se prononcer'; })) return 'Impossible de se prononcer';
         return 'Satisfaisant';
       } }
   ],
@@ -697,6 +987,25 @@ var CALC_RULES = {
     { target: 'avis_vpe_moy', fn: function (d) {
         if (num(d.vpe_moyenne) !== num(d.vpe_moyenne)) return '';
         return avisVitesse(d.vpe_moyenne, d.vpe_moy_reference, d.vpe_moy_inrs);
+      } },
+    { target: 'vt_surface', decimals: 4, fn: function (d) {
+        return surfaceSection(d.vt_forme_conduit, d.vt_diametre_cote1, d.vt_cote2);
+      } },
+    { target: 'vt_masse_volumique', decimals: 3, fn: function (d) {
+        return masseVolumique(d.vt_temperature, d.vt_pression_statique);
+      } },
+    { target: 'vt_vitesse_moyenne_grille', decimals: 3, fn: function (d) {
+        if (d.vt_vitesse_mode !== 'Grille de points') return '';
+        var s = gridStats(d.vt_vitesse_grid, d.vt_vitesse_nb_axes, d.vt_vitesse_nb_points);
+        if (!s || s.incomplete) return '';
+        return s.moyenne;
+      } },
+    { target: 'vt_mesuree', decimals: 3, fn: function (d) {
+        return (d.vt_vitesse_mode === 'Grille de points') ? (d.vt_vitesse_moyenne_grille || '') : (d.vt_vitesse_directe || '');
+      } },
+    { target: 'vt_debit', fn: function (d) {
+        var v = debitFromSV(d.vt_surface, d.vt_mesuree);
+        return isNaN(v) ? '' : v;
       } },
     { target: 'vt_inrs', fn: function (d) {
         return HOTTE_POLLUANTS[d.vt_type_polluant] || '';

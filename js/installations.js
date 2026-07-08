@@ -8,13 +8,28 @@ function renderMissionDetail() {
   h += '<div class="card"><h1>' + ICONS.building + ' ' + escapeHtml(m.clientSite || 'Mission') + '</h1>';
   h += '<p class="subtitle">' + escapeHtml(m.controleur || '') + (m.dateControle ? ' • ' + escapeHtml(m.dateControle) : '') + '</p></div>';
 
+  h += '<div class="row" style="margin-bottom:8px;">';
+  h += '<button class="btn btn-gray btn-small" onclick="state.view=\'mission-form\';render();">' + ICONS.edit + ' Infos mission</button>';
+  h += '<button class="btn btn-gray btn-small" onclick="state.view=\'select-installations\';render();">' + ICONS.list + ' Sélection installations</button>';
+  h += '</div>';
+
   h += '<div class="row" style="margin-bottom:12px;">';
   h += '<button class="btn btn-blue btn-small" onclick="exportRapportWord();">' + ICONS.download + ' Rapport Word</button>';
   h += '<button class="btn btn-gray btn-small" onclick="exportMissionJSON(' + m.id + ');">' + ICONS.download + ' JSON</button>';
   h += '</div>';
 
+  var typesSelectionnes = m.typesSelectionnes || [];
+  var typesAffiches = INSTALLATION_TYPES.filter(function (t) { return typesSelectionnes.indexOf(t.id) !== -1; });
+
+  if (typesAffiches.length === 0) {
+    h += '<div class="empty-state"><div class="empty-state-icon">' + ICONS.empty + '</div>' +
+      '<p>Aucune installation sélectionnée pour cette mission.</p></div>';
+    h += '<button class="btn btn-primary" onclick="state.view=\'select-installations\';render();">' + ICONS.list + ' Sélectionner les installations</button>';
+    return h;
+  }
+
   h += '<div class="nav-menu">';
-  INSTALLATION_TYPES.forEach(function (t) {
+  typesAffiches.forEach(function (t) {
     var count = (m.installations[t.id] || []).length;
     var disabled = !t.implemented;
     h += '<div class="nav-item" style="' + (disabled ? 'opacity:0.5;' : '') + '" onclick="' +
@@ -55,7 +70,14 @@ function renderTypeList() {
 function addInstallation(typeId) {
   var m = getCurrentMission();
   if (!m.installations[typeId]) m.installations[typeId] = [];
-  m.installations[typeId].push({ id: generateId(), data: {} });
+  var t = getInstallationType(typeId);
+  var data = {};
+  if (t && t.fields) {
+    t.fields.forEach(function (f) {
+      if (f.default !== undefined) data[f.key] = f.default;
+    });
+  }
+  m.installations[typeId].push({ id: generateId(), data: data });
   persistMissions();
   state.currentTypeId = typeId;
   state.currentInstIndex = m.installations[typeId].length - 1;
@@ -77,6 +99,7 @@ function renderInstallationForm() {
   if (!m || !t) { state.view = 'home'; render(); return ''; }
   var inst = m.installations[t.id][state.currentInstIndex];
   if (!inst) { state.view = 'type-list'; render(); return ''; }
+  if (typeof applyCalculations === 'function') applyCalculations(t.id, inst);
 
   var h = '<button class="back-btn" onclick="state.view=\'type-list\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>';
   h += '<div class="card"><h1>' + getIcon(t.icon) + ' ' + escapeHtml(t.label) + '</h1></div>';
@@ -101,6 +124,9 @@ function renderInstallationForm() {
 }
 
 function evalShowIf(cond, data) {
+  if (cond.and !== undefined) {
+    return cond.and.every(function (c) { return evalShowIf(c, data); });
+  }
   var v = data[cond.key];
   if (cond.contains !== undefined) {
     return Array.isArray(v) ? v.indexOf(cond.contains) !== -1 : v === cond.contains;
@@ -145,6 +171,40 @@ function renderFieldInput(typeId, f, inst) {
     h += '</div>';
     return h;
   }
+  if (f.type === 'toggle') {
+    var opts = f.options || ['Oui', 'Non'];
+    var h = '<div class="row">';
+    opts.forEach(function (opt) {
+      var selected = val === opt;
+      h += '<button type="button" class="install-select-btn' + (selected ? ' selected' : '') +
+        '" style="flex:1;padding:10px 6px;font-size:12px;' + (selected ? '' : 'background:linear-gradient(135deg,#9ca3af,#6b7280);') + '" ' +
+        'onclick="updateInstallationField(\'' + typeId + '\',\'' + f.key + '\',\'' + escapeHtml(opt).replace(/'/g, "\\'") + '\');render();">' +
+        escapeHtml(opt) + '</button>';
+    });
+    h += '</div>';
+    return h;
+  }
+  if (f.type === 'boolean') {
+    var checked = val === true || val === 'true';
+    return '<label style="display:flex;align-items:center;gap:8px;font-size:13px;">' +
+      '<input type="checkbox"' + (checked ? ' checked' : '') +
+      ' onchange="updateInstallationField(\'' + typeId + '\',\'' + f.key + '\',this.checked);">' +
+      (f.checkboxLabel ? escapeHtml(f.checkboxLabel) : 'Oui') + '</label>';
+  }
+  if (f.type === 'satisf') {
+    var opts2 = ['Satisfaisant', 'Non Satisfaisant'];
+    var h = '<div class="row">';
+    opts2.forEach(function (opt) {
+      var selected = val === opt;
+      var bg = selected ? (opt === 'Satisfaisant' ? 'background:linear-gradient(135deg,#22c55e,#16a34a);' : 'background:linear-gradient(135deg,#ef4444,#dc2626);') : '';
+      h += '<button type="button" class="install-select-btn' + (selected ? ' selected' : '') +
+        '" style="flex:1;padding:10px 6px;font-size:11px;' + bg + '" ' +
+        'onclick="updateInstallationField(\'' + typeId + '\',\'' + f.key + '\',\'' + opt + '\');render();">' +
+        escapeHtml(opt) + '</button>';
+    });
+    h += '</div>';
+    return h;
+  }
   if (f.type === 'computed') {
     var display = (val === '' || val === undefined) ? '—' : String(val);
     var bg = '#f3f4f6', fg = '#374151';
@@ -154,8 +214,8 @@ function renderFieldInput(typeId, f, inst) {
     return '<div style="padding:10px 12px;border-radius:8px;background:' + bg + ';color:' + fg + ';font-weight:600;font-size:14px;">' + escapeHtml(display) + '</div>';
   }
   if (f.type === 'grid') {
-    var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, 5);
-    var rows = Math.min(parseInt(inst.data[f.rowsKey], 10) || 0, 5);
+    var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, 20);
+    var rows = Math.min(parseInt(inst.data[f.rowsKey], 10) || 0, 20);
     if (!cols || !rows) return '<div class="subtitle">Renseignez d\u2019abord le nombre de points (largeur et hauteur).</div>';
     var grid = Array.isArray(val) ? val : [];
     var h = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;">';

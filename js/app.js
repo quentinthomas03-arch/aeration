@@ -4,6 +4,9 @@ function render() {
   var h = '';
   switch (state.view) {
     case 'home': h = renderHome(); break;
+    case 'mission-form': h = renderMissionForm(); break;
+    case 'select-installations': h = renderSelectInstallations(); break;
+    case 'profil-technicien': h = renderProfilTechnicien(); break;
     case 'mission-detail': h = renderMissionDetail(); break;
     case 'type-list': h = renderTypeList(); break;
     case 'installation-form': h = renderInstallationForm(); break;
@@ -26,7 +29,10 @@ window.addEventListener('popstate', function (event) {
   event.preventDefault();
   if (state.view === 'installation-form') state.view = 'type-list';
   else if (state.view === 'type-list') state.view = 'mission-detail';
+  else if (state.view === 'select-installations') state.view = 'mission-detail';
+  else if (state.view === 'mission-form') state.view = 'home';
   else if (state.view === 'mission-detail') state.view = 'home';
+  else if (state.view === 'profil-technicien') state.view = 'home';
   else state.view = 'home';
   render();
 });

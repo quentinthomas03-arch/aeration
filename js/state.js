@@ -58,9 +58,60 @@ function createEmptyMission() {
   return {
     id: generateId(),
     createdAt: new Date().toISOString(),
+
+    // Champs "legacy" gardés pour compat (accueil, export Word/JSON) — synchronisés
+    // automatiquement depuis infosClient/donneesInternes via updateMissionField()
     clientSite: '',
     controleur: '',
     dateControle: '',
+
+    // Onglet "Entrées" — Données internes
+    donneesInternes: {
+      numeroAffaire: '',
+      referenceOffre: '',
+      numeroChrono: '',
+      auteurRapport: '',
+      telAuteur: '',
+      mailAgenceAuteur: '',
+      datesIntervention: '',
+      dateRapport: ''
+    },
+
+    // Onglet "Entrées" — Informations sur le client
+    infosClient: {
+      nomEntreprise: '',
+      nomDemandeur: '',
+      adresse: '',
+      codePostal: '',
+      ville: '',
+      tel: ''
+    },
+
+    // Onglet "Entrées" — Intervenant sur site
+    intervenantSite: {
+      intervenant: '',
+      agenceAuteur: '',
+      adresseAgence: '',
+      codePostal: '',
+      ville: ''
+    },
+
+    // Onglet "Entrées" — Informations sur le site d'intervention
+    infosSiteIntervention: {
+      siteIntervention: '',
+      nomContact: '',
+      adresseSite: '',
+      codePostal: '',
+      ville: '',
+      telContact: '',
+      portableContact: '',
+      mailContact: ''
+    },
+
+    // Sélection des installations contrôlées (section 3 de l'onglet Entrées)
+    typeMission: '',        // 'non_specifique' | 'globale'
+    typesSelectionnes: [],  // ids des INSTALLATION_TYPES retenus pour cette mission
+
     installations: installations
   };
 }
