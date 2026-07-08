@@ -1,5 +1,5 @@
 // sw.js - Service Worker Contrôle Aération
-const CACHE_NAME = 'aeration-v1.2';
+const CACHE_NAME = 'aeration-v1.8';
 const urlsToCache = [
   './',
   './index.html',

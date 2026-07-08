@@ -82,6 +82,7 @@ function renderInstallationForm() {
   h += '<div class="card"><h1>' + getIcon(t.icon) + ' ' + escapeHtml(t.label) + '</h1></div>';
 
   t.fields.forEach(function (f) {
+    if (f.showIf && !evalShowIf(f.showIf, inst.data)) return;
     if (f.type === 'section') {
       h += '<div class="section-title" style="margin-top:16px;color:#374151;font-weight:700;">' + escapeHtml(f.label) + '</div>';
       return;
@@ -97,6 +98,16 @@ function renderInstallationForm() {
 
   h += '<button class="btn btn-primary" onclick="state.view=\'type-list\';render();">' + ICONS.check + ' Terminé</button>';
   return h;
+}
+
+function evalShowIf(cond, data) {
+  var v = data[cond.key];
+  if (cond.contains !== undefined) {
+    return Array.isArray(v) ? v.indexOf(cond.contains) !== -1 : v === cond.contains;
+  }
+  if (cond.in !== undefined) return cond.in.indexOf(v) !== -1;
+  if (cond.equals !== undefined) return v === cond.equals;
+  return true;
 }
 
 function renderFieldInput(typeId, f, inst) {
@@ -134,6 +145,51 @@ function renderFieldInput(typeId, f, inst) {
     h += '</div>';
     return h;
   }
+  if (f.type === 'computed') {
+    var display = (val === '' || val === undefined) ? '—' : String(val);
+    var bg = '#f3f4f6', fg = '#374151';
+    if (display === 'Satisfaisant' || display === 'Conforme') { bg = '#dcfce7'; fg = '#166534'; }
+    else if (display === 'Non Satisfaisant' || display === 'Non Conforme') { bg = '#fee2e2'; fg = '#991b1b'; }
+    else if (display === 'Impossible de se prononcer') { bg = '#fef3c7'; fg = '#92400e'; }
+    return '<div style="padding:10px 12px;border-radius:8px;background:' + bg + ';color:' + fg + ';font-weight:600;font-size:14px;">' + escapeHtml(display) + '</div>';
+  }
+  if (f.type === 'grid') {
+    var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, 5);
+    var rows = Math.min(parseInt(inst.data[f.rowsKey], 10) || 0, 5);
+    if (!cols || !rows) return '<div class="subtitle">Renseignez d\u2019abord le nombre de points (largeur et hauteur).</div>';
+    var grid = Array.isArray(val) ? val : [];
+    var h = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;">';
+    for (var r = 0; r < rows; r++) {
+      h += '<tr>';
+      for (var c = 0; c < cols; c++) {
+        var cell = (grid[r] && grid[r][c] !== undefined) ? grid[r][c] : '';
+        h += '<td style="padding:2px;"><input type="text" inputmode="decimal" value="' + escapeHtml(cell) + '" ' +
+          'style="width:58px;padding:8px 4px;text-align:center;border:1px solid #d1d5db;border-radius:6px;font-size:14px;" ' +
+          'onchange="updateGridCell(\'' + typeId + '\',\'' + f.key + '\',' + r + ',' + c + ',this.value);">' + '</td>';
+      }
+      h += '</tr>';
+    }
+    h += '</table></div>';
+    return h;
+  }
+  if (f.type === 'charger-list') {
+    var chargers = Array.isArray(val) ? val : [];
+    var h = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-size:13px;">';
+    h += '<tr style="background:#eef2f7;"><th style="padding:6px;">Nb</th><th style="padding:6px;">Tension (V)</th><th style="padding:6px;">Courant (A)</th><th style="padding:6px;">Débit (m³/h)</th><th></th></tr>';
+    chargers.forEach(function (c, i) {
+      var deb = chargerDebit(c);
+      h += '<tr>' +
+        '<td style="padding:2px;"><input type="number" value="' + escapeHtml(c.nb || '') + '" style="width:50px;padding:6px;border:1px solid #d1d5db;border-radius:6px;" onchange="updateCharger(\'' + typeId + '\',' + i + ',\'nb\',this.value);"></td>' +
+        '<td style="padding:2px;"><input type="number" value="' + escapeHtml(c.tension || '') + '" style="width:70px;padding:6px;border:1px solid #d1d5db;border-radius:6px;" onchange="updateCharger(\'' + typeId + '\',' + i + ',\'tension\',this.value);"></td>' +
+        '<td style="padding:2px;"><input type="number" value="' + escapeHtml(c.courant || '') + '" style="width:70px;padding:6px;border:1px solid #d1d5db;border-radius:6px;" onchange="updateCharger(\'' + typeId + '\',' + i + ',\'courant\',this.value);"></td>' +
+        '<td style="padding:6px;text-align:center;font-weight:600;">' + (deb === '' ? '—' : deb) + '</td>' +
+        '<td style="padding:2px;"><button class="agent-delete" onclick="removeCharger(\'' + typeId + '\',' + i + ');">' + ICONS.trash + '</button></td>' +
+        '</tr>';
+    });
+    h += '</table></div>';
+    h += '<button class="btn btn-gray btn-small mt-8" onclick="addCharger(\'' + typeId + '\');">' + ICONS.plus + ' Ajouter un chargeur</button>';
+    return h;
+  }
   if (f.type === 'photo') {
     return '<input type="file" accept="image/*" capture="environment" onchange="handleInstallationPhoto(\'' + typeId + '\',\'' + f.key + '\',this);">' +
       (val ? '<img src="' + val + '" style="max-width:100%;margin-top:8px;border-radius:8px;">' : '');
@@ -150,6 +206,47 @@ function updateInstallationField(typeId, key, value) {
   if (state.view === 'installation-form') render();
 }
 
+function addCharger(typeId) {
+  var m = getCurrentMission();
+  var inst = m.installations[typeId][state.currentInstIndex];
+  if (!Array.isArray(inst.data.chargeurs)) inst.data.chargeurs = [];
+  inst.data.chargeurs.push({ nb: '', tension: '', courant: '' });
+  if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
+  persistMissions();
+  render();
+}
+
+function updateCharger(typeId, idx, field, value) {
+  var m = getCurrentMission();
+  var inst = m.installations[typeId][state.currentInstIndex];
+  if (!inst.data.chargeurs[idx]) return;
+  inst.data.chargeurs[idx][field] = value;
+  if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
+  persistMissions();
+  render();
+}
+
+function removeCharger(typeId, idx) {
+  var m = getCurrentMission();
+  var inst = m.installations[typeId][state.currentInstIndex];
+  inst.data.chargeurs.splice(idx, 1);
+  if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
+  persistMissions();
+  render();
+}
+
+function updateGridCell(typeId, key, r, c, value) {
+  var m = getCurrentMission();
+  var inst = m.installations[typeId][state.currentInstIndex];
+  var grid = Array.isArray(inst.data[key]) ? inst.data[key] : [];
+  if (!grid[r]) grid[r] = [];
+  grid[r][c] = value.trim();
+  inst.data[key] = grid;
+  if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
+  persistMissions();
+  if (state.view === 'installation-form') render();
+}
+
 function toggleInstallationCheckbox(typeId, key, option, checked) {
   var m = getCurrentMission();
   var inst = m.installations[typeId][state.currentInstIndex];
@@ -157,7 +254,9 @@ function toggleInstallationCheckbox(typeId, key, option, checked) {
   if (checked) { if (current.indexOf(option) === -1) current.push(option); }
   else { current = current.filter(function (o) { return o !== option; }); }
   inst.data[key] = current;
+  if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
+  if (state.view === 'installation-form') render();
 }
 
 function handleInstallationPhoto(typeId, key, input) {
