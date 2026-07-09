@@ -219,6 +219,8 @@ var INSTALLATION_TYPES = [
         options: ['Bon état général', 'Traces de corrosion', 'Les portes de la CTA sont déformées (difficultés de fermeture)', 'A réparer', 'CTA non ouverte'] },
       { key: 'fiche_maintenance', label: 'Fiche de maintenance', type: 'select',
         options: ['Satisfaisant', 'Absence de fiche de maintenance'] },
+
+      { key: 'section_filtration', label: 'Filtration', type: 'section' },
       { key: 'filtration', label: 'Pré-filtre / Filtre / Filtre absolu', type: 'text' },
 
       { key: 'section_soufflage', label: 'Mesure — Soufflage', type: 'section' },
