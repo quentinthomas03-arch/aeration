@@ -9,16 +9,41 @@ var TABLE_HEADER_BLUE = '29ABE2'; // en-têtes de tableaux (proche de l'identit�
 var LIGHT = 'DEEAF6';       // cases cochées / fonds clairs
 var LOGO_PATH = 'assets/logo-socotec.jpg';
 
+// Configuration de la "Synthèse du contrôle" (4.) par type d'installation, reconstituée depuis
+// Conclusion.bas + CONSTANTE.bas (constantes Libelle_Conclusion_X_Y) du VBA d'origine.
+// col1 = Bâtiment (ou Référence pour Menuiserie machines à bois), col2/col3 = colonnes d'identification
+// complémentaires (facultatives selon le type), avis = champ \u00abavis global\u00bb le plus représentatif
+// disponible dans notre schéma, commentaire = champ commentaire/observation associé.
+// Certains mappings sont des meilleures estimations (types sans avis global unique dans le schéma
+// actuel : Hottes, Torches aspirantes) — à valider avec Quentin.
+var SYNTHESE_CONFIG = {
+  bureaux: { titre: 'Conclusion sur les contrôles des locaux à pollution non spécifique', col1: 'batiment', col1Label: 'Bâtiment', col2: 'type_local', col2Label: 'Type de local', col3: 'reference_local', col3Label: 'Nom du local', avis: 'avis', commentaire: 'commentaire' },
+  sanitaires: { titre: 'Conclusion sur les sanitaires', col1: 'batiment', col1Label: 'Bâtiment', col2: 'repere', col2Label: 'Repère', col3: 'nom_usage', col3Label: 'Nom d\u2019usage', avis: 'avis', commentaire: 'observation' },
+  locaux_fumeurs: { titre: 'Conclusion sur les locaux fumeurs', col1: 'batiment', col1Label: 'Bâtiment', col2: 'reference_equipement', col2Label: 'Référence de l\u2019équipement', avis: 'avis_csp', commentaire: 'observation' },
+  cta: { titre: 'Conclusion sur les CTA', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Réf. équipement et/ou implantation', avis: 'avis', commentaire: 'observation' },
+  extracteur: { titre: 'Conclusion sur les extracteurs', col1: 'batiment', col1Label: 'Bâtiment', col2: 'locaux_extraits', col2Label: 'Réf. équipement et/ou implantation', avis: 'avis_constructeur', commentaire: 'observation' },
+  erp: { titre: 'Conclusion sur les contrôles des locaux à pollution non spécifique dans un établissement recevant du public', col1: 'batiment', col1Label: 'Bâtiment', col2: 'type_local', col2Label: 'Type de local', avis: 'avis', commentaire: 'commentaire' },
+  sorbonnes: { titre: 'Conclusion sur les Sorbonnes', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Activité et référence du local', avis: 'conclusion', commentaire: 'commentaire' },
+  hottes: { titre: 'Conclusion sur les hottes et dosserets aspirants', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Activité et référence du local', avis: 'avis_vt', commentaire: 'observation' },
+  bras_aspiration: { titre: 'Conclusion sur les Bras Orientables Articulés', col1: 'batiment', col1Label: 'Bâtiment', col2: 'reference_equipement', col2Label: 'Référence équipement', avis: 'conclusion', commentaire: 'commentaire_1' },
+  cabines_peinture: { titre: 'Conclusion sur les cabines de peinture', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Description de la cabine', avis: 'conclusion', commentaire: 'observations' },
+  installations_diverses: { titre: 'Conclusion sur les équipements divers', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Activité et référence du local', avis: 'avis', commentaire: 'observation' },
+  gaz_echappement: { titre: 'Conclusion sur les captages de gaz d\u2019échappement', col1: 'batiment', col1Label: 'Bâtiment/Atelier', col2: 'reference_equipement', col2Label: 'Réf. équipement et/ou implantation', avis: 'avis_constructeur', commentaire: 'observation' },
+  menuiserie: { titre: 'Conclusion sur le débit global d\u2019air extrait', col1: 'batiment', col1Label: 'Bâtiment', avis: 'avis_constructeur', commentaire: 'observation' },
+  menuiserie_bis: { titre: 'Conclusion sur les machines à bois', col1: 'reference_machine', col1Label: 'Référence de la machine à bois', col2: 'type_machine', col2Label: 'Type de machine à bois', avis: 'conclusion_avis', commentaire: 'observation' },
+  box_peinture: { titre: 'Conclusion sur les box de préparation de peinture', col1: 'batiment', col1Label: 'Bâtiment', col2: 'activite_reference_local', col2Label: 'Activité et référence du local', avis: 'avis', commentaire: 'observation' },
+  torches_aspirantes: { titre: 'Conclusion sur les torches aspirantes', col1: 'batiment', col1Label: 'Bâtiment', col2: 'reference_equipement', col2Label: 'Réf. équipement', avis: 'note_reference', commentaire: null },
+  locaux_charge: { titre: 'Conclusion sur les locaux de charge d\u2019accumulateurs', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Réf. équipement', avis: 'avis', commentaire: 'observation' },
+  tts: { titre: 'Conclusion sur les vérifications des traitements de surface', col1: 'batiment', col1Label: 'Bâtiment', col2: 'activite_reference_local', col2Label: 'Réf. équipement', avis: 'avis', commentaire: 'observation' }
+};
+
 // Types d'installations repris dans la phrase "Locaux à pollution spécifique" de la Description
-// générale des locaux (2.1). Liste reconstituée depuis Presentation_De_La_Mission.bas (VBA d'origine) :
-// seuls certains types y sont intégrés (bug/dette technique de l'outil d'origine, non corrigé ici pour
-// rester fidèle au code — Bureaux, CTA, Extracteur, ERP, Menuiserie machines à bois, Torches aspirantes,
-// Locaux de charge et TTS n'apparaissent PAS dans cette phrase alors qu'ils ont leur propre section
-// d'annexe). À confirmer avec Quentin si ce comportement doit être corrigé.
-var TYPES_POLLUTION_SPECIFIQUE_DESCRIPTION = [
-  'sanitaires', 'locaux_fumeurs', 'sorbonnes', 'hottes', 'bras_aspiration',
-  'cabines_peinture', 'installations_diverses', 'gaz_echappement', 'menuiserie', 'box_peinture'
-];
+// générale des locaux (2.1). Le VBA d'origine (Presentation_De_La_Mission.bas) excluait Bureaux, CTA,
+// Extracteur et ERP de cette liste (locaux "à pollution non spécifique") — cohérent. Mais il oubliait
+// aussi Menuiserie machines à bois, Torches aspirantes, Locaux de charge et TTS, ajoutés plus tard dans
+// l'outil sans jamais avoir été raccordés à cette phrase (dette technique, confirmé avec Quentin le
+// 09/07/2026 : comportement corrigé ici plutôt que reproduit à l'identique).
+var TYPES_POLLUTION_NON_SPECIFIQUE = ['bureaux', 'cta', 'extracteur', 'erp'];
 
 function exportRapportWord() {
   var m = getCurrentMission();
@@ -77,16 +102,9 @@ function buildRapportDoc(m, logoBuf) {
   children = children.concat(buildDescriptionLocaux(D, m));
   children = children.concat(buildDocumentsTransmis(D, m));
 
-  // — Lots suivants (à venir) —
-  children.push(new D.Paragraph({
-    heading: D.HeadingLevel.HEADING_1,
-    spacing: { before: 360, after: 120 },
-    children: [new D.TextRun({ text: '4. SYNTHESE DU CONTROLE', bold: true, color: BLUE })]
-  }));
-  children.push(new D.Paragraph({
-    children: [new D.TextRun({ text: 'Cette section (tableaux récapitulatifs des avis par type d\u2019installation) sera ajoutée dans un lot ultérieur.', italics: true, size: 20 })]
-  }));
+  children = children.concat(buildSyntheseControle(D, m));
 
+  // — Lots suivants (à venir) —
   children.push(new D.Paragraph({
     heading: D.HeadingLevel.HEADING_1,
     spacing: { before: 360, after: 120 },
@@ -310,7 +328,7 @@ function buildDescriptionLocaux(D, m) {
 
   var selectionnes = m.typesSelectionnes || [];
   var aNonSpecifique = selectionnes.indexOf('bureaux') !== -1;
-  var specifiques = TYPES_POLLUTION_SPECIFIQUE_DESCRIPTION.filter(function (id) { return selectionnes.indexOf(id) !== -1; });
+  var specifiques = selectionnes.filter(function (id) { return TYPES_POLLUTION_NON_SPECIFIQUE.indexOf(id) === -1; });
   var labelsSpecifiques = specifiques.map(function (id) {
     var t = INSTALLATION_TYPES.filter(function (x) { return x.id === id; })[0];
     return t ? t.label.toLowerCase() : id;
@@ -386,7 +404,7 @@ function bodyCell(D, text, width, opts) {
     width: { size: width, type: D.WidthType.DXA },
     shading: opts.fill ? { fill: opts.fill, type: D.ShadingType.CLEAR } : undefined,
     verticalAlign: D.VerticalAlign.CENTER,
-    children: [new D.Paragraph({ alignment: opts.center ? D.AlignmentType.CENTER : D.AlignmentType.LEFT, children: [new D.TextRun({ text: text, size: 18, bold: !!opts.bold })] })]
+    children: [new D.Paragraph({ alignment: opts.center ? D.AlignmentType.CENTER : D.AlignmentType.LEFT, children: [new D.TextRun({ text: text, size: 18, bold: !!opts.bold, color: opts.color })] })]
   });
 }
 
@@ -440,8 +458,88 @@ function noticeTable(D, notice) {
 }
 
 // ————————————————————————————————————————————
-// 5. Annexes — version provisoire (dump champ/valeur, remplacé lot par lot)
+// 4. Synthèse du contrôle (Conclusion.bas)
 // ————————————————————————————————————————————
+
+function buildSyntheseControle(D, m) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1,
+    spacing: { before: 360, after: 120 },
+    children: [new D.TextRun({ text: '4. SYNTHESE DU CONTROLE', bold: true, color: BLUE })]
+  }));
+
+  var hasContent = false;
+
+  INSTALLATION_TYPES.forEach(function (t) {
+    var list = (m.installations && m.installations[t.id]) || [];
+    var cfg = SYNTHESE_CONFIG[t.id];
+    if (list.length === 0 || !cfg) return;
+    hasContent = true;
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2,
+      spacing: { before: 280, after: 100 },
+      children: [new D.TextRun({ text: cfg.titre, bold: true, color: BLUE, size: 22 })]
+    }));
+
+    children.push(syntheseTable(D, cfg, list));
+  });
+
+  if (!hasContent) {
+    children.push(new D.Paragraph({
+      children: [new D.TextRun({ text: 'Aucune installation renseignée.', italics: true, size: 20 })]
+    }));
+  }
+
+  return children;
+}
+
+function avisColor(text) {
+  if (text === 'Satisfaisant' || text === 'Conforme') return { fill: 'DCFCE7', color: '166534' };
+  if (text === 'Non Satisfaisant' || text === 'Non Conforme') return { fill: 'FEE2E2', color: '991B1B' };
+  if (text === 'Impossible de se prononcer') return { fill: 'FEF3C7', color: '92400E' };
+  return null;
+}
+
+function syntheseTable(D, cfg, list) {
+  var hasCol2 = !!cfg.col2, hasCol3 = !!cfg.col3;
+  var W_TOTAL = 9636;
+  var nCols = 2 + (hasCol2 ? 1 : 0) + (hasCol3 ? 1 : 0); // col1 + [col2] + [col3] + avis + commentaire (avis/commentaire comptés après)
+  var widths = [];
+  var headers = [{ text: cfg.col1Label, key: cfg.col1 }];
+  if (hasCol2) headers.push({ text: cfg.col2Label, key: cfg.col2 });
+  if (hasCol3) headers.push({ text: cfg.col3Label, key: cfg.col3 });
+  headers.push({ text: 'Avis par rapport aux valeurs recommandées', key: cfg.avis, isAvis: true });
+  headers.push({ text: 'Commentaire', key: cfg.commentaire });
+
+  var idColsCount = headers.length - 2; // colonnes d'identification (hors avis/commentaire)
+  var idColWidth = Math.round(W_TOTAL * 0.22);
+  var avisColWidth = Math.round(W_TOTAL * (idColsCount === 1 ? 0.30 : 0.22));
+  var comColWidth = W_TOTAL - idColWidth * idColsCount - avisColWidth;
+
+  var rows = [];
+  rows.push(new D.TableRow({ children: headers.map(function (h, i) {
+    var w = h.isAvis ? avisColWidth : (i === headers.length - 1 ? comColWidth : idColWidth);
+    return headerCell(D, h.text, w);
+  }) }));
+
+  list.forEach(function (inst) {
+    rows.push(new D.TableRow({ children: headers.map(function (h, i) {
+      var w = h.isAvis ? avisColWidth : (i === headers.length - 1 ? comColWidth : idColWidth);
+      var val = h.key ? inst.data[h.key] : undefined;
+      var text = (val === undefined || val === null || val === '') ? '-' : String(val);
+      if (h.isAvis) {
+        var c = avisColor(text);
+        return bodyCell(D, text, w, { center: true, bold: true, fill: c ? c.fill : undefined, color: c ? c.color : undefined });
+      }
+      return bodyCell(D, text, w);
+    }) }));
+  });
+
+  return new D.Table({ width: { size: W_TOTAL, type: D.WidthType.DXA }, rows: rows });
+}
+
 
 function buildAnnexesProvisoires(D, m) {
   var children = [];
