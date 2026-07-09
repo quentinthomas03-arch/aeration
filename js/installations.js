@@ -86,25 +86,6 @@ function deleteInstallation(typeId, idx) {
   render();
 }
 
-// Catégorise une section de formulaire à partir de son libellé, pour lui associer
-// une couleur (bandeau + teinte des cartes de champs) cohérente sur les 18 types.
-// 4 catégories volontairement simples : installation / filtres / mesure / observations.
-var GROUP_LABELS = {
-  installation: 'Installation',
-  filtres: 'Filtres',
-  mesure: 'Mesures',
-  observations: 'Observations'
-};
-
-function classifySectionGroup(label) {
-  var l = (label || '').toLowerCase();
-  if (/filtr|d[ée]poussi/.test(l)) return 'filtres';
-  if (/conclusion|avis|observation/.test(l)) return 'observations';
-  if (/visuel|état|etat|proc[ée]d|cuve|ambiant|norme|localisation|caract[ée]ristique|identification/.test(l)) return 'installation';
-  if (/d[ée]bit|vitesse|conduit|gaine|r[ée]seau|section|souffl|reprise|extraction|bouche|captage|grille|charge|renouvellement|[ée]volution|point|mesure/.test(l)) return 'mesure';
-  return 'installation';
-}
-
 function renderInstallationForm() {
   var m = getCurrentMission();
   var t = getInstallationType(state.currentTypeId);
@@ -115,21 +96,13 @@ function renderInstallationForm() {
   var h = '<button class="back-btn" onclick="state.view=\'type-list\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>';
   h += '<div class="card"><h1>' + getIcon(t.icon) + ' ' + escapeHtml(t.label) + '</h1></div>';
 
-  h += '<div class="group-legend">';
-  ['installation', 'filtres', 'mesure', 'observations'].forEach(function (g) {
-    h += '<span class="legend-pill legend-pill-' + g + '">' + GROUP_LABELS[g] + '</span>';
-  });
-  h += '</div>';
-
-  var currentGroup = 'installation';
   t.fields.forEach(function (f) {
     if (f.showIf && !evalShowIf(f.showIf, inst.data)) return;
     if (f.type === 'section') {
-      currentGroup = classifySectionGroup(f.label);
-      h += '<div class="section-band section-band-' + currentGroup + '"><span class="section-band-dot"></span>' + escapeHtml(f.label) + '</div>';
+      h += '<div class="section-title" style="margin-top:16px;color:#374151;font-weight:700;">' + escapeHtml(f.label) + '</div>';
       return;
     }
-    h += '<div class="card field-group-' + currentGroup + '"><div class="field">';
+    h += '<div class="card"><div class="field">';
     var isAuto = (typeof isComputedField === 'function') && isComputedField(t.id, f.key);
     h += '<label class="label">' + escapeHtml(f.label) +
       (isAuto ? ' <span style="font-size:10px;background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:8px;">calculé auto</span>' : '') +

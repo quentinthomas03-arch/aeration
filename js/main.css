@@ -77,20 +77,6 @@
       --grad-hero: linear-gradient(160deg, #0c1220 0%, #102040 50%, #0a2f4f 100%);
       --grad-btn: linear-gradient(135deg, #14d4c2, #00a3a3);
       --grad-success: linear-gradient(135deg, #14d4c2, #059669);
-
-      /* Catégories de données de contrôle (bandeaux de section) */
-      --grp-installation: #1a2236;
-      --grp-installation-light: #4b5468;
-      --grp-filtres: #16a34a;
-      --grp-filtres-light: #22c55e;
-      --grp-mesure: #00a3a3;
-      --grp-mesure-light: #14d4c2;
-      --grp-observations: #c14ecf;
-      --grp-observations-light: #8b5cf6;
-      --grad-grp-installation: linear-gradient(135deg, var(--grp-installation), var(--grp-installation-light));
-      --grad-grp-filtres: linear-gradient(135deg, var(--grp-filtres-light), var(--grp-filtres));
-      --grad-grp-mesure: linear-gradient(135deg, var(--grp-mesure-light), var(--grp-mesure));
-      --grad-grp-observations: linear-gradient(135deg, var(--grp-observations-light), var(--grp-observations));
     }
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif; background: var(--bg-main); min-height: 100vh; padding: 0 0 60px 0; -webkit-font-smoothing: antialiased; color: var(--text-dark); }
@@ -132,30 +118,6 @@
     .back-btn svg { width: 16px; height: 16px; }
     .section-title { font-size: 11px; font-weight: 700; color: var(--primary); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
     .section-title::before { content: ''; width: 3px; height: 13px; background: var(--accent); border-radius: 2px; }
-
-    /* === Bandeaux de section colorés par catégorie de données === */
-    .section-band { display: flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 12px; margin: 16px 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #fff; box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
-    .section-band:first-of-type { margin-top: 4px; }
-    .section-band-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.85); flex-shrink: 0; }
-    .section-band-installation { background: var(--grad-grp-installation); }
-    .section-band-filtres { background: var(--grad-grp-filtres); }
-    .section-band-mesure { background: var(--grad-grp-mesure); }
-    .section-band-observations { background: var(--grad-grp-observations); }
-
-    /* Cartes de champs teintées selon la catégorie de la section en cours */
-    .field-group-installation { border-left: 4px solid var(--grp-installation-light); background: linear-gradient(90deg, rgba(26,34,54,0.055), var(--bg-card) 18%); }
-    .field-group-filtres { border-left: 4px solid var(--grp-filtres); background: linear-gradient(90deg, rgba(22,163,74,0.08), var(--bg-card) 18%); }
-    .field-group-mesure { border-left: 4px solid var(--grp-mesure); background: linear-gradient(90deg, rgba(0,163,163,0.08), var(--bg-card) 18%); }
-    .field-group-observations { border-left: 4px solid var(--grp-observations); background: linear-gradient(90deg, rgba(193,78,207,0.08), var(--bg-card) 18%); }
-
-    /* Légende des catégories, en haut du formulaire d'installation */
-    .group-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 12px; }
-    .legend-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; background: rgba(255,255,255,0.7); border: 1px solid var(--border-subtle); font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
-    .legend-pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-    .legend-pill-installation::before { background: var(--grp-installation-light); }
-    .legend-pill-filtres::before { background: var(--grp-filtres); }
-    .legend-pill-mesure::before { background: var(--grp-mesure); }
-    .legend-pill-observations::before { background: var(--grp-observations); }
     .field { margin-bottom: 10px; }
     .label { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--text-dark); margin-bottom: 4px; }
     .label svg { width: 14px; height: 14px; }

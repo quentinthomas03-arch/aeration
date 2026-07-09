@@ -72,6 +72,46 @@ function buildBoxCaptageFields(n) {
 }
 
 // Génère les champs d'une ligne de mesure "Torches aspirantes" (jusqu'à 10 points)
+// Génère les champs d'un réseau mesuré CTA (Neuf / Soufflé / Repris)
+function buildCtaReseauFields(prefix, label, optional) {
+  var showIf = optional ? { key: prefix + '_active', equals: 'Oui' } : undefined;
+  var f = [{ key: 'section_' + prefix, label: 'Mesure de la vitesse dans le conduit d\u2019air ' + label, type: 'section' }];
+  if (optional) f.push({ key: prefix + '_active', label: 'Mesurer ce réseau', type: 'select', options: ['Oui', 'Non'] });
+  f = f.concat([
+    { key: prefix + '_forme', label: 'Forme de la section', type: 'select', options: ['Circulaire', 'Rectangulaire'], showIf: showIf },
+    { key: prefix + '_diametre_cote1', label: 'Diamètre ou côte 1 (cm)', type: 'number', showIf: showIf },
+    { key: prefix + '_cote2', label: 'Côte 2 (cm)', type: 'number', showIf: { key: prefix + '_forme', equals: 'Rectangulaire' } },
+    { key: prefix + '_surface', label: 'Surface (m²)', type: 'computed', showIf: showIf },
+    { key: prefix + '_temperature_conduit', label: 'Température dans le conduit (°C)', type: 'number', showIf: showIf },
+    { key: prefix + '_pression_statique', label: 'Pression statique dans le conduit (Pa)', type: 'number', showIf: showIf },
+    { key: prefix + '_masse_volumique', label: 'Masse volumique dans les conditions réelles (kg/m³)', type: 'computed', showIf: showIf },
+    { key: prefix + '_vitesse', label: 'Vitesse (m/s)', type: 'number', showIf: showIf },
+    { key: prefix + '_reference', label: 'Débit de référence (m³/h)', type: 'number', showIf: showIf },
+    { key: prefix + '_debit_n1', label: 'Débit année N-1 (m³/h)', type: 'number', showIf: showIf },
+    { key: prefix + '_debit', label: 'Débit année en cours (m³/h)', type: 'computed', showIf: showIf }
+  ]);
+  return f;
+}
+
+// Génère les champs d'une colonne de filtration CTA (Pré-filtre / Filtre / Filtre absolu)
+var CLASSES_EFFICACITE_FILTRE = [
+  'Filtre Grossier - G1', 'Filtre Grossier - G2', 'Filtre Grossier - G3', 'Filtre Grossier - G4',
+  'Filtre Moyen - M5', 'Filtre Moyen - M6', 'Filtre Fin - F7', 'Filtre Fin - F8', 'Filtre Fin - F9',
+  'Haute efficacité (EPA) - E10', 'Haute efficacité (EPA) - E11', 'Haute efficacité (EPA) - E12',
+  'Très Haute efficacité (HEPA) - H13', 'Très Haute efficacité (HEPA) - H14',
+  'Très faible pénétration (ULPA) - U15', 'Très faible pénétration (ULPA) - U16', 'Très faible pénétration (ULPA) - U17'
+];
+function buildCtaFiltreFields(prefix, label, avecPerteDeCharge) {
+  var f = [
+    { key: prefix + '_etat', label: label + ' — État', type: 'select', options: ['Bon Etat', 'A remplacer', 'Non observé'] },
+    { key: prefix + '_type', label: label + ' — Type (cellules, poches, ...)', type: 'select', options: ['Cellule', 'Poche', 'Média découpé'] },
+    { key: prefix + '_nombre_dimensions', label: label + ' — Nombre / Dimensions', type: 'text' },
+    { key: prefix + '_classe', label: label + ' — Classe d\u2019efficacité', type: 'select', options: CLASSES_EFFICACITE_FILTRE }
+  ];
+  if (avecPerteDeCharge) f.push({ key: prefix + '_perte_charge', label: label + ' — Perte de charge (Pa)', type: 'number' });
+  return f;
+}
+
 function buildTorcheRowFields(i) {
   var p = 'torche' + i;
   return [
@@ -153,21 +193,30 @@ var INSTALLATION_TYPES = [
     fields: [
       { key: 'batiment', label: 'Bâtiment secteur', type: 'text' },
       { key: 'repere', label: 'Repère', type: 'text' },
-      { key: 'nom_usage', label: 'Nom / Usage', type: 'text' },
-      { key: 'type_local', label: 'Désignation du local (R4212-6)', type: 'select',
-        options: ["Cabinet d'aisances isolé",
-                  'Salle de bains ou de douches isolée',
-                  "Salle de bains ou de douches commune avec un cabinet d'aisances",
-                  "Bains, douches et cabinets d'aisances groupés",
-                  'Lavabos groupés'] },
-      { key: 'usage_collectif', label: 'Local à usage collectif', type: 'select', options: ['Oui', 'Non'],
-        showIf: { key: 'type_local', in: ["Cabinet d'aisances isolé", 'Salle de bains ou de douches isolée', "Salle de bains ou de douches commune avec un cabinet d'aisances"] } },
-      { key: 'nombre_equipements', label: "Nombre d'équipements (N) dans le local", type: 'number',
-        showIf: { key: 'type_local', in: ["Bains, douches et cabinets d'aisances groupés", 'Lavabos groupés'] } },
+      { key: 'nom_usage', label: 'Nom / Usage', type: 'select',
+        options: ['chambre individuelle dans ERP', 'sanitaires', 'sanitaires Homme', 'sanitaires Homme-PMR',
+                  'sanitaires Femme', 'sanitaires Femme-PMR', 'Vest.+San. Homme', 'Vest.+San. Femme',
+                  'Douche', 'Douche Homme', 'Douche Femme', 'Vest. Homme', 'Vest. Femme'] },
+      { key: 'chambre_erp_individuelle', label: 'Chambre individuelle dans ERP (débit limité à 15 m³/h)', type: 'select', options: ['Oui', 'Non'] },
+
+      { key: 'section_equipement', label: 'Type d\u2019équipement', type: 'section' },
+      { key: 'wc_urinoirs', label: 'WC / Urinoirs', type: 'number', showIf: { key: 'chambre_erp_individuelle', equals: 'Non' } },
+      { key: 'douches', label: 'Douches', type: 'number', showIf: { key: 'chambre_erp_individuelle', equals: 'Non' } },
+      { key: 'lavabos', label: 'Lavabos', type: 'number', showIf: { key: 'chambre_erp_individuelle', equals: 'Non' } },
+      { key: 'individuel_collectif', label: 'Individuel ou Collectif', type: 'select', options: ['Individuel', 'Collectif'] },
+
+      { key: 'section_extraction', label: 'Extraction', type: 'section' },
+      { key: 'debit_mesure', label: 'Débit extraction mesuré (m³/h)', type: 'number' },
+      { key: 'nombre_bouches', label: 'Nombre de bouches', type: 'number' },
+      { key: 'type_ventilation', label: 'Type de ventilation', type: 'computed' },
+
+      { key: 'section_bouches', label: 'État des bouches', type: 'section' },
+      { key: 'etat_bouches', label: 'État des bouches', type: 'select', options: ['En bon état', 'A nettoyer', 'A réparer'] },
+
+      { key: 'section_constat', label: 'Constat', type: 'section' },
       { key: 'debit_min_reglementaire', label: 'Débit minimal réglementaire (m³/h)', type: 'computed' },
-      { key: 'debit_mesure', label: "Débit d'extraction mesuré (m³/h)", type: 'number' },
-      { key: 'avis', label: 'Avis par rapport au débit réglementaire', type: 'computed' },
-      { key: 'observation', label: 'Observation', type: 'textarea' }
+      { key: 'avis', label: 'Avis par rapport aux valeurs réglementaires', type: 'computed' },
+      { key: 'observation', label: 'Commentaires', type: 'textarea' }
     ]
   },
   {
@@ -195,63 +244,46 @@ var INSTALLATION_TYPES = [
     id: 'cta', label: 'CTA (Centrale de traitement d\u2019air)', icon: 'tool', implemented: true,
     fields: [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
+      { key: 'marque', label: 'Marque', type: 'text' },
       { key: 'localisation', label: 'Localisation', type: 'text' },
       { key: 'locaux_alimentes', label: 'Locaux alimentés', type: 'text' },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
-      { key: 'reference_equipement', label: "Réf. de l'équipement et/ou implantation", type: 'text' },
+      { key: 'reference_equipement', label: 'Réf. de l\u2019équipement et/ou Implantation', type: 'text' },
       { key: 'mode_fonctionnement', label: 'Mode de fonctionnement', type: 'select',
         options: ['AIR NEUF / AIR RECYCLE', 'AIR NEUF UNIQUEMENT'] },
 
-      { key: 'section_visuel', label: 'Contrôle visuel', type: 'section' },
+      { key: 'section_visuel', label: 'État du reste de l\u2019installation', type: 'section' },
       { key: 'etat_general', label: 'État général (propreté, corrosion, chocs, etc.)', type: 'select',
-        options: ['Satisfaisant', 'Non observée', 'Fuite de fluide', 'Corrosion', 'A réparer', 'A nettoyer'] },
-      { key: 'prise_air_neuf', label: "Prise d'air neuf", type: 'select',
-        options: ['Satisfaisant', 'Non observée', 'Corrosion', 'A réparer'] },
+        options: ['Bon état général', 'Traces de corrosion', 'Les portes de la CTA sont déformées (difficultés de fermeture)', 'A réparer', 'CTA non ouverte'] },
+      { key: 'prise_air_neuf', label: 'Prise d\u2019air neuf', type: 'select',
+        options: ['Satisfaisant', 'A nettoyer', 'A réparer', 'Non observée'] },
       { key: 'batterie_froide', label: 'Batterie(s) froide(s)', type: 'select',
-        options: ['Bon état général', 'Traces de corrosion', 'A réparer', 'Non observée'] },
+        options: ['Satisfaisant', 'Non Observée', 'Fuite de fluide', 'Corrosion', 'A réparer'] },
       { key: 'batterie_chaude', label: 'Batterie(s) chaude(s)', type: 'select',
-        options: ['Bon état général', 'Traces de corrosion', 'A réparer', 'Non observée'] },
-      { key: 'moteur_courroie', label: 'Moteur / Courroie', type: 'select',
-        options: ["Le moteur n'utilise pas de courroie", 'Bon état général', 'Courroie distendue', 'Courroie à remplacer', 'Courroie rompue'] },
+        options: ['Satisfaisant', 'Non Observée', 'Fuite de fluide', 'Corrosion', 'A réparer'] },
       { key: 'canalisations_gaines', label: 'Canalisations / Gaines', type: 'select',
         options: ['Bon état', 'A réparer', 'Identification des gaines à prévoir + sens fluide'] },
-      { key: 'caisson_cta', label: 'Caisson CTA', type: 'select',
-        options: ['Bon état général', 'Traces de corrosion', 'Les portes de la CTA sont déformées (difficultés de fermeture)', 'A réparer', 'CTA non ouverte'] },
-      { key: 'fiche_maintenance', label: 'Fiche de maintenance', type: 'select',
-        options: ['Satisfaisant', 'Absence de fiche de maintenance'] },
+      { key: 'ventilateur_courroie', label: 'Ventilateur / Courroie', type: 'select',
+        options: ['Bon état général', 'Le moteur n\u2019utilise pas de courroie', 'Courroie distendue', 'Courroie à remplacer', 'Courroie rompue', 'Non observé'] },
+      { key: 'fiche_maintenance', label: 'Fiche de Maintenance', type: 'select',
+        options: ['Absence de fiche de maintenance', 'Dernière intervention de maintenance'] },
+      { key: 'date_derniere_maintenance', label: 'Date de la dernière intervention de maintenance', type: 'text',
+        showIf: { key: 'fiche_maintenance', equals: 'Dernière intervention de maintenance' } },
 
       { key: 'section_filtration', label: 'Filtration', type: 'section' },
-      { key: 'filtration', label: 'Pré-filtre / Filtre / Filtre absolu', type: 'text' },
-
-      { key: 'section_soufflage', label: 'Mesure — Soufflage', type: 'section' },
-      { key: 'souf_forme', label: 'Forme de la section', type: 'select', options: ['Circulaire', 'Rectangulaire'] },
-      { key: 'souf_diametre_cote1', label: 'Diamètre ou côte 1 (cm)', type: 'number' },
-      { key: 'souf_cote2', label: 'Côte 2 (cm)', type: 'number', showIf: { key: 'souf_forme', equals: 'Rectangulaire' } },
-      { key: 'souf_surface', label: 'Surface (m²)', type: 'computed' },
-      { key: 'souf_vitesse', label: 'Vitesse (m/s)', type: 'number' },
-      { key: 'souf_reference', label: 'Valeur de référence ou recommandée (m³/h)', type: 'number' },
-      { key: 'souf_debit', label: 'Débit mesuré (m³/h)', type: 'computed' },
-
-      { key: 'section_reprise', label: 'Mesure — Reprise / Extraction (optionnel)', type: 'section' },
-      { key: 'rep_active', label: 'Mesurer la reprise', type: 'select', options: ['Oui', 'Non'] },
-      { key: 'rep_forme', label: 'Forme de la section', type: 'select', options: ['Circulaire', 'Rectangulaire'], showIf: { key: 'rep_active', equals: 'Oui' } },
-      { key: 'rep_diametre_cote1', label: 'Diamètre ou côte 1 (cm)', type: 'number', showIf: { key: 'rep_active', equals: 'Oui' } },
-      { key: 'rep_cote2', label: 'Côte 2 (cm)', type: 'number', showIf: { key: 'rep_active', equals: 'Oui' } },
-      { key: 'rep_surface', label: 'Surface (m²)', type: 'computed', showIf: { key: 'rep_active', equals: 'Oui' } },
-      { key: 'rep_vitesse', label: 'Vitesse (m/s)', type: 'number', showIf: { key: 'rep_active', equals: 'Oui' } },
-      { key: 'rep_reference', label: 'Valeur de référence ou recommandée (m³/h)', type: 'number', showIf: { key: 'rep_active', equals: 'Oui' } },
-      { key: 'rep_debit', label: 'Débit mesuré (m³/h)', type: 'computed', showIf: { key: 'rep_active', equals: 'Oui' } },
-
-      { key: 'section_conclusion', label: 'Conclusion', type: 'section' },
-      { key: 'avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed' },
-      { key: 'observation', label: 'Observation', type: 'textarea' },
-
-      { key: 'section_conduit', label: 'Mesure dans le conduit', type: 'section' },
-      { key: 'gaine', label: 'Gaine', type: 'text' },
-      { key: 'temperature_conduit', label: 'Température dans le conduit (°C)', type: 'number' },
-      { key: 'pression_statique', label: 'Pression statique dans le conduit (Pa)', type: 'number' },
-      { key: 'masse_volumique', label: 'Masse volumique dans les conditions réelles (kg/m³)', type: 'computed' }
+      { key: 'afficher_filtration', label: 'Afficher la filtration', type: 'select', options: ['Oui', 'Non'] }
     ]
+      .concat(buildCtaFiltreFields('filt_pre', 'Pré-filtre', true))
+      .concat(buildCtaFiltreFields('filt_filtre', 'Filtre', true))
+      .concat(buildCtaFiltreFields('filt_absolu', 'Filtre absolu', false))
+      .concat(buildCtaReseauFields('neuf', 'neuf', false))
+      .concat(buildCtaReseauFields('souf', 'soufflé', false))
+      .concat(buildCtaReseauFields('rep', 'repris', true))
+      .concat([
+        { key: 'section_conclusion', label: 'Conclusion', type: 'section' },
+        { key: 'avis', label: 'Avis par rapport aux données constructeurs', type: 'select', options: OPT_SATISFAISANT },
+        { key: 'observation', label: 'Observations', type: 'textarea' }
+      ])
   },
   {
     id: 'extracteur', label: 'Extracteur', icon: 'zap', implemented: true,
@@ -470,11 +502,16 @@ var INSTALLATION_TYPES = [
       { key: 'adapte_situation', label: 'Adapté à la situation', type: 'select', options: ['Oui', 'Non'] },
       { key: 'commentaire_1', label: 'Commentaire', type: 'textarea' },
       { key: 'recyclage', label: 'Recyclage', type: 'select', options: ['Oui', 'Non'] },
-      { key: 'etat_visuel', label: 'État visuel', type: 'select', options: ['Satisfaisant', 'Non Satisfaisant', 'Impossible de se prononcer'] },
-      { key: 'etat_conduits', label: 'État des conduits aérauliques', type: 'select', options: ['Satisfaisant', 'Non Satisfaisant', 'Impossible de se prononcer'] },
-      { key: 'test_fumigene', label: 'Test fumigène', type: 'select', options: ['Satisfaisant', 'Non Satisfaisant', 'Impossible de se prononcer'] },
+      { key: 'etat_visuel', label: 'État visuel', type: 'select', options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués'] },
+      { key: 'etat_conduits', label: 'État des conduits aérauliques', type: 'select', options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués'] },
+      { key: 'test_fumigene', label: 'Test fumigène — Visualisation fumigène à 20 cm', type: 'select', options: ['Non réalisé', 'Réalisé'] },
+      { key: 'conditions_dispersion', label: 'Conditions de dispersion du polluant', type: 'select',
+        options: ['Emission passive en air calme', 'Emission à faible vitesse en air calme',
+                  'Emission à faible vitesse en air modérément calme', 'Génération active en zone calme',
+                  'Génération active en zone agitée', 'Projection à grande vitesse'] },
 
       { key: 'section_bouche', label: "Bouche d'aspiration", type: 'section' },
+      { key: 'type_bouche', label: 'Type de bouche d\u2019aspiration', type: 'select', options: ['Sans collerette', 'Avec collerette'] },
       { key: 'forme_bouche', label: 'Forme de la bouche', type: 'select', options: ['Circulaire', 'Ovale', 'Autre (surface connue)'] },
       { key: 'diametre_bouche', label: 'Diamètre de la bouche (cm)', type: 'number', showIf: { key: 'forme_bouche', equals: 'Circulaire' } },
       { key: 'largeur_bouche_ovale', label: 'Largeur de la bouche si ovale (cm)', type: 'number', showIf: { key: 'forme_bouche', equals: 'Ovale' } },
@@ -547,6 +584,13 @@ var INSTALLATION_TYPES = [
       { key: 'localisation', label: 'Localisation', type: 'text' },
       { key: 'type_installation', label: "Type d'installation", type: 'text' },
       { key: 'reference_equipement', label: "Référence de l'équipement", type: 'text' },
+      { key: 'etat_visuel_reseau', label: "État visuel du réseau d'aspiration", type: 'select',
+        options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués'] },
+      { key: 'test_fumigene', label: 'Test fumigène', type: 'select',
+        options: ['Toute la fumée a été aspirée',
+                  "On observe des irrégularités lors de l'aspiration des fumées",
+                  'On constate un phénomène de rétrodiffusion des fumées',
+                  'Aucune aspiration', 'Non réalisé'] },
 
       { key: 'mesures_choisies', label: 'Mesures choisies', type: 'checkbox-group',
         options: ["Vitesse au point d'émission", 'Vitesse de transport'] },
@@ -554,6 +598,11 @@ var INSTALLATION_TYPES = [
       { key: 'section_vpe', label: "Vitesse au point d'émission", type: 'section',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_mesuree', label: 'Valeur mesurée (m/s)', type: 'number',
+        showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
+      { key: 'vpe_conditions_dispersion', label: 'Condition de dispersion du polluant', type: 'select',
+        options: ['Emission passive en air calme', 'Emission à faible vitesse en air calme',
+                  'Emission à faible vitesse en air modérément calme', 'Génération active en zone calme',
+                  'Génération active en zone agitée', 'Emission à grande vitesse initiale dans une zone à mouvement d\u2019air très rapide'],
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },

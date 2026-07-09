@@ -74,20 +74,23 @@ var LOCAL_LPNS = {
 };
 
 // Débit minimal réglementaire sanitaires (R4212-6). N = nombre d'équipements.
-function debitSanitaire(typeLocal, collectif, N) {
-  var n = num(N);
-  switch (typeLocal) {
-    case "Cabinet d'aisances isolé":
-    case 'Salle de bains ou de douches isolée':
-    case "Salle de bains ou de douches commune avec un cabinet d'aisances":
-      return (collectif === 'Non') ? 15 : 30;
-    case "Bains, douches et cabinets d'aisances groupés":
-      return isNaN(n) ? NaN : 30 + 15 * n;
-    case 'Lavabos groupés':
-      return isNaN(n) ? NaN : 10 + 5 * n;
-    default:
-      return NaN;
-  }
+// Débit minimal réglementaire des sanitaires (R.4212-6), calculé à partir du nombre de WC/Urinoirs,
+// Douches et Lavabos — reproduit exactement la logique Cas_ValRetenue9 de Userform_SAN.bas (VBA d'origine).
+function debitMinSanitaires(d) {
+  if (d.chambre_erp_individuelle === 'Oui') return 15;
+
+  var nbUrine = num(d.wc_urinoirs); if (isNaN(nbUrine)) nbUrine = 0;
+  var nbDouche = num(d.douches); if (isNaN(nbDouche)) nbDouche = 0;
+  var nbLavabos = num(d.lavabos); if (isNaN(nbLavabos)) nbLavabos = 0;
+
+  if (nbUrine === 0 && nbDouche === 0 && nbLavabos < 2) return 0;
+  if (nbUrine === 0 && nbDouche === 1 && nbLavabos < 2) return 45;
+  if (nbUrine === 1 && nbDouche === 0 && nbLavabos < 2) return 30;
+  if (nbUrine === 0 && nbDouche === 0 && nbLavabos >= 2) return 10 + 5 * nbLavabos;
+  if (nbUrine === 0 && nbDouche === 1 && nbLavabos >= 2) return 45 + (10 + 5 * nbLavabos);
+  if (nbUrine === 1 && nbDouche === 0 && nbLavabos >= 2) return 30 + (10 + 5 * nbLavabos);
+  if (nbLavabos < 2) return 30 + 15 * (nbUrine + nbDouche);
+  return 30 + 15 * (nbUrine + nbDouche) + (10 + 5 * nbLavabos);
 }
 
 // Débit d'air neuf effectivement introduit selon le type de ventilation (VBA)
@@ -308,13 +311,21 @@ var CALC_RULES = {
 
   sanitaires: [
     { target: 'debit_min_reglementaire', fn: function (d) {
-        var v = debitSanitaire(d.type_local, d.usage_collectif, d.nombre_equipements);
-        return isNaN(v) ? '' : v;
+        return debitMinSanitaires(d);
+      } },
+    { target: 'type_ventilation', fn: function (d) {
+        var v = num(d.debit_mesure);
+        return (!isNaN(v) && v > 0) ? 'Mécanique' : 'Absence de ventilation';
       } },
     { target: 'avis', fn: function (d) {
-        var min = num(d.debit_min_reglementaire), mes = num(d.debit_mesure);
-        if (isNaN(min) || isNaN(mes)) return 'Impossible de se prononcer';
-        return mes >= min ? 'Satisfaisant' : 'Non Satisfaisant';
+        if (d.debit_mesure === undefined || d.debit_mesure === null || d.debit_mesure === '') return '';
+        var ref = num(d.debit_min_reglementaire);
+        var nbLavabos = num(d.lavabos) || 0;
+        if (nbLavabos === 1 && ref === 0) return 'Satisfaisant';
+        if (ref === 0) return 'Impossible de se prononcer';
+        var v = num(d.debit_mesure);
+        if (isNaN(v) || isNaN(ref)) return 'Impossible de se prononcer';
+        return v >= ref ? 'Satisfaisant' : 'Non Satisfaisant';
       } }
   ],
 
@@ -482,37 +493,44 @@ var CALC_RULES = {
   ],
 
   cta: [
+    { target: 'neuf_surface', decimals: 4, fn: function (d) {
+        return surfaceSection(d.neuf_forme, d.neuf_diametre_cote1, d.neuf_cote2);
+      } },
+    { target: 'neuf_masse_volumique', decimals: 3, fn: function (d) {
+        return masseVolumique(d.neuf_temperature_conduit, d.neuf_pression_statique);
+      } },
+    { target: 'neuf_debit', fn: function (d) {
+        var v = debitFromSV(d.neuf_surface, d.neuf_vitesse);
+        return isNaN(v) ? '' : v;
+      } },
     { target: 'souf_surface', decimals: 4, fn: function (d) {
         return surfaceSection(d.souf_forme, d.souf_diametre_cote1, d.souf_cote2);
       } },
+    { target: 'souf_masse_volumique', decimals: 3, fn: function (d) {
+        return masseVolumique(d.souf_temperature_conduit, d.souf_pression_statique);
+      } },
     { target: 'souf_debit', fn: function (d) {
-        return debitFromSV(d.souf_surface, d.souf_vitesse);
+        var v = debitFromSV(d.souf_surface, d.souf_vitesse);
+        return isNaN(v) ? '' : v;
       } },
     { target: 'rep_surface', decimals: 4, fn: function (d) {
         if (d.rep_active !== 'Oui') return '';
         return surfaceSection(d.rep_forme, d.rep_diametre_cote1, d.rep_cote2);
       } },
+    { target: 'rep_masse_volumique', decimals: 3, fn: function (d) {
+        if (d.rep_active !== 'Oui') return '';
+        return masseVolumique(d.rep_temperature_conduit, d.rep_pression_statique);
+      } },
     { target: 'rep_debit', fn: function (d) {
         if (d.rep_active !== 'Oui') return '';
         var v = debitFromSV(d.rep_surface, d.rep_vitesse);
         return isNaN(v) ? '' : v;
-      } },
-    { target: 'masse_volumique', decimals: 3, fn: function (d) {
-        return masseVolumique(d.temperature_conduit, d.pression_statique);
-      } },
-    { target: 'avis', fn: function (d) {
-        // VBA : soufflage débit >= réf × 0.8 ; si reprise mesurée, les deux doivent être satisfaisants
-        var sd = num(d.souf_debit), sr = num(d.souf_reference);
-        if (isNaN(sd) || isNaN(sr)) return 'Impossible de se prononcer';
-        var okSouf = sd >= sr * POURCENTAGE_REF;
-        if (d.rep_active === 'Oui') {
-          var rd = num(d.rep_debit), rr = num(d.rep_reference);
-          if (isNaN(rd) || isNaN(rr)) return 'Impossible de se prononcer';
-          var okRep = rd >= rr * POURCENTAGE_REF;
-          return (okSouf && okRep) ? 'Satisfaisant' : 'Non Satisfaisant';
-        }
-        return okSouf ? 'Satisfaisant' : 'Non Satisfaisant';
       } }
+    // 'avis' est une sélection manuelle (Satisfaisant/Non Satisfaisant/Impossible de se prononcer) :
+    // dans le VBA d'origine (UserForm_CTA), l'avis global est un bouton à 3 états choisi par le technicien,
+    // pas une valeur calculée — les 3 réseaux (Neuf/Soufflé/Repris) n'ont pas toujours de valeur de
+    // référence constructeur disponible (cf. rapport exemple : "Impossible de se prononcer globalement,
+    // en l'absence de valeur de référence constructeur pour le débit d'air neuf").
   ],
 
   menuiserie_bis: [
@@ -787,12 +805,15 @@ var CALC_RULES = {
         var s = num(d.surface_bouche), v = num(d.vitesse_moyenne);
         return (isNaN(s) || isNaN(v)) ? '' : s * v * 3600;
       } },
-    { target: 'distance_max_captage', fn: function (d) {
-        // VBA : (débit / (3600 × Vcaptage) − surface) / 10, min 0 (résultat en cm)
+    { target: 'distance_max_captage', decimals: 0, fn: function (d) {
+        // Formule INRS de captage ponctuel : Vc = Q / (10x² + A)  =>  x = √(Q/(10·Vc) − A/10)
+        // (Q en m³/s, A en m², x en m — converti en cm en sortie)
         var q = num(d.debit_calcule), vc = num(d.vitesse_captage), s = num(d.surface_bouche);
         if (isNaN(q) || isNaN(vc) || isNaN(s) || vc === 0) return '';
-        var dist = (q / (3600 * vc) - s) / 10;
-        return dist < 0 ? 0 : dist;
+        var qms = q / 3600;
+        var inner = qms / (10 * vc) - s / 10;
+        if (inner < 0) return 0;
+        return Math.sqrt(inner) * 100;
       } },
     { target: 'conclusion_distance', fn: function (d) {
         var dmax = num(d.distance_max_captage), dutil = num(d.distance_utilisation);

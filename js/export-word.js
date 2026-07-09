@@ -90,30 +90,41 @@ function buildRapportDoc(m, logoBuf) {
   var is = m.intervenantSite || {};
   var isi = m.infosSiteIntervention || {};
 
-  var children = [];
+  var portrait = [];
 
-  children = children.concat(buildPageDeGarde(D, m, di, ic, is, isi, logoBuf));
-  children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+  portrait = portrait.concat(buildPageDeGarde(D, m, di, ic, is, isi, logoBuf));
+  portrait.push(new D.Paragraph({ children: [new D.PageBreak()] }));
 
-  children = children.concat(buildSommaire(D));
-  children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+  portrait = portrait.concat(buildSommaire(D));
+  portrait.push(new D.Paragraph({ children: [new D.PageBreak()] }));
 
-  children = children.concat(buildPresentationMission(D, m, di, ic, isi));
-  children = children.concat(buildDescriptionLocaux(D, m));
-  children = children.concat(buildDocumentsTransmis(D, m));
+  portrait = portrait.concat(buildPresentationMission(D, m, di, ic, isi));
+  portrait = portrait.concat(buildDescriptionLocaux(D, m));
+  portrait = portrait.concat(buildDocumentsTransmis(D, m));
+  portrait = portrait.concat(buildSyntheseControle(D, m));
 
-  children = children.concat(buildSyntheseControle(D, m));
-
-  // — Lots suivants (à venir) —
-  children.push(new D.Paragraph({
+  var landscape = [];
+  landscape.push(new D.Paragraph({
     heading: D.HeadingLevel.HEADING_1,
-    spacing: { before: 360, after: 120 },
+    spacing: { before: 0, after: 120 },
     children: [new D.TextRun({ text: '5. ANNEXES', bold: true, color: BLUE })]
   }));
-  children.push(new D.Paragraph({
-    children: [new D.TextRun({ text: 'Détail par installation — version provisoire (dump champ/valeur). Sera remplacé lot par lot par la mise en forme définitive (tableaux comparatifs par type, extraits du Code du travail).', italics: true, size: 20 })]
-  }));
-  children = children.concat(buildAnnexesProvisoires(D, m));
+
+  // Types dont l'annexe fidèle (tableau croisé + extraits du Code du travail) est prête.
+  // Les autres restent en dump provisoire champ/valeur en attendant leur lot.
+  var ANNEXES_FIDELES = { bureaux: buildAnnexeBureaux, sanitaires: buildAnnexeSanitaires, cta: buildAnnexeCTA, extracteur: buildAnnexeExtracteur, hottes: buildAnnexeHottes, bras_aspiration: buildAnnexeBrasAspiration, installations_diverses: buildAnnexeInstallationsDiverses, locaux_charge: buildAnnexeLocauxCharge };
+
+  INSTALLATION_TYPES.forEach(function (t) {
+    var list = (m.installations && m.installations[t.id]) || [];
+    if (list.length === 0) return;
+    if (ANNEXES_FIDELES[t.id]) {
+      landscape.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+      landscape = landscape.concat(ANNEXES_FIDELES[t.id](D, list));
+    } else {
+      landscape.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+      landscape = landscape.concat(buildAnnexeProvisoire(D, t, list));
+    }
+  });
 
   var footerDefault = new D.Footer({ children: [buildFooterParagraph(D, di)] });
   var footerFirst = new D.Footer({
@@ -130,14 +141,26 @@ function buildRapportDoc(m, logoBuf) {
   });
 
   return new D.Document({
-    sections: [{
-      properties: {
-        titlePage: true,
-        page: { margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } }
+    sections: [
+      {
+        properties: {
+          titlePage: true,
+          page: { margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } }
+        },
+        footers: { default: footerDefault, first: footerFirst },
+        children: portrait
       },
-      footers: { default: footerDefault, first: footerFirst },
-      children: children
-    }]
+      {
+        properties: {
+          page: {
+            size: { orientation: D.PageOrientation.LANDSCAPE },
+            margin: { top: 720, right: 720, bottom: 720, left: 720 }
+          }
+        },
+        footers: { default: footerDefault },
+        children: landscape
+      }
+    ]
   });
 }
 
@@ -541,7 +564,769 @@ function syntheseTable(D, cfg, list) {
 }
 
 
-function buildAnnexesProvisoires(D, m) {
+// ————————————————————————————————————————————
+// 5. Annexes — utilitaire tableau croisé (colonnes = installations, lignes = champs)
+// Fidèle à la mise en page Excel d'origine (Inserer_Annexes.bas)
+// ————————————————————————————————————————————
+
+var CROSSTAB_GROUP_SIZE = 5; // nombre de locaux/équipements par page, comme dans l'original
+
+function crosstabSection(D, titre, sousTitre, legalParagraphs, rows, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1,
+    alignment: D.AlignmentType.CENTER,
+    spacing: { after: 60 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER,
+    spacing: { after: 240 },
+    children: [new D.TextRun({ text: sousTitre, italics: true, size: 20, color: '555555' })]
+  }));
+
+  if (legalParagraphs && legalParagraphs.length) {
+    children.push(new D.Paragraph({
+      alignment: D.AlignmentType.CENTER,
+      spacing: { after: 200 },
+      children: [new D.TextRun({ text: 'Extraits du Code du Travail', bold: true, size: 22, color: BLUE })]
+    }));
+    children = children.concat(legalParagraphs);
+    children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+  }
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucun local renseigné.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  for (var g = 0; g < list.length; g += CROSSTAB_GROUP_SIZE) {
+    var group = list.slice(g, g + CROSSTAB_GROUP_SIZE);
+    if (g > 0) children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+    children.push(new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: crosstabRows(D, rows, group) }));
+  }
+
+  return children;
+}
+
+function crosstabRows(D, rows, group) {
+  var W_LABEL = 2400;
+  var W_COL = Math.floor((15298 - W_LABEL) / group.length);
+  var out = [];
+
+  rows.forEach(function (r) {
+    if (r.subheader) {
+      out.push(new D.TableRow({ children: [
+        headerCell(D, '', W_LABEL)
+      ].concat(group.map(function () { return headerCell(D, r.subheader, W_COL); })) }));
+      return;
+    }
+    out.push(new D.TableRow({ children: [
+      new D.TableCell({
+        width: { size: W_LABEL, type: D.WidthType.DXA },
+        shading: { fill: 'E8F1F8', type: D.ShadingType.CLEAR },
+        verticalAlign: D.VerticalAlign.CENTER,
+        children: [new D.Paragraph({ children: [new D.TextRun({ text: r.label, bold: true, size: 16 })] })]
+      })
+    ].concat(group.map(function (inst) {
+      var val = inst.data[r.key];
+      var text = (val === undefined || val === null || val === '') ? '-' : String(val);
+      var opts = { center: true };
+      if (r.isAvis) { var c = avisColor(text); if (c) { opts.fill = c.fill; opts.color = c.color; opts.bold = true; } }
+      return bodyCellSmall(D, text, W_COL, opts);
+    })) }));
+  });
+
+  return out;
+}
+
+function bodyCellSmall(D, text, width, opts) {
+  opts = opts || {};
+  return new D.TableCell({
+    width: { size: width, type: D.WidthType.DXA },
+    shading: opts.fill ? { fill: opts.fill, type: D.ShadingType.CLEAR } : undefined,
+    verticalAlign: D.VerticalAlign.CENTER,
+    children: [new D.Paragraph({ alignment: opts.center ? D.AlignmentType.CENTER : D.AlignmentType.LEFT, children: [new D.TextRun({ text: text, size: 16, bold: !!opts.bold, color: opts.color })] })]
+  });
+}
+
+function legalParagraph(text, opts) {
+  opts = opts || {};
+  return new docx.Paragraph({
+    alignment: opts.center ? docx.AlignmentType.CENTER : docx.AlignmentType.JUSTIFIED,
+    spacing: { after: opts.after !== undefined ? opts.after : 120 },
+    children: [new docx.TextRun({ text: text, bold: !!opts.bold, italics: !!opts.italics, size: opts.size || 19 })]
+  });
+}
+
+// 5.1 — Bureaux / Salles de réunion (Inserer_Annexe_1, Articles R.4222-5 et R.4222-6)
+function buildAnnexeBureaux(D, list) {
+  var legal = [
+    legalParagraph('Article R4222-5', { bold: true, center: true, size: 20 }),
+    legalParagraph('Créé par Décret n°2008-244 du 7 mars 2008 - art. (V)', { italics: true, center: true, size: 16, after: 160 }),
+    legalParagraph('L\u2019aération par ventilation naturelle, assurée exclusivement par ouverture de fenêtres ou autres ouvrants donnant directement sur l\u2019extérieur, est autorisée lorsque le volume par occupant est égal ou supérieur à :'),
+    legalParagraph('1° / 15 m³ pour les bureaux et les locaux où est accompli un travail physique léger ;'),
+    legalParagraph('2° / 24 m³ pour les autres locaux.', { after: 280 }),
+    legalParagraph('Article R4222-6', { bold: true, center: true, size: 20 }),
+    legalParagraph('Créé par Décret n°2008-244 du 7 mars 2008 - art. (V)', { italics: true, center: true, size: 16, after: 160 }),
+    legalParagraph('Lorsque l\u2019aération est assurée par ventilation mécanique, le débit minimal d\u2019air neuf à introduire par occupant est fixé dans le tableau suivant :', { after: 160 }),
+    new D.Table({
+      width: { size: 8000, type: D.WidthType.DXA },
+      alignment: D.AlignmentType.CENTER,
+      rows: [
+        new D.TableRow({ children: [headerCell(D, 'DESIGNATION DES LOCAUX', 5600), headerCell(D, 'DEBIT MINIMAL (m³/h/occupant)', 2400)] }),
+        new D.TableRow({ children: [bodyCell(D, 'Bureaux, locaux sans travail physique', 5600), bodyCell(D, '25', 2400, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux de restauration, locaux de vente, locaux de réunion', 5600), bodyCell(D, '30', 2400, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Ateliers et locaux avec travail physique léger', 5600), bodyCell(D, '45', 2400, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Autres ateliers et locaux', 5600), bodyCell(D, '60', 2400, { center: true })] })
+      ]
+    })
+  ];
+
+  var rows = [
+    { label: 'Bâtiment', key: 'batiment' },
+    { label: 'Référence du local', key: 'reference_local' },
+    { label: 'Type de local', key: 'type_local' },
+    { label: 'Ventilation', key: 'type_ventilation' },
+    { label: 'Volume (m³)', key: 'volume' },
+    { label: 'Effectif', key: 'effectif' },
+    { label: 'Présence d\u2019ouvrant donnant directement sur l\u2019extérieur', key: 'ouvrant_exterieur' },
+    { subheader: 'Extraction / Soufflage' },
+    { label: 'Débit total mesuré (m³/h)', key: 'debit_total_mesure' },
+    { label: 'Débit soufflage mesuré (m³/h)', key: 'debit_soufflage' },
+    { label: 'Débit extraction mesuré (m³/h)', key: 'debit_extraction' },
+    { label: 'Nombre de bouches', key: 'nombre_bouches' },
+    { label: 'Pourcentage d\u2019air neuf (%)', key: 'pourcentage_air_neuf' },
+    { label: 'Débit d\u2019air neuf introduit (m³/h)', key: 'debit_air_neuf_introduit' },
+    { label: 'État des bouches', key: 'etat_bouches' },
+    { subheader: 'Constat' },
+    { label: 'Débit minimum d\u2019air neuf à respecter (m³/h)', key: 'debit_min_air_neuf' },
+    { label: 'Volume minimal à respecter (m³)', key: 'volume_min' },
+    { label: 'Avis par rapport aux valeurs réglementaires', key: 'avis', isAvis: true },
+    { label: 'Commentaire', key: 'commentaire' }
+  ];
+
+  return crosstabSection(D, 'Bureaux', 'Locaux à pollution non spécifique', legal, rows, list);
+}
+
+// 5.2 — Sanitaires (Inserer_Annexe_2, Article R.4212-6)
+function buildAnnexeSanitaires(D, list) {
+  var legal = [
+    legalParagraph('Article R4212-6', { bold: true, center: true, size: 20 }),
+    legalParagraph('Créé par Décret n°2008-244 du 7 mars 2008 - art. (V)', { italics: true, center: true, size: 16, after: 160 }),
+    legalParagraph('Le maître d\u2019ouvrage prévoit dans les locaux sanitaires l\u2019introduction d\u2019un débit minimal d\u2019air déterminé par le tableau suivant :', { after: 160 }),
+    new D.Table({
+      width: { size: 8600, type: D.WidthType.DXA },
+      alignment: D.AlignmentType.CENTER,
+      rows: [
+        new D.TableRow({ children: [headerCell(D, 'DÉSIGNATION DES LOCAUX', 5600), headerCell(D, 'DÉBIT MINIMAL d\u2019air introduit (m³/h et par local)', 3000)] }),
+        new D.TableRow({ children: [bodyCell(D, 'Cabinet d\u2019aisances isolé (**)', 5600), bodyCell(D, '30', 3000, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Salle de bains ou de douches isolée (**)', 5600), bodyCell(D, '45', 3000, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Commune avec un cabinet d\u2019aisances', 5600), bodyCell(D, '60', 3000, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Bains, douches et cabinets d\u2019aisances groupés', 5600), bodyCell(D, '30 + 15 N (*)', 3000, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Lavabos groupés', 5600), bodyCell(D, '10 + 5 N (*)', 3000, { center: true })] })
+      ]
+    }),
+    legalParagraph('N (*) : nombre d\u2019équipements dans le local', { size: 16, after: 60 }),
+    legalParagraph('(**) : pour un cabinet d\u2019aisances, une salle de bains ou de douches avec ou sans cabinet d\u2019aisances, le débit minimal d\u2019air introduit peut être limité à 15 mètres cubes par heure si ce local n\u2019est pas à usage collectif.', { size: 16 })
+  ];
+
+  var rows = [
+    { label: 'Bâtiment', key: 'batiment' },
+    { label: 'Référence du local', key: 'repere' },
+    { label: 'Type de local', key: 'nom_usage' },
+    { subheader: 'Type d\u2019équipement' },
+    { label: 'WC/Urinoirs', key: 'wc_urinoirs' },
+    { label: 'Douches', key: 'douches' },
+    { label: 'Lavabos', key: 'lavabos' },
+    { label: 'Individuel ou Collectif', key: 'individuel_collectif' },
+    { subheader: 'Extraction' },
+    { label: 'Débit total mesuré (m³/h)', key: 'debit_mesure' },
+    { label: 'Nombre de bouches', key: 'nombre_bouches' },
+    { subheader: 'Constat' },
+    { label: 'État des bouches', key: 'etat_bouches' },
+    { label: 'Type de ventilation', key: 'type_ventilation' },
+    { label: 'Débit minimum d\u2019extraction requis (m³/h)', key: 'debit_min_reglementaire' },
+    { label: 'Avis par rapport aux valeurs réglementaires', key: 'avis', isAvis: true },
+    { label: 'Commentaires', key: 'observation' }
+  ];
+
+  return crosstabSection(D, 'Sanitaires', 'Sanitaires', legal, rows, list);
+}
+
+// 5.3 — Centrales de traitement de l'air (Inserer_Annexe_4)
+// Contrairement à Bureaux/Sanitaires, ce type n'utilise pas le format "tableau croisé" (colonnes = locaux) :
+// chaque CTA occupe son propre bloc complet (ModeleConclusion=2 dans le VBA d'origine). Pas d'extrait du
+// Code du Travail : l'avis CTA est une appréciation manuelle du technicien (pas de seuil réglementaire
+// unique), faute de valeur de référence constructeur systématique.
+function buildAnnexeCTA(D, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1,
+    alignment: D.AlignmentType.CENTER,
+    spacing: { after: 60 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER,
+    spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'Vérification des centrales de traitement de l\u2019air', italics: true, size: 20, color: '555555' })]
+  }));
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucune CTA renseignée.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  list.forEach(function (inst, idx) {
+    var d = inst.data;
+    if (idx > 0) children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2,
+      spacing: { before: 120, after: 120 },
+      children: [new D.TextRun({ text: 'CENTRALE DE TRAITEMENT D\u2019AIR' + (d.reference_equipement ? ' \u2014 ' + d.reference_equipement : ''), bold: true, color: BLUE, size: 24 })]
+    }));
+
+    children.push(infoTable(D, [
+      ['Bâtiment', d.batiment, 'Marque', d.marque],
+      ['Localisation', d.localisation, 'Mode de fonctionnement', d.mode_fonctionnement],
+      ['Locaux alimentés', d.locaux_alimentes, 'Réf. équipement / implantation', d.reference_equipement],
+      ['Date du contrôle', d.date_controle, '', '']
+    ]));
+
+    if (d.afficher_filtration === 'Oui') {
+      children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Filtration', bold: true, size: 20, color: BLUE })] }));
+      children.push(filtrationTable(D, d));
+    }
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'État du reste de l\u2019installation', bold: true, size: 20, color: BLUE })] }));
+    children.push(etatInstallationTable(D, d));
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Mesures de vitesse dans le conduit', bold: true, size: 20, color: BLUE })] }));
+    children.push(reseauxTable(D, d));
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 40 }, children: [new D.TextRun({ text: 'Conclusion', bold: true, size: 20, color: BLUE })] }));
+    var c = avisColor(d.avis);
+    children.push(new D.Table({
+      width: { size: 15298, type: D.WidthType.DXA },
+      rows: [new D.TableRow({ children: [
+        headerCell(D, 'Avis par rapport aux données constructeurs', 8000),
+        bodyCell(D, d.avis || '-', 7298, { center: true, bold: true, fill: c ? c.fill : undefined, color: c ? c.color : undefined })
+      ] })]
+    }));
+    children.push(new D.Paragraph({ spacing: { before: 120, after: 40 }, children: [new D.TextRun({ text: 'Observations', bold: true, size: 18 })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.observation || '-', size: 18 })] }));
+  });
+
+  return children;
+}
+
+function infoTable(D, rows) {
+  var W = [2600, 5049, 2600, 5049];
+  return new D.Table({
+    width: { size: 15298, type: D.WidthType.DXA },
+    rows: rows.map(function (r) {
+      return new D.TableRow({ children: [
+        headerCell(D, r[0], W[0]), bodyCell(D, r[1] ? String(r[1]) : '-', W[1]),
+        headerCell(D, r[2], W[2]), bodyCell(D, r[3] ? String(r[3]) : '-', W[3])
+      ] });
+    })
+  });
+}
+
+function filtrationTable(D, d) {
+  var W_LABEL = 2800, W_COL = (15298 - W_LABEL) / 3;
+  function row(label, key) {
+    var pre = d['filt_pre_' + key], filtre = d['filt_filtre_' + key];
+    var preText = (pre === undefined || pre === null || pre === '') ? '-' : String(pre);
+    var filtreText = (filtre === undefined || filtre === null || filtre === '') ? '-' : String(filtre);
+    var absolu = d['filt_absolu_' + key];
+    var absoluText = key === 'perte_charge' ? 'n/a' : ((absolu === undefined || absolu === null || absolu === '') ? '-' : String(absolu));
+    return new D.TableRow({ children: [
+      new D.TableCell({ width: { size: W_LABEL, type: D.WidthType.DXA }, shading: { fill: 'E8F1F8', type: D.ShadingType.CLEAR }, verticalAlign: D.VerticalAlign.CENTER, children: [new D.Paragraph({ children: [new D.TextRun({ text: label, bold: true, size: 16 })] })] }),
+      bodyCellSmall(D, preText, W_COL, { center: true }),
+      bodyCellSmall(D, filtreText, W_COL, { center: true }),
+      bodyCellSmall(D, absoluText, W_COL, { center: true })
+    ] });
+  }
+  return new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: [
+    new D.TableRow({ children: [headerCell(D, '', W_LABEL), headerCell(D, 'Pré-filtre', W_COL), headerCell(D, 'Filtre', W_COL), headerCell(D, 'Filtre absolu', W_COL)] }),
+    row('État', 'etat'),
+    row('Type', 'type'),
+    row('Nombre / Dimensions', 'nombre_dimensions'),
+    row('Classe d\u2019efficacité', 'classe'),
+    row('Perte de charge (Pa)', 'perte_charge')
+  ] });
+}
+
+function etatInstallationTable(D, d) {
+  var W_LABEL = 5000, W_VAL = 10298;
+  function row(label, key) {
+    var v = d[key];
+    var text = (v === undefined || v === null || v === '') ? '-' : String(v);
+    return new D.TableRow({ children: [
+      new D.TableCell({ width: { size: W_LABEL, type: D.WidthType.DXA }, shading: { fill: 'E8F1F8', type: D.ShadingType.CLEAR }, verticalAlign: D.VerticalAlign.CENTER, children: [new D.Paragraph({ children: [new D.TextRun({ text: label, bold: true, size: 16 })] })] }),
+      bodyCellSmall(D, text, W_VAL)
+    ] });
+  }
+  var rows = [
+    row('État général (propreté, corrosion, chocs, etc.)', 'etat_general'),
+    row('Prise d\u2019air neuf', 'prise_air_neuf'),
+    row('Batterie(s) froide(s)', 'batterie_froide'),
+    row('Batterie(s) chaude(s)', 'batterie_chaude'),
+    row('Canalisations / Gaines', 'canalisations_gaines'),
+    row('Ventilateur / Courroie', 'ventilateur_courroie')
+  ];
+  var maintenance = d.fiche_maintenance === 'Dernière intervention de maintenance'
+    ? d.fiche_maintenance + (d.date_derniere_maintenance ? ' : ' + d.date_derniere_maintenance : '')
+    : (d.fiche_maintenance || '-');
+  rows.push(new D.TableRow({ children: [
+    new D.TableCell({ width: { size: W_LABEL, type: D.WidthType.DXA }, shading: { fill: 'E8F1F8', type: D.ShadingType.CLEAR }, verticalAlign: D.VerticalAlign.CENTER, children: [new D.Paragraph({ children: [new D.TextRun({ text: 'Fiche de Maintenance', bold: true, size: 16 })] })] }),
+    bodyCellSmall(D, maintenance, W_VAL)
+  ] }));
+  return new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: rows });
+}
+
+function reseauxTable(D, d) {
+  var W = [1800, 1800, 1800, 1800, 1800, 1800, 1800, 1949, 1749];
+  var head = ['Réseau d\u2019air', 'Forme', 'Diamètre / côté 1 (cm)', 'Côté 2 (cm)', 'Surface (m²)', 'Vitesse (m/s)', 'Débit de référence (m³/h)', 'Débit année N-1 (m³/h)', 'Débit année en cours (m³/h)'];
+  var rows = [new D.TableRow({ children: head.map(function (h, i) { return headerCell(D, h, W[i]); }) })];
+
+  [['Neuf', 'neuf'], ['Soufflé', 'souf'], ['Repris', 'rep']].forEach(function (pair) {
+    var label = pair[0], p = pair[1];
+    if (p === 'rep' && d.rep_active !== 'Oui') return;
+    var vals = [label, d[p + '_forme'], d[p + '_diametre_cote1'], d[p + '_cote2'], d[p + '_surface'], d[p + '_vitesse'], d[p + '_reference'], d[p + '_debit_n1'], d[p + '_debit']];
+    rows.push(new D.TableRow({ children: vals.map(function (v, i) {
+      var text = (v === undefined || v === null || v === '') ? '-' : String(v);
+      return bodyCellSmall(D, text, W[i], { center: i > 0 });
+    }) }));
+  });
+
+  return new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: rows });
+}
+
+// 5.4 — Extracteurs (Inserer_Annexe_5). Même paradigme que CTA (bloc par installation, pas de tableau croisé).
+function buildAnnexeExtracteur(D, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1,
+    alignment: D.AlignmentType.CENTER,
+    spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER,
+    spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'Extracteurs', italics: true, size: 20, color: '555555' })]
+  }));
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucun extracteur renseigné.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  list.forEach(function (inst, idx) {
+    var d = inst.data;
+    if (idx > 0) children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2,
+      spacing: { before: 120, after: 120 },
+      children: [new D.TextRun({ text: 'Extracteur' + (d.reference_equipement ? ' \u2014 ' + d.reference_equipement : ''), bold: true, color: BLUE, size: 24 })]
+    }));
+
+    children.push(infoTable(D, [
+      ['Bâtiment', d.batiment, 'Date du contrôle', d.date_controle],
+      ['Locaux extraits', d.locaux_extraits, 'Réf. équipement / implantation', d.reference_equipement]
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Mesures de vitesse', bold: true, size: 20, color: BLUE })] }));
+    var vitesse = (d.vitesse_mode === 'Grille de points') ? d.vitesse_moyenne_grille : d.vitesse;
+    children.push(reseauSimpleTable(D, [{
+      label: 'Extrait', forme: d.forme_section, cote1: d.diametre_cote1, cote2: d.cote2, surface: d.surface_m2,
+      vitesse: vitesse, reference: d.valeur_reference_recommandee, debitN1: d.debit_annee_n1, debit: d.debit_annee_en_cours
+    }]));
+
+    if (d.afficher_taux === 'Oui') {
+      children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Taux de renouvellement du local', bold: true, size: 20, color: BLUE })] }));
+      children.push(infoTable(D, [
+        ['Volume du local (m³)', d.volume_local, 'Référentiel', d.referentiel],
+        ['Volume par heure (vol/h)', d.volume_par_heure, 'Valeur recommandée (vol/h)', d.valeur_recommandee]
+      ]));
+      var ct = avisColor(d.conclusion_taux);
+      children.push(new D.Table({
+        width: { size: 15298, type: D.WidthType.DXA },
+        rows: [new D.TableRow({ children: [headerCell(D, 'Conclusion taux de renouvellement', 8000), bodyCell(D, d.conclusion_taux || '-', 7298, { center: true, bold: true, fill: ct ? ct.fill : undefined, color: ct ? ct.color : undefined })] })]
+      }));
+    }
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 40 }, children: [new D.TextRun({ text: 'Conclusion', bold: true, size: 20, color: BLUE })] }));
+    var c = avisColor(d.avis_constructeur);
+    children.push(new D.Table({
+      width: { size: 15298, type: D.WidthType.DXA },
+      rows: [new D.TableRow({ children: [
+        headerCell(D, 'Avis par rapport à la valeur recommandée', 8000),
+        bodyCell(D, d.avis_constructeur || '-', 7298, { center: true, bold: true, fill: c ? c.fill : undefined, color: c ? c.color : undefined })
+      ] })]
+    }));
+    children.push(new D.Paragraph({ spacing: { before: 120, after: 40 }, children: [new D.TextRun({ text: 'Observations', bold: true, size: 18 })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.observation || '-', size: 18 })] }));
+  });
+
+  return children;
+}
+
+// Tableau générique "réseau(x) mesuré(s)" à une seule ligne (utilisé par Extracteur, Gaz d'échappement, etc.)
+function reseauSimpleTable(D, reseaux) {
+  var W = [1800, 1800, 1900, 1800, 1800, 1800, 1800, 1949, 1449];
+  var head = ['Réseau d\u2019air', 'Forme', 'Diamètre / côté 1 (cm)', 'Côté 2 (cm)', 'Surface (m²)', 'Vitesse (m/s)', 'Valeur de référence (m³/h)', 'Débit année N-1 (m³/h)', 'Débit année en cours (m³/h)'];
+  var rows = [new D.TableRow({ children: head.map(function (h, i) { return headerCell(D, h, W[i]); }) })];
+  reseaux.forEach(function (r) {
+    var vals = [r.label, r.forme, r.cote1, r.cote2, r.surface, r.vitesse, r.reference, r.debitN1, r.debit];
+    rows.push(new D.TableRow({ children: vals.map(function (v, i) {
+      var text = (v === undefined || v === null || v === '') ? '-' : String(v);
+      return bodyCellSmall(D, text, W[i], { center: i > 0 });
+    }) }));
+  });
+  return new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: rows });
+}
+
+// 5.6 — Hottes (Inserer_Annexe_8, guide INRS ED 695)
+function buildAnnexeHottes(D, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1, alignment: D.AlignmentType.CENTER, spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER, spacing: { after: 200 },
+    children: [new D.TextRun({ text: 'Hotte à ventilation horizontale (guide INRS ED 695)', italics: true, size: 20, color: '555555' })]
+  }));
+  children.push(legalParagraph('Tests réalisés : mesure de la vitesse de transport et/ou mesure de la vitesse en sortie de hotte, comparées aux valeurs indiquées dans le guide INRS ED 695.', { center: true, size: 18, after: 200 }));
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucune hotte renseignée.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  list.forEach(function (inst, idx) {
+    var d = inst.data;
+    if (idx > 0) children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2, spacing: { before: 120, after: 120 },
+      children: [new D.TextRun({ text: 'Hotte' + (d.reference_equipement ? ' \u2014 ' + d.reference_equipement : ''), bold: true, color: BLUE, size: 24 })]
+    }));
+
+    children.push(infoTable(D, [
+      ['Bâtiment', d.batiment, 'Activité et référence du local', d.localisation],
+      ['Date d\u2019installation', d.date_installation, 'Date de mesure', d.date_mesure],
+      ['État visuel du réseau d\u2019aspiration', d.etat_visuel_reseau, 'Test fumigène', d.test_fumigene]
+    ]));
+
+    var mesures = d.mesures_choisies || [];
+    if (mesures.indexOf('Vitesse au point d\u2019émission') !== -1) {
+      children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Mesure de la vitesse au point d\u2019émission', bold: true, size: 20, color: BLUE })] }));
+      children.push(vpeTable(D, [
+        ['Vitesse minimale (m/s)', d.vpe_min, d.vpe_min_inrs, d.vpe_min_reference, d.avis_vpe_min],
+        ['Vitesse moyenne (m/s)', d.vpe_moyenne, d.vpe_moy_inrs, d.vpe_moy_reference, d.avis_vpe_moy]
+      ]));
+      children.push(new D.Paragraph({ spacing: { before: 100 }, children: [new D.TextRun({ text: 'Débit d\u2019air extrait (m³/h) : ' + (d.vpe_debit || '-'), size: 18, bold: true })] }));
+      if (d.vpe_grid && d.vpe_nb_points_largeur && d.vpe_nb_points_hauteur) {
+        children.push(new D.Paragraph({ spacing: { before: 160, after: 60 }, children: [new D.TextRun({ text: 'Relevé des vitesses mesurées dans le plan d\u2019ouverture — Largeur ' + (d.vpe_largeur_cm || '-') + ' cm \u00d7 Hauteur ' + (d.vpe_hauteur_cm || '-') + ' cm', size: 16, italics: true })] }));
+        children.push(measurementGridTable(D, d.vpe_grid));
+      }
+    }
+    if (mesures.indexOf('Vitesse de transport') !== -1) {
+      children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Mesure de la vitesse de transport', bold: true, size: 20, color: BLUE })] }));
+      children.push(vpeTable(D, [['Vitesse de transport (m/s)', d.vt_mesuree, d.vt_inrs, d.vt_reference, d.avis_vt]]));
+    }
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 40 }, children: [new D.TextRun({ text: 'Conclusion', bold: true, size: 20, color: BLUE })] }));
+    var c = avisColor(d.conclusion);
+    children.push(new D.Table({
+      width: { size: 15298, type: D.WidthType.DXA },
+      rows: [new D.TableRow({ children: [
+        headerCell(D, 'Avis par rapport à la réglementation et/ou aux préconisations', 8000),
+        bodyCell(D, d.conclusion || '-', 7298, { center: true, bold: true, fill: c ? c.fill : undefined, color: c ? c.color : undefined })
+      ] })]
+    }));
+    children.push(new D.Paragraph({ spacing: { before: 120, after: 40 }, children: [new D.TextRun({ text: 'Observation', bold: true, size: 18 })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.observation || '-', size: 18 })] }));
+  });
+
+  return children;
+}
+
+function vpeTable(D, rows) {
+  var W = [3800, 2800, 3800, 2800, 2098];
+  var head = ['', 'Valeurs mesurées', 'Valeurs recommandées INRS', 'Valeurs de référence', 'Avis'];
+  var out = [new D.TableRow({ children: head.map(function (h, i) { return headerCell(D, h, W[i]); }) })];
+  rows.forEach(function (r) {
+    var c = avisColor(r[4]);
+    out.push(new D.TableRow({ children: [
+      new D.TableCell({ width: { size: W[0], type: D.WidthType.DXA }, shading: { fill: 'E8F1F8', type: D.ShadingType.CLEAR }, verticalAlign: D.VerticalAlign.CENTER, children: [new D.Paragraph({ children: [new D.TextRun({ text: r[0], bold: true, size: 16 })] })] }),
+      bodyCellSmall(D, r[1] !== undefined && r[1] !== '' ? String(r[1]) : '-', W[1], { center: true }),
+      bodyCellSmall(D, r[2] !== undefined && r[2] !== '' ? String(r[2]) : '-', W[2], { center: true }),
+      bodyCellSmall(D, r[3] !== undefined && r[3] !== '' ? String(r[3]) : '-', W[3], { center: true }),
+      bodyCellSmall(D, r[4] || '-', W[4], { center: true, bold: true, fill: c ? c.fill : undefined, color: c ? c.color : undefined })
+    ] }));
+  });
+  return new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: out });
+}
+
+// Tableau brut d'une grille de points de mesure (lignes × colonnes), sans en-têtes de dimension
+function measurementGridTable(D, grid) {
+  var nRows = grid.length, nCols = grid[0] ? grid[0].length : 0;
+  if (nCols === 0) return new D.Paragraph({ children: [new D.TextRun({ text: 'Grille vide', italics: true, size: 16 })] });
+  var W = Math.floor(15298 / nCols);
+  var rows = [];
+  for (var i = 0; i < nRows; i++) {
+    var cells = [];
+    for (var j = 0; j < nCols; j++) {
+      var v = grid[i][j];
+      cells.push(bodyCellSmall(D, (v === undefined || v === null || v === '') ? '-' : String(v), W, { center: true }));
+    }
+    rows.push(new D.TableRow({ children: cells }));
+  }
+  return new D.Table({ width: { size: W * nCols, type: D.WidthType.DXA }, rows: rows });
+}
+
+// 5.7 — Bras d'aspiration articulés (Inserer_Annexe_9)
+function buildAnnexeBrasAspiration(D, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1, alignment: D.AlignmentType.CENTER, spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER, spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'Bras articulé', italics: true, size: 20, color: '555555' })]
+  }));
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucun bras articulé renseigné.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  list.forEach(function (inst, idx) {
+    var d = inst.data;
+    if (idx > 0) children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2, spacing: { before: 120, after: 120 },
+      children: [new D.TextRun({ text: 'Bras articulé' + (d.reference_equipement ? ' \u2014 ' + d.reference_equipement : ''), bold: true, color: BLUE, size: 24 })]
+    }));
+
+    children.push(new D.Paragraph({ spacing: { after: 80 }, children: [new D.TextRun({ text: 'Identification du bras aspirant', bold: true, size: 20, color: BLUE })] }));
+    children.push(infoTable(D, [
+      ['Bâtiment', d.batiment, 'Atelier', d.atelier],
+      ['Activité', d.activite, 'Référence de l\u2019équipement', d.reference_equipement]
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Examen visuel de l\u2019état des éléments de l\u2019installation', bold: true, size: 20, color: BLUE })] }));
+    children.push(infoTable(D, [
+      ['Adapté à la situation', d.adapte_situation, 'Recyclage', d.recyclage],
+      ['État visuel', d.etat_visuel, 'État des conduits aérauliques', d.etat_conduits],
+      ['Test fumigène', d.test_fumigene, 'Conditions de dispersion du polluant', d.conditions_dispersion],
+      ['Commentaire', d.commentaire_1, '', '']
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Dimensionnement', bold: true, size: 20, color: BLUE })] }));
+    children.push(infoTable(D, [
+      ['Type de bouche d\u2019aspiration', d.type_bouche, 'Diamètre du conduit (cm)', d.diametre_conduit],
+      ['Diamètre de la bouche (cm)', d.diametre_bouche, 'Longueur × largeur si ovale (cm)', (d.longueur_bouche_ovale || d.largeur_bouche_ovale) ? (d.longueur_bouche_ovale || '-') + ' × ' + (d.largeur_bouche_ovale || '-') : '-'],
+      ['Surface de la bouche (m²)', d.surface_bouche, '', '']
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Résultats des mesures de vitesse et de débit d\u2019air', bold: true, size: 20, color: BLUE })] }));
+    var W = [3060, 3060, 3060, 3059, 3059];
+    var head = ['Vitesse moyenne mesurée (m/s)', 'Débit calculé (m³/h)', 'Distance maximum de captage à 0,5 m/s (cm)', 'Distance d\u2019utilisation (cm)', 'Avis'];
+    var c = avisColor(d.conclusion_distance);
+    children.push(new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: [
+      new D.TableRow({ children: head.map(function (h, i) { return headerCell(D, h, W[i]); }) }),
+      new D.TableRow({ children: [
+        bodyCellSmall(D, d.vitesse_moyenne !== undefined ? String(d.vitesse_moyenne) : '-', W[0], { center: true }),
+        bodyCellSmall(D, d.debit_calcule !== undefined ? String(d.debit_calcule) : '-', W[1], { center: true }),
+        bodyCellSmall(D, d.distance_max_captage !== undefined ? String(d.distance_max_captage) : '-', W[2], { center: true }),
+        bodyCellSmall(D, d.distance_utilisation !== undefined ? String(d.distance_utilisation) : '-', W[3], { center: true }),
+        bodyCellSmall(D, d.conclusion_distance || '-', W[4], { center: true, bold: true, fill: c ? c.fill : undefined, color: c ? c.color : undefined })
+      ] })
+    ] }));
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 40 }, children: [new D.TextRun({ text: 'Conclusion', bold: true, size: 20, color: BLUE })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.conclusion || '-', size: 18 })] }));
+  });
+
+  return children;
+}
+
+// 5.8 — Installations avec captage localisé / équipements divers (Inserer_Annexe_11, guide INRS ED 695)
+function buildAnnexeInstallationsDiverses(D, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1, alignment: D.AlignmentType.CENTER, spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER, spacing: { after: 200 },
+    children: [new D.TextRun({ text: 'Équipements divers', italics: true, size: 20, color: '555555' })]
+  }));
+  children.push(legalParagraph('Tests réalisés : mesure de la vitesse de transport et/ou mesure de la vitesse au point d\u2019émission, comparées aux valeurs indiquées par le guide INRS ED 695.', { center: true, size: 18, after: 200 }));
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucun équipement renseigné.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  list.forEach(function (inst, idx) {
+    var d = inst.data;
+    if (idx > 0) children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2, spacing: { before: 120, after: 120 },
+      children: [new D.TextRun({ text: 'Équipement' + (d.reference_equipement ? ' \u2014 ' + d.reference_equipement : ''), bold: true, color: BLUE, size: 24 })]
+    }));
+
+    children.push(infoTable(D, [
+      ['Bâtiment', d.batiment, 'Activité et référence du local', d.localisation],
+      ['Réf. équipement', d.reference_equipement, 'État visuel du réseau d\u2019aspiration', d.etat_visuel_reseau],
+      ['Test fumigène', d.test_fumigene, '', '']
+    ]));
+
+    var mesures = d.mesures_choisies || [];
+    if (mesures.indexOf('Vitesse au point d\u2019émission') !== -1) {
+      children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Mesure de la vitesse au point d\u2019émission', bold: true, size: 20, color: BLUE })] }));
+      children.push(vpeTable(D, [['Vitesse (m/s)', d.vpe_mesuree, d.vpe_inrs, d.vpe_reference, d.avis_vpe]]));
+    }
+    if (mesures.indexOf('Vitesse de transport') !== -1) {
+      children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Mesure de la vitesse de transport', bold: true, size: 20, color: BLUE })] }));
+      children.push(new D.Paragraph({ spacing: { after: 60 }, children: [new D.TextRun({ text: 'Type de polluants : ' + (d.vt_type_polluant || '-'), size: 18 })] }));
+      children.push(vpeTable(D, [['Vitesse (m/s)', d.vt_mesuree, d.vt_inrs, d.vt_reference, d.avis_vt]]));
+    }
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 40 }, children: [new D.TextRun({ text: 'Conclusion', bold: true, size: 20, color: BLUE })] }));
+    var c = avisColor(d.avis);
+    children.push(new D.Table({
+      width: { size: 15298, type: D.WidthType.DXA },
+      rows: [new D.TableRow({ children: [
+        headerCell(D, 'Avis par rapport à la réglementation et/ou aux préconisations', 8000),
+        bodyCell(D, d.avis || '-', 7298, { center: true, bold: true, fill: c ? c.fill : undefined, color: c ? c.color : undefined })
+      ] })]
+    }));
+    children.push(new D.Paragraph({ spacing: { before: 120, after: 40 }, children: [new D.TextRun({ text: 'Observation', bold: true, size: 18 })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.observation || '-', size: 18 })] }));
+    if (d.remarque) {
+      children.push(new D.Paragraph({ spacing: { before: 80 }, children: [new D.TextRun({ text: 'Remarque : ' + d.remarque, size: 16, italics: true })] }));
+    }
+  });
+
+  return children;
+}
+
+// 5.9 — Locaux de charge d'accumulateurs (Inserer_Annexe_16, guide INRS ED6120 / NF EN 62485-3)
+function buildAnnexeLocauxCharge(D, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1, alignment: D.AlignmentType.CENTER, spacing: { after: 200 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER, spacing: { after: 200 },
+    children: [new D.TextRun({ text: 'Locaux de charge d\u2019accumulateurs', italics: true, size: 20, color: '555555' })]
+  }));
+  children.push(legalParagraph('RÉFÉRENTIELS', { bold: true, center: true, size: 20, after: 100 }));
+  children.push(legalParagraph('Guide INRS ED6120 - Avril 2018 : Charge des batteries d\u2019accumulateurs au plomb', { center: true, size: 18 }));
+  children.push(legalParagraph('Norme NF EN 62485-3 - Janvier 2015 : Exigences de sécurité pour les batteries d\u2019accumulateurs et les installations de batteries', { center: true, size: 18, after: 160 }));
+  children.push(legalParagraph('Locaux concernés : locaux de charge de batteries de traction au plomb', { center: true, size: 18, italics: true }));
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucun local de charge renseigné.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  list.forEach(function (inst, idx) {
+    var d = inst.data;
+    children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2, spacing: { before: 120, after: 120 },
+      children: [new D.TextRun({ text: 'Local de charge' + (d.reference_equipement ? ' \u2014 ' + d.reference_equipement : ''), bold: true, color: BLUE, size: 24 })]
+    }));
+
+    children.push(infoTable(D, [
+      ['Localisation', d.localisation, 'Bâtiment', d.batiment],
+      ['Réf. de l\u2019équipement', d.reference_equipement, 'Date de contrôle', d.date_controle],
+      ['Ventilation permanente', d.ventilation_permanente, 'Ventilation asservie aux chargeurs', d.ventilation_asservie],
+      ['Débit variable', d.debit_variable, 'Réglage du variateur', d.reglage_variateur],
+      ['État visuel des installations', Array.isArray(d.etat_visuel) ? d.etat_visuel.join(', ') : d.etat_visuel, '', '']
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Mesure du débit', bold: true, size: 20, color: BLUE })] }));
+    var W = [3825, 3825, 3824, 3824];
+    var c = avisColor(d.avis);
+    children.push(new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: [
+      new D.TableRow({ children: [
+        headerCell(D, 'Valeur de référence (m³/h)', W[0]), headerCell(D, 'Valeur recommandée guide INRS (m³/h)', W[1]),
+        headerCell(D, 'Débit mesuré du local (m³/h)', W[2]), headerCell(D, 'Avis', W[3])
+      ] }),
+      new D.TableRow({ children: [
+        bodyCellSmall(D, d.valeur_reference || '/', W[0], { center: true }),
+        bodyCellSmall(D, d.valeur_inrs !== undefined ? String(d.valeur_inrs) : '-', W[1], { center: true }),
+        bodyCellSmall(D, d.debit_mesure_local !== undefined ? String(d.debit_mesure_local) : '-', W[2], { center: true }),
+        bodyCellSmall(D, d.avis || '-', W[3], { center: true, bold: true, fill: c ? c.fill : undefined, color: c ? c.color : undefined })
+      ] })
+    ] }));
+
+    children.push(new D.Paragraph({ spacing: { before: 160, after: 40 }, children: [new D.TextRun({ text: 'Conclusion : Le dispositif doit satisfaire aux préconisations indiquées par l\u2019INRS.', bold: true, size: 18 })] }));
+    children.push(new D.Paragraph({ spacing: { before: 80, after: 40 }, children: [new D.TextRun({ text: 'Observations', bold: true, size: 18 })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.observation || '-', size: 18 })] }));
+
+    // Calcul du débit — grilles
+    var grilles = [];
+    for (var i = 1; i <= 10; i++) {
+      if (d['grille' + i + '_debit_obtenu'] !== undefined && d['grille' + i + '_debit_obtenu'] !== '') grilles.push(i);
+    }
+    if (grilles.length > 0) {
+      children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Calcul du débit \u2014 mesure sur les grilles', bold: true, size: 20, color: BLUE })] }));
+      var GW = [1913, 1913, 1913, 1912, 1912, 1912, 1913, 1912];
+      var ghead = ['Grille', 'Largeur (cm)', 'Longueur (cm)', 'Diamètre (cm)', 'Débit mesuré au cône (m³/h)', 'Vitesse mesurée (m/s)', 'Débit obtenu (m³/h)', ''];
+      var grows = [new D.TableRow({ children: ghead.map(function (h, i2) { return headerCell(D, h, GW[i2]); }) })];
+      grilles.forEach(function (i2) {
+        var p = 'grille' + i2;
+        var vals = ['n°' + i2, d[p + '_largeur'], d[p + '_longueur'], d[p + '_diametre'], d[p + '_debit_cone'], d[p + '_valeur_mesuree'], d[p + '_debit_obtenu'], ''];
+        grows.push(new D.TableRow({ children: vals.map(function (v, i3) {
+          var text = (v === undefined || v === null || v === '') ? '-' : String(v);
+          return bodyCellSmall(D, text, GW[i3], { center: i3 > 0 });
+        }) }));
+      });
+      children.push(new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: grows }));
+    }
+
+    // Calcul du débit nécessaire — chargeurs
+    var chargeurs = Array.isArray(d.chargeurs) ? d.chargeurs : [];
+    if (chargeurs.length > 0) {
+      children.push(new D.Paragraph({ spacing: { before: 200, after: 80 }, children: [new D.TextRun({ text: 'Calcul du débit nécessaire \u2014 chargeurs (guide INRS)', bold: true, size: 20, color: BLUE })] }));
+      var CW = [1275, 3230, 3230, 3230, 3230, 3103];
+      var chead = ['Type', 'Nombre', 'Tension de sortie (V)', 'Courant de sortie (A)', 'Débit théorique (m³/h)', ''];
+      var crows = [new D.TableRow({ children: chead.map(function (h, i2) { return headerCell(D, h, CW[i2]); }) })];
+      chargeurs.forEach(function (ch, i2) {
+        var deb = chargerDebit(ch);
+        var vals = ['Type ' + (i2 + 1), ch.nb, ch.tension, ch.courant, deb !== '' ? deb : '-', ''];
+        crows.push(new D.TableRow({ children: vals.map(function (v, i3) {
+          var text = (v === undefined || v === null || v === '') ? '-' : String(v);
+          return bodyCellSmall(D, text, CW[i3], { center: i3 > 0 });
+        }) }));
+      });
+      children.push(new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: crows }));
+    }
+  });
+
+  return children;
+}
+
+function buildAnnexeProvisoire(D, t, list) {
   var children = [];
   var borders = {
     top: { style: D.BorderStyle.SINGLE, size: 4, color: BLUE },
@@ -549,59 +1334,56 @@ function buildAnnexesProvisoires(D, m) {
     left: { style: D.BorderStyle.SINGLE, size: 4, color: BLUE },
     right: { style: D.BorderStyle.SINGLE, size: 4, color: BLUE }
   };
+  var W_LABEL = 4800, W_VALUE = 9800;
 
   function labelCell(text) {
     return new D.TableCell({
-      width: { size: 3800, type: D.WidthType.DXA }, borders: borders,
+      width: { size: W_LABEL, type: D.WidthType.DXA }, borders: borders,
       shading: { fill: 'E8F1F8', type: D.ShadingType.CLEAR },
       children: [new D.Paragraph({ children: [new D.TextRun({ text: text, bold: true, size: 18 })] })]
     });
   }
   function valueCell(text) {
     return new D.TableCell({
-      width: { size: 5560, type: D.WidthType.DXA }, borders: borders,
+      width: { size: W_VALUE, type: D.WidthType.DXA }, borders: borders,
       children: [new D.Paragraph({ children: [new D.TextRun({ text: text, size: 18 })] })]
     });
   }
   function sectionRow(text) {
     return new D.TableRow({ children: [new D.TableCell({
-      columnSpan: 2, width: { size: 9360, type: D.WidthType.DXA }, borders: borders,
+      columnSpan: 2, width: { size: W_LABEL + W_VALUE, type: D.WidthType.DXA }, borders: borders,
       shading: { fill: BLUE, type: D.ShadingType.CLEAR },
       children: [new D.Paragraph({ children: [new D.TextRun({ text: text, bold: true, size: 18, color: 'FFFFFF' })] })]
     })] });
   }
 
-  INSTALLATION_TYPES.forEach(function (t) {
-    var list = (m.installations && m.installations[t.id]) || [];
-    if (list.length === 0) return;
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_2,
+    spacing: { before: 120, after: 120 },
+    children: [new D.TextRun({ text: t.label + ' (' + list.length + ') \u2014 version provisoire', bold: true, color: BLUE, size: 24 })]
+  }));
 
-    children.push(new D.Paragraph({
-      spacing: { before: 360, after: 120 },
-      children: [new D.TextRun({ text: t.label + ' (' + list.length + ')', bold: true, size: 26, color: BLUE })]
-    }));
-
-    list.forEach(function (inst, idx) {
-      var rows = [];
-      t.fields.forEach(function (f) {
-        if (f.type === 'photo') return;
-        if (f.type === 'section') { var r = sectionRow(f.label); r.__section = true; rows.push(r); return; }
-        var val = inst.data[f.key];
-        if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) return;
-        if (Array.isArray(val)) val = val.join(', ');
-        rows.push(new D.TableRow({ children: [labelCell(f.label), valueCell(String(val))] }));
-      });
-      var finalRows = [];
-      for (var i = 0; i < rows.length; i++) {
-        if (rows[i].__section && (i === rows.length - 1 || rows[i + 1].__section)) continue;
-        finalRows.push(rows[i]);
-      }
-      if (finalRows.length === 0) return;
-      children.push(new D.Paragraph({
-        spacing: { before: 120, after: 60 },
-        children: [new D.TextRun({ text: 'Installation ' + (idx + 1), bold: true, size: 20 })]
-      }));
-      children.push(new D.Table({ width: { size: 9360, type: D.WidthType.DXA }, columnWidths: [3800, 5560], rows: finalRows }));
+  list.forEach(function (inst, idx) {
+    var rows = [];
+    t.fields.forEach(function (f) {
+      if (f.type === 'photo') return;
+      if (f.type === 'section') { var r = sectionRow(f.label); r.__section = true; rows.push(r); return; }
+      var val = inst.data[f.key];
+      if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) return;
+      if (Array.isArray(val)) val = val.join(', ');
+      rows.push(new D.TableRow({ children: [labelCell(f.label), valueCell(String(val))] }));
     });
+    var finalRows = [];
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].__section && (i === rows.length - 1 || rows[i + 1].__section)) continue;
+      finalRows.push(rows[i]);
+    }
+    if (finalRows.length === 0) return;
+    children.push(new D.Paragraph({
+      spacing: { before: 120, after: 60 },
+      children: [new D.TextRun({ text: 'Installation ' + (idx + 1), bold: true, size: 20 })]
+    }));
+    children.push(new D.Table({ width: { size: W_LABEL + W_VALUE, type: D.WidthType.DXA }, columnWidths: [W_LABEL, W_VALUE], rows: finalRows }));
   });
 
   return children;
