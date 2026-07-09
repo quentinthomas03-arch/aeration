@@ -70,14 +70,7 @@ function renderTypeList() {
 function addInstallation(typeId) {
   var m = getCurrentMission();
   if (!m.installations[typeId]) m.installations[typeId] = [];
-  var t = getInstallationType(typeId);
-  var data = {};
-  if (t && t.fields) {
-    t.fields.forEach(function (f) {
-      if (f.default !== undefined) data[f.key] = f.default;
-    });
-  }
-  m.installations[typeId].push({ id: generateId(), data: data });
+  m.installations[typeId].push({ id: generateId(), data: {} });
   persistMissions();
   state.currentTypeId = typeId;
   state.currentInstIndex = m.installations[typeId].length - 1;
@@ -99,7 +92,6 @@ function renderInstallationForm() {
   if (!m || !t) { state.view = 'home'; render(); return ''; }
   var inst = m.installations[t.id][state.currentInstIndex];
   if (!inst) { state.view = 'type-list'; render(); return ''; }
-  if (typeof applyCalculations === 'function') applyCalculations(t.id, inst);
 
   var h = '<button class="back-btn" onclick="state.view=\'type-list\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>';
   h += '<div class="card"><h1>' + getIcon(t.icon) + ' ' + escapeHtml(t.label) + '</h1></div>';
@@ -124,9 +116,6 @@ function renderInstallationForm() {
 }
 
 function evalShowIf(cond, data) {
-  if (cond.and !== undefined) {
-    return cond.and.every(function (c) { return evalShowIf(c, data); });
-  }
   var v = data[cond.key];
   if (cond.contains !== undefined) {
     return Array.isArray(v) ? v.indexOf(cond.contains) !== -1 : v === cond.contains;
@@ -171,40 +160,6 @@ function renderFieldInput(typeId, f, inst) {
     h += '</div>';
     return h;
   }
-  if (f.type === 'toggle') {
-    var opts = f.options || ['Oui', 'Non'];
-    var h = '<div class="row">';
-    opts.forEach(function (opt) {
-      var selected = val === opt;
-      h += '<button type="button" class="install-select-btn' + (selected ? ' selected' : '') +
-        '" style="flex:1;padding:10px 6px;font-size:12px;' + (selected ? '' : 'background:linear-gradient(135deg,#9ca3af,#6b7280);') + '" ' +
-        'onclick="updateInstallationField(\'' + typeId + '\',\'' + f.key + '\',\'' + escapeHtml(opt).replace(/'/g, "\\'") + '\');render();">' +
-        escapeHtml(opt) + '</button>';
-    });
-    h += '</div>';
-    return h;
-  }
-  if (f.type === 'boolean') {
-    var checked = val === true || val === 'true';
-    return '<label style="display:flex;align-items:center;gap:8px;font-size:13px;">' +
-      '<input type="checkbox"' + (checked ? ' checked' : '') +
-      ' onchange="updateInstallationField(\'' + typeId + '\',\'' + f.key + '\',this.checked);">' +
-      (f.checkboxLabel ? escapeHtml(f.checkboxLabel) : 'Oui') + '</label>';
-  }
-  if (f.type === 'satisf') {
-    var opts2 = ['Satisfaisant', 'Non Satisfaisant'];
-    var h = '<div class="row">';
-    opts2.forEach(function (opt) {
-      var selected = val === opt;
-      var bg = selected ? (opt === 'Satisfaisant' ? 'background:linear-gradient(135deg,#22c55e,#16a34a);' : 'background:linear-gradient(135deg,#ef4444,#dc2626);') : '';
-      h += '<button type="button" class="install-select-btn' + (selected ? ' selected' : '') +
-        '" style="flex:1;padding:10px 6px;font-size:11px;' + bg + '" ' +
-        'onclick="updateInstallationField(\'' + typeId + '\',\'' + f.key + '\',\'' + opt + '\');render();">' +
-        escapeHtml(opt) + '</button>';
-    });
-    h += '</div>';
-    return h;
-  }
   if (f.type === 'computed') {
     var display = (val === '' || val === undefined) ? '—' : String(val);
     var bg = '#f3f4f6', fg = '#374151';
@@ -214,8 +169,8 @@ function renderFieldInput(typeId, f, inst) {
     return '<div style="padding:10px 12px;border-radius:8px;background:' + bg + ';color:' + fg + ';font-weight:600;font-size:14px;">' + escapeHtml(display) + '</div>';
   }
   if (f.type === 'grid') {
-    var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, 20);
-    var rows = Math.min(parseInt(inst.data[f.rowsKey], 10) || 0, 20);
+    var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, 5);
+    var rows = Math.min(parseInt(inst.data[f.rowsKey], 10) || 0, 5);
     if (!cols || !rows) return '<div class="subtitle">Renseignez d\u2019abord le nombre de points (largeur et hauteur).</div>';
     var grid = Array.isArray(val) ? val : [];
     var h = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;">';
