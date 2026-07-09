@@ -57,6 +57,7 @@ function importMissionFromText(text) {
     INSTALLATION_TYPES.forEach(function (t) {
       if (!mission.installations[t.id]) mission.installations[t.id] = [];
     });
+    normalizeMission(mission);
 
     var exists = state.missions.some(function (m) { return m.id === mission.id; });
     if (exists) {

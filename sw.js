@@ -1,5 +1,5 @@
 // sw.js - Service Worker Contrôle Aération
-const CACHE_NAME = 'aeration-v1.8';
+const CACHE_NAME = 'aeration-v1.9';
 const urlsToCache = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const urlsToCache = [
   './web-app-manifest-192x192.png',
   './web-app-manifest-512x512.png',
   './web-app-manifest-maskable-512x512.png',
+  './assets/logo-socotec.jpg',
   './js/icons.js',
   './js/state.js',
   './js/installations-schema.js',
@@ -19,6 +20,8 @@ const urlsToCache = [
   './js/import-export.js',
   './js/installations.js',
   './js/missions.js',
+  './js/selection-installations.js',
+  './js/profil-technicien.js',
   './js/app.js',
   './js/main.css'
 ];

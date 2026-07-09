@@ -76,7 +76,8 @@ function renderMissionForm() {
     { key: 'telAuteur', label: 'Tel de l\u2019auteur' },
     { key: 'mailAgenceAuteur', label: 'Mail agence ou auteur' },
     { key: 'datesIntervention', label: 'Date(s) d\u2019intervention' },
-    { key: 'dateRapport', label: 'Date du rapport' }
+    { key: 'dateRapport', label: 'Date du rapport' },
+    { key: 'natureRevision', label: 'Nature de la révision' }
   ]);
 
   h += renderMissionSection('Informations sur le client', 'infosClient', m, [
@@ -109,6 +110,9 @@ function renderMissionForm() {
     { key: 'mailContact', label: 'Mail du contact' }
   ]);
 
+  h += renderDocumentsTransmisSection(m);
+  h += renderDescriptionLocauxSection(m);
+
   if (isNew) {
     h += '<button class="btn btn-primary" style="margin-top:14px;" onclick="state.view=\'select-installations\';render();">' + ICONS.arrowRight + ' Continuer : sélection des installations</button>';
   } else {
@@ -126,6 +130,67 @@ function renderMissionSection(title, section, m, fields) {
     h += '<input type="text" class="input" value="' + escapeHtml(val) + '" onchange="updateMissionField(\'' + section + '\',\'' + f.key + '\',this.value);">';
     h += '</div>';
   });
+  h += '</div>';
+  return h;
+}
+
+// Onglet "Entrées" — Documents transmis à SOCOTEC (feuille "Info" du fichier d'origine)
+function renderDocumentsTransmisSection(m) {
+  var dt = m.documentsTransmis || { documents: [], notice: [], observations: '' };
+  var h = '<div class="card"><div class="section-title">Documents transmis à SOCOTEC</div>';
+
+  dt.documents.forEach(function (doc, i) {
+    h += '<div class="field"><label class="label">' + escapeHtml(doc.label) + '</label>';
+    h += '<div class="row" style="gap:8px;align-items:flex-start;">';
+    h += '<select class="input" style="max-width:120px;" onchange="updateDocumentTransmis(' + i + ',\'transmis\',this.value);">';
+    ['', 'Oui', 'Non'].forEach(function (opt) {
+      h += '<option value="' + opt + '"' + (doc.transmis === opt ? ' selected' : '') + '>' + (opt || '—') + '</option>';
+    });
+    h += '</select>';
+    h += '<input type="text" class="input" placeholder="Commentaire" value="' + escapeHtml(doc.commentaire) + '" onchange="updateDocumentTransmis(' + i + ',\'commentaire\',this.value);">';
+    h += '</div></div>';
+  });
+
+  h += '<div class="section-title" style="margin-top:12px;">Notice d\u2019instruction et consignes d\u2019utilisation (article R.4222-21)</div>';
+  dt.notice.forEach(function (n, i) {
+    h += '<div class="field"><label class="label">' + escapeHtml(n.label) + '</label>';
+    h += '<div class="row" style="gap:8px;align-items:flex-start;">';
+    h += '<select class="input" style="max-width:150px;" onchange="updateNoticeInstruction(' + i + ',\'presence\',this.value);">';
+    ['', 'Présence', 'Absence', 'Sans objet'].forEach(function (opt) {
+      h += '<option value="' + opt + '"' + (n.presence === opt ? ' selected' : '') + '>' + (opt || '—') + '</option>';
+    });
+    h += '</select>';
+    h += '<input type="text" class="input" placeholder="Commentaire" value="' + escapeHtml(n.commentaire) + '" onchange="updateNoticeInstruction(' + i + ',\'commentaire\',this.value);">';
+    h += '</div></div>';
+  });
+
+  h += '<div class="field"><label class="label">Observations</label>';
+  h += '<textarea class="input" rows="3" onchange="updateMissionField(\'documentsTransmis\',\'observations\',this.value);">' + escapeHtml(dt.observations) + '</textarea></div>';
+
+  h += '</div>';
+  return h;
+}
+
+function updateDocumentTransmis(index, key, value) {
+  var m = getCurrentMission();
+  if (!m || !m.documentsTransmis) return;
+  m.documentsTransmis.documents[index][key] = value;
+  persistMissions();
+}
+
+function updateNoticeInstruction(index, key, value) {
+  var m = getCurrentMission();
+  if (!m || !m.documentsTransmis) return;
+  m.documentsTransmis.notice[index][key] = value;
+  persistMissions();
+}
+
+// Onglet "Entrées" — Description générale des locaux
+function renderDescriptionLocauxSection(m) {
+  var dl = m.descriptionLocaux || { locauxExclus: '' };
+  var h = '<div class="card"><div class="section-title">Description générale des locaux</div>';
+  h += '<div class="field"><label class="label">Locaux exclus de la prestation (optionnel)</label>';
+  h += '<textarea class="input" rows="2" onchange="updateMissionField(\'descriptionLocaux\',\'locauxExclus\',this.value);">' + escapeHtml(dl.locauxExclus) + '</textarea></div>';
   h += '</div>';
   return h;
 }

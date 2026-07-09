@@ -39,6 +39,17 @@ function loadData() {
     var m = localStorage.getItem('aeration_missions_v1');
     if (m) state.missions = JSON.parse(m);
   } catch (e) {}
+  state.missions.forEach(normalizeMission);
+}
+
+// Complète les missions sauvegardées avant l'ajout de nouveaux champs (rétrocompatibilité)
+function normalizeMission(m) {
+  var ref = createEmptyMission();
+  if (!m.donneesInternes) m.donneesInternes = {};
+  if (m.donneesInternes.natureRevision === undefined) m.donneesInternes.natureRevision = ref.donneesInternes.natureRevision;
+  if (!m.documentsTransmis) m.documentsTransmis = ref.documentsTransmis;
+  if (!m.descriptionLocaux) m.descriptionLocaux = ref.descriptionLocaux;
+  return m;
 }
 
 function persistMissions() {
@@ -74,7 +85,8 @@ function createEmptyMission() {
       telAuteur: '',
       mailAgenceAuteur: '',
       datesIntervention: '',
-      dateRapport: ''
+      dateRapport: '',
+      natureRevision: 'Version initiale'
     },
 
     // Onglet "Entrées" — Informations sur le client
@@ -111,6 +123,28 @@ function createEmptyMission() {
     // Sélection des installations contrôlées (section 3 de l'onglet Entrées)
     typeMission: '',        // 'non_specifique' | 'globale'
     typesSelectionnes: [],  // ids des INSTALLATION_TYPES retenus pour cette mission
+
+    // Onglet "Entrées" — Documents transmis à SOCOTEC (feuille "Info" du fichier d'origine)
+    documentsTransmis: {
+      documents: [
+        { label: 'Plan général de l\u2019installation', transmis: '', commentaire: '' },
+        { label: 'Nombre de postes de travail par local', transmis: '', commentaire: '' },
+        { label: 'Données techniques sur les centrales de traitement d\u2019air (CTA)', transmis: '', commentaire: '' },
+        { label: 'Planning annuel de maintenance préventive', transmis: '', commentaire: '' },
+        { label: 'Contrat d\u2019entretien et de maintenance', transmis: '', commentaire: '' },
+        { label: 'Résultats de la vérification de l\u2019année précédente', transmis: '', commentaire: '' }
+      ],
+      notice: [
+        { label: 'Notice d\u2019instruction y compris Dossier de Valeurs de Référence', presence: '', commentaire: '' },
+        { label: 'Consigne d\u2019utilisation', presence: '', commentaire: '' }
+      ],
+      observations: ''
+    },
+
+    // Onglet "Entrées" — Description générale des locaux (locaux exclus de la prestation)
+    descriptionLocaux: {
+      locauxExclus: ''
+    },
 
     installations: installations
   };
