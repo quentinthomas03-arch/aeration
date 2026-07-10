@@ -23,10 +23,10 @@ var SYNTHESE_CONFIG = {
   cta: { titre: 'Conclusion sur les CTA', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Réf. équipement et/ou implantation', avis: 'avis', commentaire: 'observation' },
   extracteur: { titre: 'Conclusion sur les extracteurs', col1: 'batiment', col1Label: 'Bâtiment', col2: 'locaux_extraits', col2Label: 'Réf. équipement et/ou implantation', avis: 'avis_constructeur', commentaire: 'observation' },
   erp: { titre: 'Conclusion sur les contrôles des locaux à pollution non spécifique dans un établissement recevant du public', col1: 'batiment', col1Label: 'Bâtiment', col2: 'type_local', col2Label: 'Type de local', avis: 'avis', commentaire: 'commentaire' },
-  sorbonnes: { titre: 'Conclusion sur les Sorbonnes', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Activité et référence du local', avis: 'conclusion', commentaire: 'commentaire' },
+  sorbonnes: { titre: 'Conclusion sur les Sorbonnes', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Activité et référence du local', avis: 'vitesse_min_avis_norme', commentaire: 'commentaire' },
   hottes: { titre: 'Conclusion sur les hottes et dosserets aspirants', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Activité et référence du local', avis: 'avis_vt', commentaire: 'observation' },
   bras_aspiration: { titre: 'Conclusion sur les Bras Orientables Articulés', col1: 'batiment', col1Label: 'Bâtiment', col2: 'reference_equipement', col2Label: 'Référence équipement', avis: 'conclusion', commentaire: 'commentaire_1' },
-  cabines_peinture: { titre: 'Conclusion sur les cabines de peinture', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Description de la cabine', avis: 'conclusion', commentaire: 'observations' },
+  cabines_peinture: { titre: 'Conclusion sur les cabines de peinture', col1: 'batiment', col1Label: 'Bâtiment', col2: 'reference_equipement', col2Label: 'Référence de l\u2019équipement', col3: 'type_cabine', col3Label: 'Type de cabine', avis: 'conclusion', commentaire: 'observations' },
   installations_diverses: { titre: 'Conclusion sur les équipements divers', col1: 'batiment', col1Label: 'Bâtiment', col2: 'localisation', col2Label: 'Activité et référence du local', avis: 'avis', commentaire: 'observation' },
   gaz_echappement: { titre: 'Conclusion sur les captages de gaz d\u2019échappement', col1: 'batiment', col1Label: 'Bâtiment/Atelier', col2: 'reference_equipement', col2Label: 'Réf. équipement et/ou implantation', avis: 'avis_constructeur', commentaire: 'observation' },
   menuiserie: { titre: 'Conclusion sur le débit global d\u2019air extrait', col1: 'batiment', col1Label: 'Bâtiment', avis: 'avis_constructeur', commentaire: 'observation' },
@@ -112,7 +112,7 @@ function buildRapportDoc(m, logoBuf) {
 
   // Types dont l'annexe fidèle (tableau croisé + extraits du Code du travail) est prête.
   // Les autres restent en dump provisoire champ/valeur en attendant leur lot.
-  var ANNEXES_FIDELES = { bureaux: buildAnnexeBureaux, sanitaires: buildAnnexeSanitaires, cta: buildAnnexeCTA, extracteur: buildAnnexeExtracteur, hottes: buildAnnexeHottes, bras_aspiration: buildAnnexeBrasAspiration, installations_diverses: buildAnnexeInstallationsDiverses, locaux_charge: buildAnnexeLocauxCharge };
+  var ANNEXES_FIDELES = { bureaux: buildAnnexeBureaux, sanitaires: buildAnnexeSanitaires, cta: buildAnnexeCTA, extracteur: buildAnnexeExtracteur, hottes: buildAnnexeHottes, bras_aspiration: buildAnnexeBrasAspiration, installations_diverses: buildAnnexeInstallationsDiverses, locaux_charge: buildAnnexeLocauxCharge, sorbonnes: buildAnnexeSorbonnes, cabines_peinture: buildAnnexeCabinesPeinture, box_peinture: buildAnnexeBoxPeinture, erp: buildAnnexeERP, menuiserie_bis: buildAnnexeMenuiserieMAB };
 
   INSTALLATION_TYPES.forEach(function (t) {
     var list = (m.installations && m.installations[t.id]) || [];
@@ -655,7 +655,7 @@ function legalParagraph(text, opts) {
   return new docx.Paragraph({
     alignment: opts.center ? docx.AlignmentType.CENTER : docx.AlignmentType.JUSTIFIED,
     spacing: { after: opts.after !== undefined ? opts.after : 120 },
-    children: [new docx.TextRun({ text: text, bold: !!opts.bold, italics: !!opts.italics, size: opts.size || 19 })]
+    children: [new docx.TextRun({ text: text, bold: !!opts.bold, italics: !!opts.italics, size: opts.size || 19, underline: opts.underline ? {} : undefined })]
   });
 }
 
@@ -1324,6 +1324,456 @@ function buildAnnexeLocauxCharge(D, list) {
   });
 
   return children;
+}
+
+// 5.5 — Sorbonnes (Inserer_Annexe_7, guide INRS ED795 / normes XP X15-203 et NF EN 14175-4)
+function buildAnnexeSorbonnes(D, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1, alignment: D.AlignmentType.CENTER, spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER, spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'Sorbonnes', italics: true, size: 20, color: '555555' })]
+  }));
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucune sorbonne renseignée.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  list.forEach(function (inst, idx) {
+    var d = inst.data;
+    if (idx > 0) children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2, spacing: { before: 120, after: 120 },
+      children: [new D.TextRun({ text: 'Sorbonne' + (d.reference_equipement ? ' \u2014 ' + d.reference_equipement : ''), bold: true, color: BLUE, size: 24 })]
+    }));
+
+    children.push(infoTable(D, [
+      ['Bâtiment', d.batiment, 'Activité et référence du local', d.localisation],
+      ['Date du contrôle', d.date_controle, 'Réf. équipement', d.reference_equipement]
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Mesures et contexte', bold: true, size: 20, color: BLUE })] }));
+    children.push(infoTable(D, [
+      ['Température (°C)', d.temperature, 'Hygrométrie (%)', d.hygrometrie],
+      ['Pression atmosphérique (hPa)', d.pression_atmospherique, 'Différence de pression (Pa)', d.difference_pression],
+      ['Appareils de mesure', d.appareils_mesure, 'Local', d.local],
+      ['Paillasse', d.paillasse, 'Ouvrants', d.ouvrants],
+      ['Obstacle gênant un point', d.obstacle_point_mesure, 'Autre(s) sorbonne(s) en fonctionnement', d.autres_sorbonnes],
+      ['Autre(s) dispositif(s) de ventilation', d.autres_dispositifs, 'Remarques complémentaires', d.remarques_complementaires]
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Test au fumigène', bold: true, size: 20, color: BLUE })] }));
+    var fumRows = [
+      ['Présence de zones turbulentes', d.zones_turbulentes, 'Présence de zones mortes', d.zones_mortes],
+      ['Perturbations constatées', d.perturbations, '', '']
+    ];
+    if (d.perturbations === 'Non') {
+      fumRows.push(['Vitesse à 90 cm (m/s)', d.v90_mesuree, 'Vitesse à 140 cm (m/s)', d.v140_mesuree]);
+    }
+    children.push(infoTable(D, fumRows));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Ouverture de travail', bold: true, size: 20, color: BLUE })] }));
+    children.push(infoTable(D, [
+      ['Largeur (mm)', d.largeur_mm, 'h (mm)', d.h_mm],
+      ['Norme applicable', d.annee_construction, 'Surface de l\u2019ouverture (m²)', d.surface_ouverture],
+      ['Espace horizontal entre 2 points (mm)', d.espace_horizontal, 'Espace vertical entre 2 points (mm)', d.espace_vertical]
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Dispositif de sécurité', bold: true, size: 20, color: BLUE })] }));
+    children.push(infoTable(D, [
+      ['Verrouillage de la paroi vitrée (butée)', d.verrouillage_paroi, 'Parachute sur la paroi vitrée', d.parachute_paroi],
+      ['Mesure de la vitesse frontale', d.mesure_vitesse_frontale, 'Alarme sonore', d.alarme_sonore],
+      ['Alarme visuelle', d.alarme_visuelle, 'Eclairage à l\u2019intérieur du volume', d.eclairage_interieur]
+    ]));
+
+    if (d.grille && d.nb_colonnes && d.nb_lignes) {
+      children.push(new D.Paragraph({ spacing: { before: 180, after: 60 }, children: [new D.TextRun({ text: 'Relevé des vitesses mesurées dans le plan d\u2019ouverture', bold: true, size: 20, color: BLUE })] }));
+      children.push(measurementGridTable(D, d.grille));
+    }
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Résultats (guide INRS ED 795)', bold: true, size: 20, color: BLUE })] }));
+    children.push(sorbonneResultatsTable(D, [
+      ['Vitesse minimale (m/s)', d.vitesse_min_mesuree, d.vitesse_min_reference, '0,4', d.vitesse_min_avis_reference, d.vitesse_min_avis_norme],
+      ['Vitesse moyenne (m/s)', d.vitesse_moy_mesuree, d.vitesse_moy_reference, '/', d.vitesse_moy_avis_reference, '/'],
+      ['Débit d\u2019air extrait (m³/h)', d.debit_mesure, d.debit_reference, '/', d.debit_avis_reference, '/']
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 160, after: 40 }, children: [new D.TextRun({ text: 'Commentaire', bold: true, size: 18 })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.commentaire || '-', size: 18 })] }));
+  });
+
+  return children;
+}
+
+function sorbonneResultatsTable(D, rows) {
+  var W = [2600, 2140, 2140, 2140, 3139, 3139];
+  var head = ['', 'Valeurs mesurées', 'Valeurs de référence', 'Recommandations ED795', 'Avis / valeurs de référence', 'Avis / ED795 de l\u2019INRS'];
+  var out = [new D.TableRow({ children: head.map(function (h, i) { return headerCell(D, h, W[i]); }) })];
+  rows.forEach(function (r) {
+    var c1 = avisColor(r[4]), c2 = avisColor(r[5]);
+    out.push(new D.TableRow({ children: [
+      new D.TableCell({ width: { size: W[0], type: D.WidthType.DXA }, shading: { fill: 'E8F1F8', type: D.ShadingType.CLEAR }, verticalAlign: D.VerticalAlign.CENTER, children: [new D.Paragraph({ children: [new D.TextRun({ text: r[0], bold: true, size: 16 })] })] }),
+      bodyCellSmall(D, r[1] !== undefined && r[1] !== '' ? String(r[1]) : '-', W[1], { center: true }),
+      bodyCellSmall(D, r[2] !== undefined && r[2] !== '' ? String(r[2]) : '-', W[2], { center: true }),
+      bodyCellSmall(D, r[3] !== undefined && r[3] !== '' ? String(r[3]) : '-', W[3], { center: true }),
+      bodyCellSmall(D, r[4] || '-', W[4], { center: true, bold: true, fill: c1 ? c1.fill : undefined, color: c1 ? c1.color : undefined }),
+      bodyCellSmall(D, r[5] || '-', W[5], { center: true, bold: true, fill: c2 ? c2.fill : undefined, color: c2 ? c2.color : undefined })
+    ] }));
+  });
+  return new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: out });
+}
+
+// 5.x — Cabines de peinture (Inserer_Annexe_10, guide INRS ED 835/ED 928, norme 16985)
+function buildAnnexeCabinesPeinture(D, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1, alignment: D.AlignmentType.CENTER, spacing: { after: 200 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER, spacing: { after: 200 },
+    children: [new D.TextRun({ text: 'Vérification des cabines de peinture', italics: true, size: 20, color: '555555' })]
+  }));
+  children.push(legalParagraph('Méthodologie de vérification de la ventilation des cabines de peinture', { bold: true, center: true, size: 20, after: 120 }));
+  children.push(legalParagraph('Ventilation verticale : mesures réalisées à 1 m du sol, aux points indiqués dans les fiches annexes.', { after: 60 }));
+  children.push(legalParagraph('Ventilation horizontale : mesures réalisées dans le plan de travail du peintre — vérifier qu\u2019il ne se trouve pas entre le pulvérisateur et l\u2019objet à peindre.', { after: 160 }));
+  children.push(legalParagraph('Les valeurs mesurées sont comparées à celles des guides INRS ED 835 (peintures liquides) et ED 928 (peintures poudre) ou, éventuellement, à celles de la norme 16985.', { after: 100 }));
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucune cabine de peinture renseignée.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  list.forEach(function (inst, idx) {
+    var d = inst.data;
+    children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2, spacing: { before: 120, after: 120 },
+      children: [new D.TextRun({ text: 'Cabine de peinture' + (d.type_cabine ? ' ' + d.type_cabine.toUpperCase() : '') + (d.reference_equipement ? ' \u2014 ' + d.reference_equipement : ''), bold: true, color: BLUE, size: 24 })]
+    }));
+
+    children.push(infoTable(D, [
+      ['Marque', d.marque, 'Emplacement', d.batiment],
+      ['Date du contrôle', d.date_controle, 'Description de la cabine', d.reference_equipement],
+      ['Type de flux', d.type_flux, 'Pulvérisation', d.pulverisation],
+      ['Nature des produits à peindre', d.nature_produits, 'Zone de travail', d.zone_travail]
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'État visuel de la cabine / Test fumigène', bold: true, size: 20, color: BLUE })] }));
+    children.push(infoTable(D, [
+      ['État visuel de la cabine', d.etat_visuel_cabine, 'État des filtres', d.etat_filtres],
+      ['Vérification de la direction du flux', d.direction_flux, 'Avis / Code de la santé publique', d.avis_csp]
+    ]));
+    if (d.observation_visuel) {
+      children.push(new D.Paragraph({ spacing: { before: 60 }, children: [new D.TextRun({ text: 'Observation : ' + d.observation_visuel, size: 18 })] }));
+    }
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Mesure de la cabine vide', bold: true, size: 20, color: BLUE })] }));
+    children.push(infoTable(D, [['Largeur (m)', d.largeur_cabine, 'Longueur (m)', d.longueur_cabine]]));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Vitesse d\u2019air dans la cabine vide', bold: true, size: 20, color: BLUE })] }));
+    var vRows = [['Vitesse moyenne (m/s)', d.v1_mesuree, d.v1_reference, d.v1_valeur_recommandee, d.v1_avis]];
+    if (d.v2_active === 'Oui') vRows.push(['Vitesse minimale (m/s)', d.v2_mesuree, d.v2_reference, d.v2_valeur_recommandee, d.v2_avis]);
+    children.push(vpeTable(D, vRows));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Débit d\u2019air dans la cabine vide', bold: true, size: 20, color: BLUE })] }));
+    children.push(vpeTable(D, [['Débit (m³/h)', d.debit_mesure, '', d.debit_reference, d.debit_avis]]));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 40 }, children: [new D.TextRun({ text: 'Conclusion', bold: true, size: 20, color: BLUE })] }));
+    var c = avisColor(d.conclusion);
+    children.push(new D.Table({
+      width: { size: 15298, type: D.WidthType.DXA },
+      rows: [new D.TableRow({ children: [
+        headerCell(D, 'Avis par rapport à la réglementation et/ou aux préconisations vis-à-vis des cabines de peinture', 8000),
+        bodyCell(D, d.conclusion || '-', 7298, { center: true, bold: true, fill: c ? c.fill : undefined, color: c ? c.color : undefined })
+      ] })]
+    }));
+    children.push(new D.Paragraph({ spacing: { before: 120, after: 40 }, children: [new D.TextRun({ text: 'Observation', bold: true, size: 18 })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.observations || '-', size: 18 })] }));
+  });
+
+  return children;
+}
+
+// 5.x — Box de préparation des peintures (Inserer_Annexe_14, norme NF T 35-014)
+function buildAnnexeBoxPeinture(D, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1, alignment: D.AlignmentType.CENTER, spacing: { after: 200 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER, spacing: { after: 200 },
+    children: [new D.TextRun({ text: 'Box de préparation des peintures', italics: true, size: 20, color: '555555' })]
+  }));
+  children.push(legalParagraph('RÉFÉRENTIEL', { bold: true, center: true, underline: true, size: 20, after: 100 }));
+  children.push(legalParagraph('NF T 35-014, Décembre 2004 — Box de préparation des peintures', { center: true, size: 18 }));
+  children.push(legalParagraph('Taux de renouvellement minimum préconisé : 50 volumes/heure', { center: true, size: 18, after: 100 }));
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucun box de préparation de peinture renseigné.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  list.forEach(function (inst, idx) {
+    var d = inst.data;
+    children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2, spacing: { before: 120, after: 120 },
+      children: [new D.TextRun({ text: 'Box de préparation des peintures', bold: true, color: BLUE, size: 24 })]
+    }));
+
+    children.push(infoTable(D, [
+      ['Activité et référence du local', d.activite_reference_local, 'Bâtiment', d.batiment],
+      ['Date du contrôle', d.date_controle, 'Nombre de captage présent', d.nombre_captage]
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'État visuel des installations', bold: true, size: 20, color: BLUE })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: Array.isArray(d.etat_visuel_installations) ? d.etat_visuel_installations.join(', ') : (d.etat_visuel_installations || '-'), size: 18 })] }));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Caractéristiques de la ventilation', bold: true, size: 20, color: BLUE })] }));
+    var W = [5100, 10198];
+    function longRow(label, val) {
+      return new D.TableRow({ children: [
+        new D.TableCell({ width: { size: W[0], type: D.WidthType.DXA }, shading: { fill: 'E8F1F8', type: D.ShadingType.CLEAR }, verticalAlign: D.VerticalAlign.CENTER, children: [new D.Paragraph({ children: [new D.TextRun({ text: label, bold: true, size: 16 })] })] }),
+        bodyCellSmall(D, val || '-', W[1])
+      ] });
+    }
+    children.push(new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: [
+      longRow('Ventilation naturelle permanente', d.ventilation_naturelle),
+      longRow('Asservissement', d.asservissement),
+      longRow('Type de ventilation', d.type_ventilation)
+    ] }));
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Taux de renouvellement', bold: true, size: 20, color: BLUE })] }));
+    children.push(infoTable(D, [
+      ['Volume du local (m³)', d.volume_local, 'Débit d\u2019extraction du box (m³/h)', d.debit_extraction_box],
+      ['Volume par heure (vol/h)', d.volume_par_heure, 'Débit minimal pour 50 vol/h (m³/h)', d.debit_minimal_50vh]
+    ]));
+    var cr = avisColor(d.conclusion_renouvellement);
+    children.push(new D.Table({
+      width: { size: 15298, type: D.WidthType.DXA },
+      rows: [new D.TableRow({ children: [
+        headerCell(D, 'Conclusion \u2014 taux de renouvellement', 8000),
+        bodyCell(D, d.conclusion_renouvellement || '-', 7298, { center: true, bold: true, fill: cr ? cr.fill : undefined, color: cr ? cr.color : undefined })
+      ] })]
+    }));
+
+    // Détail des captages (si renseignés)
+    var nCaptages = parseInt(d.nombre_captage, 10) || 0;
+    if (nCaptages > 0) {
+      children.push(new D.Paragraph({ spacing: { before: 180, after: 80 }, children: [new D.TextRun({ text: 'Captages', bold: true, size: 20, color: BLUE })] }));
+      var CW = [1912, 1912, 1912, 1912, 1913, 1913, 1912, 1912];
+      var chead = ['Captage', 'Forme', 'Diamètre / côté 1 (cm)', 'Côté 2 (cm)', 'Surface (m²)', 'Vitesse (m/s)', 'Débit référence (m³/h)', 'Débit mesuré (m³/h)'];
+      var crows = [new D.TableRow({ children: chead.map(function (h, i) { return headerCell(D, h, CW[i]); }) })];
+      for (var i = 1; i <= nCaptages; i++) {
+        var p = 'captage' + i;
+        var vals = ['n°' + i, d[p + '_forme'], d[p + '_diametre_cote1'], d[p + '_cote2'], d[p + '_surface'], d[p + '_vitesse'], d[p + '_reference'], d[p + '_debit']];
+        crows.push(new D.TableRow({ children: vals.map(function (v, i2) {
+          var text = (v === undefined || v === null || v === '') ? '-' : String(v);
+          return bodyCellSmall(D, text, CW[i2], { center: i2 > 0 });
+        }) }));
+      }
+      children.push(new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: crows }));
+    }
+
+    children.push(new D.Paragraph({ spacing: { before: 180, after: 40 }, children: [new D.TextRun({ text: 'Conclusion', bold: true, size: 20, color: BLUE })] }));
+    var c = avisColor(d.avis);
+    children.push(new D.Table({
+      width: { size: 15298, type: D.WidthType.DXA },
+      rows: [new D.TableRow({ children: [
+        headerCell(D, 'Avis par rapport à la réglementation et/ou aux préconisations', 8000),
+        bodyCell(D, d.avis || '-', 7298, { center: true, bold: true, fill: c ? c.fill : undefined, color: c ? c.color : undefined })
+      ] })]
+    }));
+    children.push(new D.Paragraph({ spacing: { before: 120, after: 40 }, children: [new D.TextRun({ text: 'Observation', bold: true, size: 18 })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.observation || '-', size: 18 })] }));
+    if (d.commentaire) {
+      children.push(new D.Paragraph({ spacing: { before: 80, after: 40 }, children: [new D.TextRun({ text: 'Commentaire / Informations', bold: true, size: 18 })] }));
+      children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.commentaire, size: 18 })] }));
+    }
+  });
+
+  return children;
+}
+
+// 5.x — ERP / Locaux à pollution non spécifique des établissements recevant du public
+// (Inserer_Annexe_6, Articles R4222-5/R4222-6 + Règlement Sanitaire Départemental type Art. 64/66)
+function buildAnnexeERP(D, list) {
+  var legal = [
+    legalParagraph('Article R4222-5', { bold: true, center: true, size: 20 }),
+    legalParagraph('Créé par Décret n°2008-244 du 7 mars 2008 - art. (V)', { italics: true, center: true, size: 16, after: 160 }),
+    legalParagraph('L\u2019aération par ventilation naturelle, assurée exclusivement par ouverture de fenêtres ou autres ouvrants donnant directement sur l\u2019extérieur, est autorisée lorsque le volume par occupant est égal ou supérieur à :'),
+    legalParagraph('1° / 15 m³ pour les bureaux et les locaux où est accompli un travail physique léger ;'),
+    legalParagraph('2° / 24 m³ pour les autres locaux.', { after: 280 }),
+    legalParagraph('Article R4222-6', { bold: true, center: true, size: 20 }),
+    legalParagraph('Créé par Décret n°2008-244 du 7 mars 2008 - art. (V)', { italics: true, center: true, size: 16, after: 160 }),
+    legalParagraph('Lorsque l\u2019aération est assurée par ventilation mécanique, le débit minimal d\u2019air neuf à introduire par occupant est fixé dans le tableau suivant :', { after: 160 }),
+    new D.Table({
+      width: { size: 8000, type: D.WidthType.DXA },
+      alignment: D.AlignmentType.CENTER,
+      rows: [
+        new D.TableRow({ children: [headerCell(D, 'DESIGNATION DES LOCAUX', 5600), headerCell(D, 'DEBIT MINIMAL (m³/h/occupant)', 2400)] }),
+        new D.TableRow({ children: [bodyCell(D, 'Bureaux, locaux sans travail physique', 5600), bodyCell(D, '25', 2400, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux de restauration, locaux de vente, locaux de réunion', 5600), bodyCell(D, '30', 2400, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Ateliers et locaux avec travail physique léger', 5600), bodyCell(D, '45', 2400, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Autres ateliers et locaux', 5600), bodyCell(D, '60', 2400, { center: true })] })
+      ]
+    }),
+    new D.Paragraph({ children: [new D.PageBreak()] }),
+    legalParagraph('Extraits du Règlement Sanitaire Départemental type', { bold: true, center: true, size: 20 }),
+    legalParagraph('Les valeurs ci-après s\u2019appliquent uniquement au public dans les locaux à pollution non spécifique :', { after: 160 }),
+    legalParagraph('Article 64', { bold: true, size: 18, after: 80 }),
+    legalParagraph('Lorsque l\u2019aération est assurée par ventilation mécanique, le débit minimal d\u2019air neuf à introduire par occupant est fixé dans le tableau suivant :', { after: 160 }),
+    new D.Table({
+      width: { size: 15298, type: D.WidthType.DXA },
+      rows: [
+        new D.TableRow({ children: [headerCell(D, 'DESIGNATION DES LOCAUX', 11700), headerCell(D, 'DEBIT MINIMAL (m³/h)', 3598)] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux d\u2019enseignement : classes, salles d\u2019études, laboratoires (hors pollution spécifique) — maternelles, primaires et secondaires du 1er cycle', 11700), bodyCell(D, '15', 3598, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux d\u2019enseignement : secondaires du 2e cycle et universitaires, ateliers', 11700), bodyCell(D, '18', 3598, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux de vente : boutiques, supermarchés', 11700), bodyCell(D, '18', 3598, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux de restauration : cafés, bars, restaurants, cantines, salles à manger', 11700), bodyCell(D, '18', 3598, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Bureaux et locaux assimilés : locaux d\u2019accueil, bibliothèques, bureaux de poste, banques', 11700), bodyCell(D, '18', 3598, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux de réunions : salles de réunions, de spectacles, de culte, clubs, foyers', 11700), bodyCell(D, '18', 3598, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux d\u2019hébergement : chambres collectives (plus de trois personnes) (1), dortoirs, cellules, salles de repos', 11700), bodyCell(D, '18', 3598, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux à usage sportif : par sportif, dans une piscine', 11700), bodyCell(D, '22', 3598, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux à usage sportif : par sportif', 11700), bodyCell(D, '25', 3598, { center: true })] }),
+        new D.TableRow({ children: [bodyCell(D, 'Locaux à usage sportif : par spectateur', 11700), bodyCell(D, '18', 3598, { center: true })] })
+      ]
+    }),
+    legalParagraph('(1) Pour les chambres de moins de trois personnes, le débit minimal à prévoir est de 30 m³/heure par local.', { italics: true, size: 16, after: 240 }),
+    legalParagraph('Article 66', { bold: true, size: 18, after: 80 }),
+    legalParagraph('L\u2019aération par ventilation naturelle, assurée exclusivement par ouverture de fenêtres ou autres ouvrants donnant directement sur l\u2019extérieur, est autorisée lorsque le volume par occupant est égal ou supérieur à 6 m³ pour les locaux à pollution non spécifique tels que salles de réunion, de spectacles, de culte, clubs, foyers, dans les locaux de vente tels que boutiques, supermarchés, et dans les locaux de restauration tels que cafés, bars, restaurants, cantines, salles à manger.')
+  ];
+
+  var rows = [
+    { label: 'Bâtiment', key: 'batiment' },
+    { label: 'Référence du local', key: 'reference_local' },
+    { label: 'Type de local', key: 'type_local' },
+    { label: 'Ventilation', key: 'type_ventilation' },
+    { label: 'Volume (m³)', key: 'volume' },
+    { label: 'Travailleur', key: 'travailleur' },
+    { label: 'Public', key: 'public' },
+    { subheader: 'Extraction' },
+    { label: 'Débit total mesuré (m³/h)', key: 'debit_total_mesure' },
+    { label: 'Présence d\u2019ouvrant donnant directement sur l\u2019extérieur', key: 'ouvrant_exterieur' },
+    { label: 'Présence d\u2019entrée d\u2019air donnant directement sur l\u2019extérieur', key: 'entree_air_exterieur' },
+    { subheader: 'Soufflage' },
+    { label: 'Débit total (m³/h)', key: 'debit_soufflage' },
+    { label: 'Débit d\u2019air neuf introduit (m³/h)', key: 'debit_air_neuf_introduit' },
+    { label: 'Pourcentage d\u2019air neuf (%)', key: 'pourcentage_air_neuf' },
+    { label: 'Nombre de bouches', key: 'nombre_bouches' },
+    { label: 'État des bouches', key: 'etat_bouches' },
+    { subheader: 'Constat' },
+    { label: 'Type de ventilation', key: 'type_ventilation_libelle' },
+    { label: 'Débit minimum d\u2019air neuf (m³/h)', key: 'debit_min_air_neuf' },
+    { label: 'Volume minimal (m³)', key: 'volume_min' },
+    { label: 'Avis par rapport aux valeurs réglementaires', key: 'avis', isAvis: true }
+  ];
+
+  return crosstabSection(D, 'ERP', 'locaux à pollution non spécifique', legal, rows, list);
+}
+
+// 5.x — Menuiserie (machines à bois) — Inserer_Annexe_13bis. Une fiche par machine (pas de tableau
+// croisé) : identification, état visuel, conditions de mesure, vitesse de transport, débit, conclusion,
+// puis le détail du relevé (gaine, grille de points le cas échéant).
+function buildAnnexeMenuiserieMAB(D, list) {
+  var children = [];
+  children.push(new D.Paragraph({
+    heading: D.HeadingLevel.HEADING_1, alignment: D.AlignmentType.CENTER, spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'AERATION ET ASSAINISSEMENT DES LOCAUX DE TRAVAIL', bold: true, color: BLUE, size: 24 })]
+  }));
+  children.push(new D.Paragraph({
+    alignment: D.AlignmentType.CENTER, spacing: { after: 240 },
+    children: [new D.TextRun({ text: 'Menuiserie \u2014 Machine à bois', italics: true, size: 20, color: '555555' })]
+  }));
+
+  if (!list || list.length === 0) {
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Aucune machine à bois renseignée.', italics: true, size: 20 })] }));
+    return children;
+  }
+
+  list.forEach(function (inst, idx) {
+    var d = inst.data;
+    if (idx > 0) children.push(new D.Paragraph({ children: [new D.PageBreak()] }));
+
+    children.push(new D.Paragraph({
+      heading: D.HeadingLevel.HEADING_2, spacing: { before: 120, after: 120 },
+      children: [new D.TextRun({ text: 'Machine à bois' + (d.reference_machine ? ' \u2014 ' + d.reference_machine : ''), bold: true, color: BLUE, size: 24 })]
+    }));
+
+    children.push(infoTable(D, [
+      ['Référence de la machine à bois', d.reference_machine, 'Date de contrôle', d.date_controle],
+      ['Type de machine à bois', d.type_machine, '', '']
+    ]));
+
+    if (d.photo) {
+      children.push(new D.Paragraph({ spacing: { before: 160, after: 80 }, children: [new D.TextRun({ text: 'Photo de l\u2019équipement', bold: true, size: 20, color: BLUE })] }));
+      children.push(new D.Paragraph({ children: [new D.ImageRun({ data: d.photo, transformation: { width: 380, height: 260 } })] }));
+    }
+
+    children.push(new D.Paragraph({ spacing: { before: 160, after: 80 }, children: [new D.TextRun({ text: 'État visuel du réseau d\u2019aspiration', bold: true, size: 20, color: BLUE })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: Array.isArray(d.etat_visuel_reseau) ? d.etat_visuel_reseau.join(', ') || '-' : (d.etat_visuel_reseau || '-'), size: 18 })] }));
+
+    children.push(new D.Paragraph({ spacing: { before: 160, after: 80 }, children: [new D.TextRun({ text: 'Conditions de mesure', bold: true, size: 20, color: BLUE })] }));
+    children.push(new D.Paragraph({ children: [new D.TextRun({ text: d.simultaneites || '-', size: 18 })] }));
+
+    children.push(new D.Paragraph({ spacing: { before: 160, after: 80 }, children: [new D.TextRun({ text: 'Mesure de la vitesse de transport', bold: true, size: 20, color: BLUE })] }));
+    children.push(vitesseDebitTable(D, [
+      ['Vitesse moyenne (m/s)', d.vitesse_moyenne, d.vitesse_reference, d.vitesse_inrs_ed750, d.vitesse_avis]
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 160, after: 80 }, children: [new D.TextRun({ text: 'Calcul du débit', bold: true, size: 20, color: BLUE })] }));
+    children.push(vitesseDebitTable(D, [
+      ['Débit calculé (m³/h)', d.debit, d.debit_reference, d.debit_inrs_ed750, d.debit_avis]
+    ]));
+
+    children.push(new D.Paragraph({ spacing: { before: 160, after: 40 }, children: [new D.TextRun({ text: 'Conclusion', bold: true, size: 20, color: BLUE })] }));
+    var avisConcl = d.conclusion_avis; var col = avisColor(avisConcl);
+    children.push(new D.Paragraph({ spacing: { after: 80 }, children: [new D.TextRun({ text: avisConcl || '-', bold: !!col, color: col ? col.color : undefined, size: 18 })] }));
+    if (d.observation) {
+      children.push(new D.Paragraph({ children: [new D.TextRun({ text: 'Observation : ' + d.observation, size: 18, italics: true })] }));
+    }
+
+    children.push(new D.Paragraph({ spacing: { before: 160, after: 80 }, children: [new D.TextRun({ text: 'Mesure de la vitesse et du débit d\u2019air extrait \u2014 détail', bold: true, size: 20, color: BLUE })] }));
+    children.push(infoTable(D, [
+      ['Type de conduit', d.forme_conduit, 'Diamètre / côté 1 (cm)', d.diametre_cote1],
+      ['Côté 2 (cm)', d.forme_conduit === 'Rectangulaire' ? d.cote2 : '-', 'Surface (m²)', d.surface_m2],
+      ['Température dans le conduit (°C)', d.temperature_conduit, 'Pression statique (Pa)', d.pression_statique],
+      ['Masse volumique (kg/m³)', d.masse_volumique, 'Saisie de la vitesse', d.vitesse_mode]
+    ]));
+
+    if (d.vitesse_mode === 'Grille de points' && d.vitesse_grid) {
+      children.push(new D.Paragraph({ spacing: { before: 120, after: 60 }, children: [new D.TextRun({ text: 'Grille de points (m/s)', bold: true, size: 18 })] }));
+      children.push(measurementGridTable(D, d.vitesse_grid));
+    }
+  });
+
+  return children;
+}
+
+function vitesseDebitTable(D, rows) {
+  var W = [4000, 2825, 2825, 2825, 2823];
+  var head = ['', 'Valeur mesurée', 'Valeur de référence', 'Valeur recommandée (INRS ED750)', 'Avis'];
+  var out = [new D.TableRow({ children: head.map(function (h, i) { return headerCell(D, h, W[i]); }) })];
+  rows.forEach(function (r) {
+    var col = avisColor(r[4]);
+    out.push(new D.TableRow({ children: [
+      new D.TableCell({ width: { size: W[0], type: D.WidthType.DXA }, shading: { fill: 'E8F1F8', type: D.ShadingType.CLEAR }, verticalAlign: D.VerticalAlign.CENTER, children: [new D.Paragraph({ children: [new D.TextRun({ text: r[0], bold: true, size: 16 })] })] }),
+      bodyCellSmall(D, r[1] !== undefined && r[1] !== '' ? String(r[1]) : '-', W[1], { center: true }),
+      bodyCellSmall(D, r[2] !== undefined && r[2] !== '' ? String(r[2]) : '-', W[2], { center: true }),
+      bodyCellSmall(D, r[3] !== undefined && r[3] !== '' ? String(r[3]) : '-', W[3], { center: true }),
+      bodyCellSmall(D, r[4] || '-', W[4], { center: true, bold: !!col, fill: col ? col.fill : undefined, color: col ? col.color : undefined })
+    ] }));
+  });
+  return new D.Table({ width: { size: 15298, type: D.WidthType.DXA }, rows: out });
 }
 
 function buildAnnexeProvisoire(D, t, list) {

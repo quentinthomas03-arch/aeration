@@ -70,7 +70,16 @@ var LOCAL_LPNS = {
   'Locaux de Restauration, Vente ou Réunion': { vol: 15, debit: 30 },
   'Ateliers ou Locaux avec Travail Physique Léger': { vol: 15, debit: 45 },
   'Autres ateliers et locaux': { vol: 24, debit: 60 },
+  'Locaux d\u2019hébergement (chambres collectives, dortoirs, cellules — plus de 3 personnes)': { vol: null, debit: 18 },
   'Local occupé occasionnellement': { vol: null, debit: null }
+};
+
+// Débit forfaitaire par local (m³/h), indépendant de l'effectif — Règlement Sanitaire Départemental
+// type, Article 64, note (1) : "Pour les chambres de moins de trois personnes, le débit minimal à
+// prévoir est de 30 m3/heure par local." Utilisé uniquement pour ce cas (par opposition aux types
+// LOCAL_LPNS, calculés par occupant).
+var LOCAL_LPNS_FORFAIT = {
+  'Locaux d\u2019hébergement (chambre de une ou deux personnes)': 30
 };
 
 // Débit minimal réglementaire sanitaires (R4212-6). N = nombre d'équipements.
@@ -126,6 +135,17 @@ function gridStats(grid, rows, cols) {
   }
   if (incomplete || count === 0) return { incomplete: true };
   return { min: min, moyenne: sum / count };
+}
+
+// Avis Sorbonnes par rapport aux valeurs de référence : "Sans Objet" en l'absence de référence
+// (constaté sur exemple réel : "Sans Objet - Absence de Val. de Réf." quand la référence n'est pas
+// disponible, sinon comparaison classique mesuré >= référence × 0,8)
+function avisSorbonneRef(mesuree, reference) {
+  var mes = num(mesuree);
+  var ref = String(reference === undefined ? '' : reference).trim();
+  if (ref === '' || ref === '/') return 'Sans Objet - Absence de Val. de Réf.';
+  if (isNaN(mes) || isNaN(num(ref))) return 'Impossible de se prononcer';
+  return mes >= num(ref) * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
 }
 
 // Avis vitesse (VBA) : réf = "/" -> mesuré >= INRS ; sinon mesuré >= réf × 0,8
@@ -331,10 +351,28 @@ var CALC_RULES = {
 
   erp: [
     { target: 'debit_min_air_neuf', fn: function (d) {
+        if (LOCAL_LPNS_FORFAIT.hasOwnProperty(d.type_local)) return LOCAL_LPNS_FORFAIT[d.type_local];
         var t = LOCAL_LPNS[d.type_local];
         var occ = num(d.travailleur) + (isNaN(num(d.public)) ? 0 : num(d.public));
         if (!t || t.debit === null || isNaN(num(d.travailleur))) return '';
         return t.debit * occ;
+      } },
+    { target: 'volume_min', fn: function (d) {
+        if (LOCAL_LPNS_FORFAIT.hasOwnProperty(d.type_local)) return '';
+        if (d.type_ventilation !== 'Nat sans ouvrants' && d.type_ventilation !== 'Nat avec ouvrants') return '';
+        var t = LOCAL_LPNS[d.type_local]; var eff = num(d.travailleur);
+        if (!t || t.vol === null || isNaN(eff)) return '';
+        return t.vol * eff;
+      } },
+    { target: 'type_ventilation_libelle', fn: function (d) {
+        switch (d.type_ventilation) {
+          case 'Nat sans ouvrants': return 'Naturelle (absence d\u2019ouvrants)';
+          case 'Nat avec ouvrants': return 'Naturelle par ouvrants';
+          case 'Extraction': return 'Mécanique Simple Flux';
+          case 'Soufflage': return 'Mécanique Simple Flux (soufflage)';
+          case 'Double flux': return 'Mécanique Double Flux';
+          default: return '';
+        }
       } },
     { target: 'debit_air_neuf_introduit', fn: function (d) {
         var v = debitAirNeufMesure(d);
@@ -343,6 +381,18 @@ var CALC_RULES = {
     { target: 'avis', fn: function (d) {
         if (d.type_local === 'Local occupé occasionnellement') return 'Sans objet';
         if (!d.type_local || !d.type_ventilation) return 'Impossible de se prononcer';
+
+        if (d.type_ventilation === 'Nat sans ouvrants' || d.type_ventilation === 'Nat avec ouvrants') {
+          if (d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur !== 'Oui') return 'Non Satisfaisant';
+          var vmin = num(d.volume_min), vol = num(d.volume);
+          if (isNaN(vmin) || isNaN(vol)) return 'Impossible de se prononcer';
+          return vol >= vmin ? 'Satisfaisant' : 'Non Satisfaisant';
+        }
+
+        // Ventilation mécanique (Extraction / Soufflage / Double flux) : une extraction sans aucune
+        // entrée d'air (ouvrant ou entrée d'air dédiée) ne produit pas de renouvellement d'air réel.
+        if (d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur !== 'Oui') return 'Non Satisfaisant';
+
         var min = num(d.debit_min_air_neuf);
         var vt = d.type_ventilation;
         var mesure = (vt === 'Extraction') ? num(d.debit_total_mesure) : debitAirNeufMesure(d);
@@ -827,29 +877,59 @@ var CALC_RULES = {
   ],
 
   sorbonnes: [
-    { target: 'v90_avis_reference', fn: function (d) {
-        return avisVitesse(d.v90_mesuree, d.v90_reference, d.valeur_norme);
+    { target: 'h_mm', fn: function (d) {
+        if (d.annee_construction === 'Avant janvier 2005 - Norme XP X15-203 (h=400mm)') return 400;
+        if (d.annee_construction === 'Après janvier 2005 - Norme NF EN 14175-4 (h=500mm)') return 500;
+        var v = num(d.h_mm_autre);
+        return isNaN(v) ? '' : v;
       } },
-    { target: 'v90_avis_norme', fn: function (d) {
-        var mes = num(d.v90_mesuree), norme = num(d.valeur_norme);
-        if (isNaN(mes) || isNaN(norme)) return '';
-        return mes >= norme ? 'Satisfaisant' : 'Non Satisfaisant';
+    { target: 'surface_ouverture', decimals: 3, fn: function (d) {
+        var l = num(d.largeur_mm), h = num(d.h_mm);
+        if (isNaN(l) || isNaN(h)) return '';
+        return (l / 1000) * (h / 1000);
       } },
-    { target: 'v140_avis_reference', fn: function (d) {
-        return avisVitesse(d.v140_mesuree, d.v140_reference, d.valeur_norme);
+    { target: 'nb_colonnes', fn: function (d) {
+        var l = num(d.largeur_mm);
+        if (isNaN(l)) return '';
+        // Bandes du schéma INRS ED795 (nombre de colonnes de points selon la largeur de l'ouverture)
+        if (l <= 610) return 2;
+        if (l <= 1010) return 3;
+        if (l <= 1410) return 4;
+        if (l <= 1810) return 5;
+        if (l <= 2210) return 6;
+        return 7;
       } },
-    { target: 'v140_avis_norme', fn: function (d) {
-        var mes = num(d.v140_mesuree), norme = num(d.valeur_norme);
-        if (isNaN(mes) || isNaN(norme)) return '';
-        return mes >= norme ? 'Satisfaisant' : 'Non Satisfaisant';
+    { target: 'nb_lignes', fn: function () { return 3; } },
+    { target: 'espace_horizontal', decimals: 2, fn: function (d) {
+        var l = num(d.largeur_mm), n = num(d.nb_colonnes);
+        if (isNaN(l) || isNaN(n) || n <= 1) return '';
+        return (l - 200) / (n - 1);
       } },
-    { target: 'conclusion', fn: function (d) {
-        var avis = [d.v90_avis_reference, d.v140_avis_reference].filter(function (a) { return a; });
-        if (avis.length === 0) return '';
-        if (avis.some(function (a) { return a === 'Impossible de se prononcer'; })) return 'Impossible de se prononcer';
-        if (avis.some(function (a) { return a === 'Non Satisfaisant'; })) return 'Non Satisfaisant';
-        return 'Satisfaisant';
-      } }
+    { target: 'espace_vertical', decimals: 2, fn: function (d) {
+        var h = num(d.h_mm);
+        if (isNaN(h)) return '';
+        return (h - 200) / 2;
+      } },
+    { target: 'vitesse_min_mesuree', decimals: 2, fn: function (d) {
+        var s = gridStats(d.grille, d.nb_lignes, d.nb_colonnes);
+        return (!s || s.incomplete) ? '' : s.min;
+      } },
+    { target: 'vitesse_moy_mesuree', decimals: 2, fn: function (d) {
+        var s = gridStats(d.grille, d.nb_lignes, d.nb_colonnes);
+        return (!s || s.incomplete) ? '' : s.moyenne;
+      } },
+    { target: 'debit_mesure', fn: function (d) {
+        var v = debitFromSV(d.surface_ouverture, d.vitesse_moy_mesuree);
+        return isNaN(v) ? '' : v;
+      } },
+    { target: 'vitesse_min_avis_reference', fn: function (d) { return avisSorbonneRef(d.vitesse_min_mesuree, d.vitesse_min_reference); } },
+    { target: 'vitesse_min_avis_norme', fn: function (d) {
+        var mes = num(d.vitesse_min_mesuree);
+        if (isNaN(mes)) return '';
+        return mes >= 0.4 ? 'Satisfaisant' : 'Non Satisfaisant';
+      } },
+    { target: 'vitesse_moy_avis_reference', fn: function (d) { return avisSorbonneRef(d.vitesse_moy_mesuree, d.vitesse_moy_reference); } },
+    { target: 'debit_avis_reference', fn: function (d) { return avisSorbonneRef(d.debit_mesure, d.debit_reference); } }
   ],
 
   cabines_peinture: [
@@ -857,12 +937,13 @@ var CALC_RULES = {
         return masseVolumique(d.temperature_conduit, d.pression_statique);
       } },
     { target: 'v1_avis', fn: function (d) {
-        return avisVitesse(d.v1_mesuree, d.v1_reference, null);
+        return avisVitesse(d.v1_mesuree, d.v1_reference, d.v1_valeur_recommandee);
       } },
     { target: 'v2_avis', fn: function (d) {
         if (d.v2_active !== 'Oui') return '';
-        return avisVitesse(d.v2_mesuree, d.v2_reference, null);
+        return avisVitesse(d.v2_mesuree, d.v2_reference, d.v2_valeur_recommandee);
       } },
+    { target: 'debit_avis', fn: function (d) { return avisSorbonneRef(d.debit_mesure, d.debit_reference); } },
     { target: 'conclusion', fn: function (d) {
         var avis = [d.v1_avis];
         if (d.v2_active === 'Oui') avis.push(d.v2_avis);
