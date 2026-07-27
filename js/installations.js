@@ -152,9 +152,13 @@ function renderFieldInput(typeId, f, inst) {
     var h = '<div class="row">';
     f.options.forEach(function (opt) {
       var checked = current.indexOf(opt) !== -1;
+      // Échapper d'abord pour un littéral JS (', \), puis pour l'attribut HTML — dans cet ordre,
+      // sinon le navigateur décode les entités HTML avant que le JS ne s'exécute et l'échappement
+      // de quote perd son effet.
+      var jsSafeOpt = String(opt).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       h += '<label style="display:flex;align-items:center;gap:6px;font-size:13px;">' +
         '<input type="checkbox"' + (checked ? ' checked' : '') +
-        ' onchange="toggleInstallationCheckbox(\'' + typeId + '\',\'' + f.key + '\',\'' + escapeHtml(opt).replace(/'/g, "\\'") + '\',this.checked);">' +
+        ' onchange="toggleInstallationCheckbox(\'' + typeId + '\',\'' + f.key + '\',\'' + escapeHtml(jsSafeOpt) + '\',this.checked);">' +
         escapeHtml(opt) + '</label>';
     });
     h += '</div>';
@@ -279,8 +283,7 @@ function handleInstallationPhoto(typeId, key, input) {
   if (!file) return;
   var reader = new FileReader();
   reader.onload = function (e) {
-    updateInstallationField(typeId, key, e.target.result);
-    render();
+    updateInstallationField(typeId, key, e.target.result); // rend déjà la vue si nécessaire
   };
   reader.readAsDataURL(file);
 }

@@ -53,8 +53,8 @@ function chargerDebit(c) {
 var HOTTE_POLLUANTS = {
   'Gaz et vapeurs': 'pas de vitesse de transport minimum nécessaire',
   'Fumées': '7 à 10',
-  'Poussières très fines et légères': '10 à 12,5',
-  'Poussières sèches et poudres': '12,5 à 17,5',
+  'Poussières très fines et légères': '10 à 13',
+  'Poussières sèches et poudres': '13 à 18',
   'Poussières industrielles moyennes': '17,5 à 20',
   'Poussières lourdes': '20 à 22,5',
   'Poussières lourdes ou humides': '> 22,5'
@@ -317,15 +317,31 @@ var CALC_RULES = {
         return isNaN(v) ? '' : v;
       } },
     { target: 'avis', fn: function (d) {
-        if (d.type_local === 'Local occupé occasionnellement') return 'Sans objet';
+        if (d.type_local === 'Local occupé occasionnellement') return 'Sans Objet';
         if (!d.type_local) return 'Impossible de se prononcer';
         if (!d.type_ventilation) return 'Impossible de se prononcer';
         if (num(d.effectif) !== num(d.effectif)) return 'Impossible de se prononcer';
+
+        var vol = num(d.volume), volMin = num(d.volume_min);
+
+        // Ventilation naturelle : le critère est uniquement le volume du local (pas de débit à mesurer).
+        if (d.type_ventilation === 'Nat sans ouvrants' || d.type_ventilation === 'Nat avec ouvrants') {
+          if (isNaN(vol) || isNaN(volMin)) return 'Impossible de se prononcer';
+          return vol >= volMin ? 'Satisfaisant' : 'Non Satisfaisant';
+        }
+
         var min = num(d.debit_min_air_neuf);
         var vt = d.type_ventilation;
         var mesure = (vt === 'Extraction') ? num(d.debit_total_mesure) : debitAirNeufMesure(d);
-        if (isNaN(min) || isNaN(mesure)) return 'Impossible de se prononcer';
-        return mesure >= min ? 'Satisfaisant' : 'Non Satisfaisant';
+        if (isNaN(min)) return 'Impossible de se prononcer';
+        if (isNaN(mesure)) {
+          if (isNaN(vol) || isNaN(volMin)) return 'Impossible de se prononcer';
+          return vol >= volMin ? 'Satisfaisant' : 'Non Satisfaisant';
+        }
+        if (mesure >= min) return 'Satisfaisant';
+        // Débit insuffisant : le volume du local peut compenser (fait accueillir l'effectif malgré tout).
+        if (!isNaN(vol) && !isNaN(volMin) && vol >= volMin) return 'Satisfaisant';
+        return 'Non Satisfaisant';
       } }
   ],
 
@@ -613,6 +629,12 @@ var CALC_RULES = {
         var r = MACHINE_BOIS_DEBIT_REF[d.type_machine];
         return (r === undefined || r === null) ? '' : r;
       } },
+    { target: 'debit_inrs_ed750', fn: function (d) {
+        // Débit nécessaire pour atteindre la vitesse de transport recommandée par l'INRS (20 m/s)
+        // dans la section réelle du conduit — cohérent avec vitesse_inrs_ed750 ci-dessus.
+        var v = debitFromSV(d.surface_m2, 20);
+        return isNaN(v) ? '' : Math.round(v);
+      } },
     { target: 'debit_avis', fn: function (d) {
         var v = num(d.debit), ref = num(d.debit_reference);
         if (isNaN(v) || isNaN(ref)) return 'Impossible de se prononcer';
@@ -661,8 +683,16 @@ var CALC_RULES = {
       } },
     { target: 'avis', fn: function (d) {
         // VBA (Caller_Avis_Conclusion) : priorité Impossible > Non Satisfaisant > Satisfaisant ;
-        // un champ tri-état non répondu compte comme "Impossible"
-        var vals = [d.ventilation_naturelle, d.asservissement, d.type_ventilation, d.conclusion_renouvellement];
+        // un champ tri-état non répondu compte comme "Impossible". ventilation_naturelle/asservissement/
+        // type_ventilation sont des bascules descriptives (UserForm_BOX.bas CB_Choix_5/6/7) — une seule
+        // valeur par champ vaut "Satisfaisant", le reste "Non Satisfaisant".
+        var ventNat = !d.ventilation_naturelle ? null :
+          (d.ventilation_naturelle === 'Présence d’ouvertures haute et basse, diamétralement opposées' ? 'Satisfaisant' : 'Non Satisfaisant');
+        var asserv = !d.asservissement ? null :
+          (d.asservissement === 'Ventilation mécanique asservie à la présence de l’opérateur' ? 'Satisfaisant' : 'Non Satisfaisant');
+        var typeVent = !d.type_ventilation ? null :
+          (d.type_ventilation === 'Le renouvellement d’air du local est assuré par un captage localisé' ? 'Satisfaisant' : 'Non Satisfaisant');
+        var vals = [ventNat, asserv, typeVent, d.conclusion_renouvellement];
         var presenceSatisfaisant = false, presenceNonSatisfaisant = false, presenceImpossible = false;
         vals.forEach(function (v) {
           if (v === 'Satisfaisant') presenceSatisfaisant = true;
@@ -968,6 +998,21 @@ var CALC_RULES = {
           if (!isNaN(v)) { total += v; any = true; }
         }
         return any ? Math.round(total) : '';
+      } },
+    { target: 'note_reference', fn: function (d) {
+        // Avis global = pire des constats des points de mesure renseignés (mêmes règles que
+        // conclusionHotte / avis des Box préparation peinture) — sert de colonne "avis" pour la
+        // synthèse du contrôle (export Word).
+        var avis = [];
+        for (var i = 1; i <= 10; i++) {
+          if (!isNaN(num(d['torche' + i + '_debit']))) {
+            avis.push(d['torche' + i + '_constat']);
+          }
+        }
+        if (avis.length === 0) return '';
+        if (avis.some(function (a) { return !a || a === 'Impossible de se prononcer'; })) return 'Impossible de se prononcer';
+        if (avis.some(function (a) { return a === 'Non Satisfaisant'; })) return 'Non Satisfaisant';
+        return 'Satisfaisant';
       } }
   ]),
 

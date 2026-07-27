@@ -13,7 +13,7 @@ function renderHome() {
   state.missions.slice().reverse().forEach(function (m) {
     var totalInst = 0;
     Object.keys(m.installations || {}).forEach(function (k) { totalInst += m.installations[k].length; });
-    var incomplete = !m.typesSelectionnes || m.typesSelectionnes.length === 0;
+    var incomplete = (!m.typesSelectionnes || m.typesSelectionnes.length === 0) && !m._selectionDejaValidee;
     var targetView = incomplete ? 'mission-form' : 'mission-detail';
     h += '<div class="nav-item" onclick="state.currentMissionId=' + m.id + ';state.view=\'' + targetView + '\';render();">';
     h += '<div class="nav-icon">' + ICONS.building + '</div>';
@@ -38,6 +38,7 @@ function createMission() {
 function deleteMission(id) {
   if (!confirm('Supprimer cette mission et toutes ses installations ?')) return;
   state.missions = state.missions.filter(function (m) { return m.id !== id; });
+  if (state.currentMissionId === id) state.currentMissionId = null;
   persistMissions();
   render();
 }
@@ -58,7 +59,11 @@ function annulerNouvelleMission(id) {
 function renderMissionForm() {
   var m = getCurrentMission();
   if (!m) { state.view = 'home'; render(); return ''; }
-  var isNew = !m.typesSelectionnes || m.typesSelectionnes.length === 0;
+  // Aligné sur selection-installations.js : une mission déjà validée (_selectionDejaValidee) ne doit
+  // jamais redevenir "nouvelle" même si typesSelectionnes est temporairement vide (ex : changement de
+  // type de mission qui purge la sélection) — sinon le bouton "Retour" devient "Annuler" et supprime
+  // toute la mission (et ses installations déjà saisies) au lieu de revenir simplement en arrière.
+  var isNew = (!m.typesSelectionnes || m.typesSelectionnes.length === 0) && !m._selectionDejaValidee;
 
   var h = '<button class="back-btn" onclick="' +
     (isNew ? 'annulerNouvelleMission(' + m.id + ');' : 'state.view=\'mission-detail\';render();') +

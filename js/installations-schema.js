@@ -848,9 +848,16 @@ var INSTALLATION_TYPES = [
 
       { key: 'etat_visuel_installations', label: 'État visuel des installations', type: 'checkbox-group',
         options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués', 'Autres'] },
-      { key: 'ventilation_naturelle', label: 'Ventilation naturelle permanente', type: 'textarea' },
-      { key: 'asservissement', label: 'Asservissement', type: 'textarea' },
-      { key: 'type_ventilation', label: 'Type de ventilation', type: 'textarea' },
+      // Bascules "Satisfaisant / Non Satisfaisant" (UserForm_BOX.bas — CB_Choix_5/6/7) : reproduites
+      // ici en select, la valeur exacte pilote l'avis global (cf. calculations.js).
+      { key: 'ventilation_naturelle', label: 'Ventilation naturelle permanente', type: 'select',
+        options: ['Présence d’ouvertures haute et basse, diamétralement opposées', 'Absence'] },
+      { key: 'asservissement', label: 'Asservissement', type: 'select',
+        options: ['Ventilation mécanique asservie à la présence de l’opérateur', 'Absence d’asservissement'] },
+      { key: 'type_ventilation', label: 'Type de ventilation', type: 'select',
+        options: ['Le renouvellement d’air du local est assuré par un captage localisé',
+                  'Le renouvellement d’air est réalisé par ventilation générale',
+                  'Pas de ventilation mécanique'] },
 
       { key: 'section_renouvellement', label: 'Taux de renouvellement', type: 'section' },
       { key: 'volume_local', label: 'Volume du local (m³)', type: 'number' },

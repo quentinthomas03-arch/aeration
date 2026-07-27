@@ -3,7 +3,6 @@
 
 var state = {
   view: 'home',
-  showModal: null,
 
   // Une "mission" = une visite de contrôle chez un client, contenant des installations de différents types
   missions: [],
@@ -11,9 +10,7 @@ var state = {
 
   // Navigation dans le détail d'une installation
   currentTypeId: null,   // ex: 'hottes'
-  currentInstIndex: null, // index de l'installation dans la liste du type
-
-  searchText: ''
+  currentInstIndex: null // index de l'installation dans la liste du type
 };
 
 function generateId() {
@@ -21,7 +18,7 @@ function generateId() {
 }
 
 function escapeHtml(t) {
-  if (!t) return '';
+  if (t === undefined || t === null || t === '') return '';
   return String(t)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
