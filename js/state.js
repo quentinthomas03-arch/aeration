@@ -10,7 +10,15 @@ var state = {
 
   // Navigation dans le détail d'une installation
   currentTypeId: null,   // ex: 'hottes'
-  currentInstIndex: null // index de l'installation dans la liste du type
+  currentInstIndex: null, // index de l'installation dans la liste du type
+  currentStep: 0,         // étape courante dans un écran de saisie en étapes (ex: assistant sanitaires)
+
+  // Écran de vue d'ensemble du site (js/site-overview.js) — état d'affichage uniquement,
+  // jamais persisté avec la mission
+  overviewMode: 'batiment',   // 'batiment' | 'type'
+  overviewExpanded: {},       // clé de groupe -> replié/déplié (accordéon)
+  overviewGroupMode: null,    // mode du groupe ouvert en plein écran ("Voir tout")
+  overviewGroupKey: null
 };
 
 function generateId() {
@@ -46,6 +54,51 @@ function normalizeMission(m) {
   if (m.donneesInternes.natureRevision === undefined) m.donneesInternes.natureRevision = ref.donneesInternes.natureRevision;
   if (!m.documentsTransmis) m.documentsTransmis = ref.documentsTransmis;
   if (!m.descriptionLocaux) m.descriptionLocaux = ref.descriptionLocaux;
+
+  // Sanitaires : pré-remplit chambre_erp_individuelle depuis nom_usage uniquement si le champ n'a
+  // jamais été renseigné — ne modifie jamais une valeur Oui/Non déjà saisie (même incohérente avec
+  // nom_usage), pour ne changer le résultat calculé d'aucun dossier déjà sauvegardé.
+  if (m.installations && Array.isArray(m.installations.sanitaires)) {
+    m.installations.sanitaires.forEach(function (inst) {
+      var d = inst.data;
+      if (d && (d.chambre_erp_individuelle === undefined || d.chambre_erp_individuelle === '')) {
+        d.chambre_erp_individuelle = (d.nom_usage === 'chambre individuelle dans ERP') ? 'Oui' : 'Non';
+      }
+    });
+  }
+
+  // Cabines de peinture : force le recalcul de la conclusion (avis global) sur les dossiers déjà
+  // sauvegardés. Contrairement à chambre_erp_individuelle, ce champ est un "computed" pur (jamais
+  // saisi manuellement) — il n'y a donc aucune valeur explicite à protéger : la formule précédente
+  // oubliait debit_avis dans l'agrégation (bug corrigé), et l'ancienne valeur stockée n'est que le
+  // résultat périmé de ce bug, pas une décision du technicien.
+  if (m.installations && Array.isArray(m.installations.cabines_peinture) && typeof applyCalculations === 'function') {
+    m.installations.cabines_peinture.forEach(function (inst) {
+      if (inst && inst.data) applyCalculations('cabines_peinture', inst);
+    });
+  }
+
+  // Bras d'aspiration : même raisonnement que cabines_peinture ci-dessus. conclusion_distance est
+  // un champ "computed" pur ; la formule précédente ne tenait pas compte de recyclage = Oui (qui doit
+  // forcer Non Satisfaisant, VBA Caller_Conclusion_BOA) — bug corrigé, rien à protéger.
+  if (m.installations && Array.isArray(m.installations.bras_aspiration) && typeof applyCalculations === 'function') {
+    m.installations.bras_aspiration.forEach(function (inst) {
+      if (inst && inst.data) applyCalculations('bras_aspiration', inst);
+    });
+  }
+
+  // Locaux fumeurs : avis_csp est un champ "computed" pur. La formule précédente utilisait le
+  // libellé "Conforme/Non Conforme" (faux, le VBA utilise "Satisfaisant/Non Satisfaisant") — bug
+  // corrigé, rien à protéger sur les 3 critères déjà existants (crit_surface_35/crit_ratio_20/
+  // crit_renouvellement) : même verdict Satisfaisant/Non Satisfaisant qu'avant, juste le mot qui
+  // change. Les 17 nouveaux critères de la checklist réglementaire à 21 critères n'existaient pas
+  // avant et restent naturellement vides sur les dossiers déjà saisis (ignorés par la formule tant
+  // qu'ils ne sont pas renseignés — cf. commentaire dans calculations.js).
+  if (m.installations && Array.isArray(m.installations.locaux_fumeurs) && typeof applyCalculations === 'function') {
+    m.installations.locaux_fumeurs.forEach(function (inst) {
+      if (inst && inst.data) applyCalculations('locaux_fumeurs', inst);
+    });
+  }
   return m;
 }
 

@@ -7,6 +7,11 @@ var OPT_CONFORME = ['Conforme', 'Non Conforme'];
 var OPT_OUI_NON = ['Oui', 'Non'];
 var OPT_SATISFAISANT = ['Satisfaisant', 'Non Satisfaisant', 'Impossible de se prononcer'];
 
+// Checklist réglementaire locaux fumeurs (21 critères, UserForm_LOCFUMEUR CB1-CB21) — chaque critère se
+// répond Satisfaisant / Non Satisfaisant / Sans Objet (VBA : Libelle_Usf_Satisfaisant / _Non_Satisfaisant
+// / Libelle_Sans_Objet), pas "Impossible de se prononcer" comme OPT_SATISFAISANT.
+var OPT_CRITERE_LOCFUMEUR = ['Satisfaisant', 'Non Satisfaisant', 'Sans Objet'];
+
 // Menuiserie (machines à bois) — table "Type de machine à bois" -> débit de référence (m³/h)
 // Extraite de la liste déroulante UserForm_MENUISERIE_BIS (feuille de référence liée)
 var MACHINE_BOIS_DEBIT_REF = {
@@ -163,9 +168,15 @@ var INSTALLATION_TYPES = [
       { key: 'type_ventilation', label: 'Type de ventilation', type: 'select',
         options: ['Nat sans ouvrants', 'Nat avec ouvrants', 'Extraction', 'Soufflage', 'Double flux'] },
 
+      { key: 'entree_air_permanente', label: "Présence d'entrée d'air permanente donnant directement sur l'extérieur", type: 'select',
+        options: ['Oui', 'Non'],
+        showIf: { key: 'type_ventilation', equals: 'Nat sans ouvrants' } },
       { key: 'ouvrant_exterieur', label: "Présence d'ouvrant donnant directement sur l'extérieur", type: 'select',
         options: ['Oui', 'Non'],
         showIf: { key: 'type_ventilation', in: ['Extraction', 'Soufflage', 'Double flux'] } },
+      { key: 'entree_air_exterieur', label: "Présence d'entrée d'air donnant directement sur l'extérieur", type: 'select',
+        options: ['Oui', 'Non'],
+        showIf: { key: 'ouvrant_exterieur', equals: 'Non' } },
 
       { key: 'debit_total_mesure', label: 'Débit total mesuré (m³/h)', type: 'number',
         showIf: { key: 'type_ventilation', in: ['Extraction', 'Soufflage'] } },
@@ -182,6 +193,7 @@ var INSTALLATION_TYPES = [
 
       { key: 'etat_bouches', label: 'État des bouches', type: 'select',
         options: ['En bon état', 'A réparer'] },
+      { key: 'type_ventilation_libelle', label: 'Type de ventilation (constat)', type: 'computed' },
 
       { key: 'section_conclusion', label: 'Conclusion', type: 'section' },
       { key: 'avis', label: "Avis (débit d'air neuf vs valeur à respecter)", type: 'computed' },
@@ -221,10 +233,25 @@ var INSTALLATION_TYPES = [
   },
   {
     id: 'locaux_fumeurs', label: 'Locaux fumeurs', icon: 'building', implemented: true,
+    // ⚠️ NON VÉRIFIÉ TERRAIN — reconstruit depuis le VBA seul, à confirmer
+    // dès qu'un rapport réel de ce type sera disponible.
+    // Checklist réglementaire à 21 critères fidèle à UserForm_LOCFUMEUR (CB1-CB21), extraite via
+    // oletools.oleform (captions des Label associés à chaque CB). Voir aeration_word_export_schema_gaps
+    // (mémoire) pour le détail des repères VBA.
     fields: [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
+      { key: 'localisation', label: 'Localisation', type: 'text' },
       { key: 'reference_equipement', label: 'Référence équipement', type: 'text' },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
+
+      { key: 'section_local', label: 'Local', type: 'section' },
+      { key: 'critere_local_clos', label: "Les emplacements réservés comme locaux fumeurs sont des salles closes, affectées à la consommation de tabac", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_aucune_prestation', label: "Aucune prestation de service n'est délivrée dans la salle", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_entretien_apres_renouvellement', label: "Prise en compte dans l'organisation qu'aucune tâche d'entretien et de maintenance ne puisse y être exécutée sans que l'air ait été renouvelé, en l'absence de tout occupant, pendant au moins une heure", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_pas_lieu_passage', label: "La salle fumeur ne constitue pas un lieu de passage", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_fermetures_auto', label: "Le local est doté de fermetures automatiques sans possibilité d'ouverture non intentionnelle", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+
+      { key: 'section_dimensions', label: 'Dimensions', type: 'section' },
       { key: 'largeur', label: 'Largeur (m)', type: 'number' },
       { key: 'longueur', label: 'Longueur (m)', type: 'number' },
       { key: 'hauteur', label: 'Hauteur (m)', type: 'number' },
@@ -233,9 +260,30 @@ var INSTALLATION_TYPES = [
       { key: 'surface_etablissement', label: "Superficie totale de l'établissement (m²)", type: 'number' },
       { key: 'crit_surface_35', label: 'Superficie du local < 35 m²', type: 'computed' },
       { key: 'crit_ratio_20', label: "Superficie ≤ 20 % de la superficie de l'établissement", type: 'computed' },
+
+      { key: 'section_ventilation', label: 'Ventilation mécanique', type: 'section' },
+      { key: 'critere_ventilation_mecanique', label: "Salle équipée d'un dispositif d'extraction d'air par ventilation mécanique", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_rejet_exterieur', label: "Rejet d'air à l'extérieur", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_rejet_distance_passage', label: "Rejet d'air à bonne distance des lieux de passage de personnes", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_rejet_distance_prises_air', label: "Rejet d'air à bonne distance des prises d'air frais ou des ouvertures", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
       { key: 'debit_extraction', label: "Débit d'extraction mesuré (m³/h)", type: 'number' },
+      { key: 'critere_reprise_totale', label: 'Reprise totale (m³/h) — avis', type: 'select', options: OPT_CRITERE_LOCFUMEUR },
       { key: 'taux_renouvellement', label: "Taux de renouvellement d'air (vol/h)", type: 'computed' },
       { key: 'crit_renouvellement', label: 'Taux de renouvellement ≥ 10 vol/h', type: 'computed' },
+      { key: 'critere_ventilation_independante', label: "La ventilation est entièrement indépendante du système de ventilation ou de climatisation d'air du bâtiment", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_depression', label: "Le local est maintenu en dépression continue d'au moins cinq pascals par rapport aux pièces communicantes", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+
+      { key: 'section_attestations', label: 'Attestations et entretien', type: 'section' },
+      { key: 'critere_attestation_installateur', label: "L'installateur ou la personne assurant la maintenance du dispositif de ventilation mécanique atteste que celui-ci permet de respecter les exigences de ventilation", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_attestation_disponible', label: "Le responsable de l'établissement est tenu de produire cette attestation à l'occasion de tout contrôle : le document est en possession du chef d'établissement", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_entretien_regulier', label: "Le responsable de l'établissement est tenu de faire procéder à l'entretien régulier de la ventilation", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_consultation_chsct', label: "La mise à disposition d'un emplacement à la disposition des fumeurs et ses modalités de mise en œuvre sont soumises à la consultation du comité d'hygiène et de sécurité et des conditions de travail (avant sa mise en œuvre, puis tous les 2 ans)", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+
+      { key: 'section_panneaux', label: 'Signalétique', type: 'section' },
+      { key: 'critere_panneau_zone_fumeur', label: "Le panneau d'avertissement de la zone fumeur est présent", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'critere_panneau_interdiction', label: "Le panneau d'interdiction de fumer dans les autres zones est présent", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+
+      { key: 'section_conclusion', label: 'Conclusion', type: 'section' },
       { key: 'avis_csp', label: 'Avis par rapport aux critères du code de la santé publique', type: 'computed' },
       { key: 'observation', label: 'Observation', type: 'textarea' }
     ]
@@ -244,7 +292,6 @@ var INSTALLATION_TYPES = [
     id: 'cta', label: 'CTA (Centrale de traitement d\u2019air)', icon: 'tool', implemented: true,
     fields: [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
-      { key: 'marque', label: 'Marque', type: 'text' },
       { key: 'localisation', label: 'Localisation', type: 'text' },
       { key: 'locaux_alimentes', label: 'Locaux alimentés', type: 'text' },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
@@ -321,7 +368,6 @@ var INSTALLATION_TYPES = [
       { key: 'conclusion_taux', label: 'Conclusion taux de renouvellement', type: 'computed', showIf: { key: 'afficher_taux', equals: 'Oui' } },
 
       { key: 'section_conduit', label: 'Mesure dans le conduit', type: 'section' },
-      { key: 'gaine', label: 'Gaine', type: 'text' },
       { key: 'temperature_conduit', label: 'Température dans le conduit (°C)', type: 'number' },
       { key: 'pression_statique', label: 'Pression statique dans le conduit (Pa)', type: 'number' },
       { key: 'masse_volumique', label: 'Masse volumique dans les conditions réelles (kg/m³)', type: 'computed' },
@@ -349,6 +395,9 @@ var INSTALLATION_TYPES = [
 
       { key: 'type_ventilation', label: 'Type de ventilation', type: 'select',
         options: ['Nat sans ouvrants', 'Nat avec ouvrants', 'Extraction', 'Soufflage', 'Double flux'] },
+      { key: 'entree_air_permanente', label: "Présence d'entrée d'air permanente donnant directement sur l'extérieur", type: 'select',
+        options: ['Oui', 'Non'],
+        showIf: { key: 'type_ventilation', equals: 'Nat sans ouvrants' } },
       { key: 'ouvrant_exterieur', label: "Présence d'ouvrant donnant directement sur l'extérieur", type: 'select',
         options: ['Oui', 'Non'],
         showIf: { key: 'type_ventilation', in: ['Extraction', 'Soufflage', 'Double flux'] } },
@@ -453,7 +502,10 @@ var INSTALLATION_TYPES = [
     fields: [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
       { key: 'localisation', label: 'Localisation', type: 'text' },
-      { key: 'date_installation', label: "Date d'installation", type: 'text' },
+      // Optionnel : colonne marquée "ne pas prendre en compte" dans le classeur Excel d'origine, et
+      // vue systématiquement vide ("/") sur tous les rapports de référence analysés — à ne pas rendre
+      // obligatoire côté saisie.
+      { key: 'date_installation', label: "Date d'installation (optionnel)", type: 'text' },
       { key: 'date_mesure', label: 'Date de mesure', type: 'text' },
       { key: 'reference_equipement', label: "Réf. de l'équipement et/ou implantation", type: 'text' },
 
@@ -536,6 +588,10 @@ var INSTALLATION_TYPES = [
   },
   {
     id: 'bras_aspiration', label: 'Bras d\u2019aspiration', icon: 'zap', implemented: true,
+    // Le paragraphe réglementaire "Non respect du code du travail pour le recyclage" (quand
+    // Recyclage = Oui) est entièrement fixe côté VBA (Caller_Conclusion_BOA) — pas de critère
+    // supplémentaire à saisir, contrairement à ce qu'on pensait initialement. Rendu géré directement
+    // dans export-word.js (buildAnnexeBrasAspiration) à partir du seul champ 'recyclage' déjà présent.
     fields: [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
       { key: 'activite', label: 'Activité', type: 'text' },
@@ -584,7 +640,6 @@ var INSTALLATION_TYPES = [
     id: 'cabines_peinture', label: 'Cabines de peinture', icon: 'building', implemented: true,
     fields: [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
-      { key: 'localisation', label: 'Localisation', type: 'text' },
       { key: 'marque', label: 'Marque', type: 'text' },
       { key: 'type_cabine', label: 'Type de cabine', type: 'select', options: ['Fermée', 'Ouverte', 'Semi-fermée'] },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
@@ -601,12 +656,15 @@ var INSTALLATION_TYPES = [
         options: ['Toute la fumée a été aspirée', 'On observe des irrégularités lors de l\u2019aspiration des fumées',
                   'On constate un phénomène de rétrodiffusion des fumées', 'Aucune aspiration', 'Non réalisé'] },
       { key: 'etat_filtres', label: 'État des filtres', type: 'select', options: ['Satisfaisant', 'Non Satisfaisant', 'Impossible de se prononcer'] },
-      { key: 'avis_csp', label: 'Avis par rapport aux critères du code de la santé publique', type: 'select', options: ['Conforme', 'Non Conforme'] },
       { key: 'observation_visuel', label: 'Observation', type: 'textarea' },
 
       { key: 'section_dimensions', label: 'Mesure de la cabine vide', type: 'section' },
       { key: 'largeur_cabine', label: 'Largeur (m)', type: 'number' },
       { key: 'longueur_cabine', label: 'Longueur (m)', type: 'number' },
+      { key: 'vitesse_nb_axes', label: 'Nombre d’axes', type: 'number' },
+      { key: 'vitesse_nb_points', label: 'Nombre de points par axe', type: 'number' },
+      { key: 'vitesse_grid', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid', colsKey: 'vitesse_nb_points', rowsKey: 'vitesse_nb_axes' },
+      { key: 'vitesse_moyenne_grille', label: 'Vitesse moyenne calculée (m/s)', type: 'computed' },
 
       { key: 'section_v1', label: 'Vitesse d\u2019air — Vitesse moyenne', type: 'section' },
       { key: 'v1_mesuree', label: 'Valeur mesurée (m/s)', type: 'number' },
@@ -645,6 +703,7 @@ var INSTALLATION_TYPES = [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
       { key: 'localisation', label: 'Localisation', type: 'text' },
       { key: 'type_installation', label: "Type d'installation", type: 'text' },
+      { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
       { key: 'reference_equipement', label: "Référence de l'équipement", type: 'text' },
       { key: 'etat_visuel_reseau', label: "État visuel du réseau d'aspiration", type: 'select',
         options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués'] },
@@ -704,11 +763,26 @@ var INSTALLATION_TYPES = [
   {
     id: 'gaz_echappement', label: 'Gaz d\u2019échappement', icon: 'zap', implemented: true,
     fields: [
+      { key: 'section_type_equipement', label: 'Type d’équipement', type: 'section' },
+      { key: 'type_vehicule', label: 'Type', type: 'select',
+        options: ['VEHICULE LEGER', 'POIDS-LOURD et BUS', 'LOCOMOTIVE (SNCF)', 'OUTILLAGE PORTATIF', 'AUTRES'] },
+      { key: 'type_vehicule_autre', label: 'Préciser', type: 'text', showIf: { key: 'type_vehicule', equals: 'AUTRES' } },
+      { key: 'type_captage', label: 'Type de captage', type: 'select',
+        options: ['Captage enveloppant (fixé à l’échappement)', 'Captage récepteur (non fixé à l’échappement)'] },
+
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
       { key: 'atelier', label: 'Atelier', type: 'text' },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
       { key: 'reference_equipement', label: 'Réf. équipement et/ou implantation', type: 'text' },
       { key: 'type_captage_adapte', label: 'Type de captage adapté à la situation', type: 'select', options: ['Oui', 'Non'] },
+      // "Le système de fixation est hors-service", "La gaine est trouée" et "Bon état" confirmés
+      // verbatim par plusieurs rapports de référence réels (ex. EK2L0_25_1909, ek2l0_1910).
+      // "Le réseau est encrassé" vient de la lecture directe de la feuille LISTE du classeur VBA
+      // (source fiable) mais n'a pas été vu coché sur un rapport réel échantillonné — à vérifier en
+      // priorité si un dossier réel montre un jour "réseau encrassé" coché.
+      { key: 'etat_visuel_installations', label: 'État visuel des installations', type: 'checkbox-group',
+        options: ['Le réseau est encrassé', 'Le système de fixation est hors-service', 'La gaine est trouée', 'Bon état', 'Autres'] },
+      { key: 'etat_visuel_si_autres', label: 'Si autres', type: 'text', showIf: { key: 'etat_visuel_installations', contains: 'Autres' } },
       { key: 'commentaire', label: 'Commentaire', type: 'textarea' },
 
       { key: 'section_reseau', label: 'Réseau d\u2019air', type: 'section' },
@@ -744,6 +818,7 @@ var INSTALLATION_TYPES = [
     id: 'menuiserie', label: 'Menuiserie (réseau d\u2019aspiration)', icon: 'tool', implemented: true,
     fields: [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
+      { key: 'localisation', label: 'Localisation', type: 'text' },
       { key: 'reference_equipement', label: "Référence du dispositif d'extraction", type: 'textarea' },
       { key: 'nb_machines_reliees', label: 'Nombre de machines reliées au dispositif', type: 'number' },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
@@ -752,6 +827,7 @@ var INSTALLATION_TYPES = [
 
       { key: 'section_reseau_carac', label: 'Caractéristique du réseau', type: 'section' },
       { key: 'reseau_forme', label: 'Forme du réseau', type: 'checkbox-group', options: ['En épi', 'autres'] },
+      { key: 'reseau_forme_si_autres', label: 'Si autres', type: 'text', showIf: { key: 'reseau_forme', contains: 'autres' } },
       { key: 'presence_trappes', label: 'Présence de trappes', type: 'toggle', options: ['Oui', 'Non'] },
       { key: 'ouverture_trappes', label: 'Ouverture des trappes', type: 'select', options: ['Manuelle', 'Pneumatique'],
         showIf: { key: 'presence_trappes', equals: 'Oui' } },
@@ -792,6 +868,12 @@ var INSTALLATION_TYPES = [
   },
   {
     id: 'menuiserie_bis', label: 'Menuiserie (machines à bois)', icon: 'tool', implemented: true,
+    // Ce type couvre la fiche "par machine" (Inserer_Annexe_13BIS, TAB_MENUISERIE_MAB). Le 2e sous-type
+    // VBA "Machine à bois extracteur" (fiche réseau commune à plusieurs machines, TAB_MENUISERIE_EXTRACT)
+    // n'est pas manquant : il est déjà couvert par le type 'menuiserie' (nb_machines_reliees, dépoussiéreur,
+    // caractéristiques réseau — vérifié champ par champ contre l'en-tête VBA) — deux types distincts, pas
+    // un gap. Le rendu Word de 'menuiserie' reste générique (buildAnnexeFicheGenerique) pour l'instant,
+    // comme les autres types encore non passés en fiche fidèle.
     fields: [
       { key: 'section_localisation', label: 'Localisation', type: 'section' },
       { key: 'reference_machine', label: 'Référence de la machine à bois', type: 'text' },
@@ -844,10 +926,12 @@ var INSTALLATION_TYPES = [
       { key: 'activite_reference_local', label: 'Activité et référence du local', type: 'textarea' },
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
       { key: 'date_controle', label: 'Date de Contrôle', type: 'text' },
+      { key: 'reference_equipement', label: "Réf. équipement", type: 'text' },
       { key: 'photo', label: 'Photo', type: 'photo' },
 
       { key: 'etat_visuel_installations', label: 'État visuel des installations', type: 'checkbox-group',
         options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués', 'Autres'] },
+      { key: 'etat_visuel_si_autres', label: 'Si autres', type: 'text', showIf: { key: 'etat_visuel_installations', contains: 'Autres' } },
       // Bascules "Satisfaisant / Non Satisfaisant" (UserForm_BOX.bas — CB_Choix_5/6/7) : reproduites
       // ici en select, la valeur exacte pilote l'avis global (cf. calculations.js).
       { key: 'ventilation_naturelle', label: 'Ventilation naturelle permanente', type: 'select',
@@ -884,7 +968,8 @@ var INSTALLATION_TYPES = [
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
       { key: 'reference_equipement', label: "Réf. de l'équipement", type: 'text' },
       { key: 'note_reference', label: 'Note', type: 'computed' },
-      { key: 'total_debit', label: 'Total débit (m³/h)', type: 'computed' }
+      { key: 'total_debit', label: 'Total débit (m³/h)', type: 'computed' },
+      { key: 'commentaire', label: 'Commentaire', type: 'textarea' }
     ]
       .concat(buildTorcheRowFields(1)).concat(buildTorcheRowFields(2)).concat(buildTorcheRowFields(3))
       .concat(buildTorcheRowFields(4)).concat(buildTorcheRowFields(5)).concat(buildTorcheRowFields(6))
@@ -942,6 +1027,8 @@ var INSTALLATION_TYPES = [
 
       { key: 'etat_visuel_aspiration', label: "État visuel de l'aspiration", type: 'checkbox-group',
         options: ['En bon état', 'Le réseau est encrassé', "Les fentes d'aspiration sont endommagées ou obturées", 'La gaine est trouée', 'Autres'] },
+      { key: 'etat_visuel_si_autres', label: 'Si autres', type: 'text', showIf: { key: 'etat_visuel_aspiration', contains: 'Autres' } },
+      { key: 'test_fumigene', label: 'Test fumigène', type: 'text' },
 
       { key: 'section_procede', label: 'Procédé', type: 'section' },
       { key: 'procede_famille', label: 'Famille', type: 'text' },

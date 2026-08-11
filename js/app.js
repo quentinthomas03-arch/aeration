@@ -10,6 +10,8 @@ function render() {
     case 'mission-detail': h = renderMissionDetail(); break;
     case 'type-list': h = renderTypeList(); break;
     case 'installation-form': h = renderInstallationForm(); break;
+    case 'add-installation-picker': h = renderAddInstallationPicker(); break;
+    case 'site-overview-group': h = renderSiteOverviewGroupFull(); break;
     default: h = renderHome();
   }
   document.getElementById('app').innerHTML = h;
@@ -29,6 +31,8 @@ window.addEventListener('popstate', function (event) {
   event.preventDefault();
   if (state.view === 'installation-form') state.view = 'type-list';
   else if (state.view === 'type-list') state.view = 'mission-detail';
+  else if (state.view === 'add-installation-picker') state.view = 'mission-detail';
+  else if (state.view === 'site-overview-group') state.view = 'mission-detail';
   else if (state.view === 'select-installations') state.view = 'mission-detail';
   else if (state.view === 'mission-form') state.view = 'home';
   else if (state.view === 'mission-detail') state.view = 'home';

@@ -18,29 +18,11 @@ function renderMissionDetail() {
   h += '<button class="btn btn-gray btn-small" onclick="exportMissionJSON(' + m.id + ');">' + ICONS.download + ' JSON</button>';
   h += '</div>';
 
-  var typesSelectionnes = m.typesSelectionnes || [];
-  var typesAffiches = INSTALLATION_TYPES.filter(function (t) { return typesSelectionnes.indexOf(t.id) !== -1; });
-
-  if (typesAffiches.length === 0) {
-    h += '<div class="empty-state"><div class="empty-state-icon">' + ICONS.empty + '</div>' +
-      '<p>Aucune installation sélectionnée pour cette mission.</p></div>';
-    h += '<button class="btn btn-primary" onclick="state.view=\'select-installations\';render();">' + ICONS.list + ' Sélectionner les installations</button>';
-    return h;
-  }
-
-  h += '<div class="nav-menu">';
-  typesAffiches.forEach(function (t) {
-    var count = (m.installations[t.id] || []).length;
-    var disabled = !t.implemented;
-    h += '<div class="nav-item" style="' + (disabled ? 'opacity:0.5;' : '') + '" onclick="' +
-      (disabled ? 'alert(\'Ce type d\\\'installation sera bientôt disponible.\');' :
-        'state.currentTypeId=\'' + t.id + '\';state.view=\'type-list\';render();') + '">';
-    h += '<div class="nav-icon">' + getIcon(t.icon) + '</div>';
-    h += '<div style="flex:1;"><div style="font-weight:600;">' + escapeHtml(t.label) + '</div>';
-    h += '<div class="subtitle">' + count + ' installation(s)' + (disabled ? ' — à venir' : '') + '</div></div>';
-    h += ICONS.chevronRight + '</div>';
-  });
-  h += '</div>';
+  // Chantier "ergonomie de saisie terrain" (2026-08) : la liste à plat "un type = une ligne avec
+  // compteur" est remplacée par l'écran de vue d'ensemble (compteurs, groupage bâtiment/type,
+  // statut par installation) — voir js/site-overview.js. Le reste de cet écran (infos mission,
+  // exports) est inchangé.
+  h += renderSiteOverview(m);
   return h;
 }
 
@@ -56,7 +38,7 @@ function renderTypeList() {
   list.forEach(function (inst, idx) {
     var titleField = t.fields.find(function (f) { return f.type === 'text'; });
     var title = titleField ? (inst.data[titleField.key] || 'Sans nom') : ('#' + (idx + 1));
-    h += '<div class="nav-item" onclick="state.currentInstIndex=' + idx + ';state.view=\'installation-form\';render();">';
+    h += '<div class="nav-item" onclick="state.currentInstIndex=' + idx + ';state.currentStep=0;state.view=\'installation-form\';render();">';
     h += '<div class="nav-icon">' + getIcon(t.icon) + '</div>';
     h += '<div style="flex:1;"><div style="font-weight:600;">' + escapeHtml(title) + '</div></div>';
     h += '<button class="agent-delete" onclick="event.stopPropagation();deleteInstallation(\'' + t.id + '\',' + idx + ');">' + ICONS.trash + '</button>';
@@ -74,6 +56,7 @@ function addInstallation(typeId) {
   persistMissions();
   state.currentTypeId = typeId;
   state.currentInstIndex = m.installations[typeId].length - 1;
+  state.currentStep = 0;
   state.view = 'installation-form';
   render();
 }
@@ -92,6 +75,13 @@ function renderInstallationForm() {
   if (!m || !t) { state.view = 'home'; render(); return ''; }
   var inst = m.installations[t.id][state.currentInstIndex];
   if (!inst) { state.view = 'type-list'; render(); return ''; }
+
+  // Chantier "ergonomie de saisie terrain" (2026-08) : sanitaires est le premier type passé en
+  // écran de saisie par étapes (voir js/wizard-sanitaires.js). Les 17 autres types restent sur
+  // ce rendu générique pour l'instant, le temps de valider le pattern.
+  if (t.id === 'sanitaires' && typeof renderSanitairesWizard === 'function') {
+    return renderSanitairesWizard(m, t, inst);
+  }
 
   var h = '<button class="back-btn" onclick="state.view=\'type-list\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>';
   h += '<div class="card"><h1>' + getIcon(t.icon) + ' ' + escapeHtml(t.label) + '</h1></div>';
@@ -113,6 +103,15 @@ function renderInstallationForm() {
 
   h += '<button class="btn btn-primary" onclick="state.view=\'type-list\';render();">' + ICONS.check + ' Terminé</button>';
   return h;
+}
+
+// Palette de statut unifiée (voir tokens --status-* dans main.css), utilisée par le rendu
+// générique ci-dessous ET par les écrans de saisie en étapes (ex: renderSanitairesWizard).
+function statusClass(display) {
+  if (display === 'Satisfaisant' || display === 'Conforme') return 'status-ok';
+  if (display === 'Non Satisfaisant' || display === 'Non Conforme') return 'status-bad';
+  if (display === 'Impossible de se prononcer') return 'status-warn';
+  return 'status-muted';
 }
 
 function evalShowIf(cond, data) {
@@ -166,11 +165,7 @@ function renderFieldInput(typeId, f, inst) {
   }
   if (f.type === 'computed') {
     var display = (val === '' || val === undefined) ? '—' : String(val);
-    var bg = '#f3f4f6', fg = '#374151';
-    if (display === 'Satisfaisant' || display === 'Conforme') { bg = '#dcfce7'; fg = '#166534'; }
-    else if (display === 'Non Satisfaisant' || display === 'Non Conforme') { bg = '#fee2e2'; fg = '#991b1b'; }
-    else if (display === 'Impossible de se prononcer') { bg = '#fef3c7'; fg = '#92400e'; }
-    return '<div style="padding:10px 12px;border-radius:8px;background:' + bg + ';color:' + fg + ';font-weight:600;font-size:14px;">' + escapeHtml(display) + '</div>';
+    return '<div class="status-badge ' + statusClass(val) + '">' + escapeHtml(display) + '</div>';
   }
   if (f.type === 'grid') {
     var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, 5);

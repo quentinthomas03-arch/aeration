@@ -316,6 +316,24 @@ var CALC_RULES = {
         var v = debitAirNeufMesure(d);
         return isNaN(v) ? '' : v;
       } },
+    // Fidèle à Aer_Sheets_TAB_1 (VBA, feuille "autres locaux") colonne 24 "type de ventilation". Cas
+    // "Nat sans ouvrants" : distingue "Naturelle par ouverture permanente" / "Absence de ventilation"
+    // selon entree_air_permanente (colonne 9, vba_dump.txt:23963-23966) — uniquement si le champ a été
+    // explicitement répondu ; sur un dossier où il n'a jamais été demandé, on garde le libellé générique
+    // pour ne rien changer rétroactivement.
+    { target: 'type_ventilation_libelle', fn: function (d) {
+        switch (d.type_ventilation) {
+          case 'Nat sans ouvrants':
+            if (d.entree_air_permanente === 'Oui') return 'Naturelle par ouverture permanente';
+            if (d.entree_air_permanente === 'Non') return 'Absence de ventilation';
+            return 'Naturelle (absence d’ouvrants)';
+          case 'Nat avec ouvrants': return 'Naturelle par ouvrants';
+          case 'Extraction': return 'Mécanique Simple Flux';
+          case 'Soufflage': return 'Mécanique Simple Flux (soufflage)';
+          case 'Double flux': return 'Mécanique Double Flux';
+          default: return '';
+        }
+      } },
     { target: 'avis', fn: function (d) {
         if (d.type_local === 'Local occupé occasionnellement') return 'Sans Objet';
         if (!d.type_local) return 'Impossible de se prononcer';
@@ -324,11 +342,26 @@ var CALC_RULES = {
 
         var vol = num(d.volume), volMin = num(d.volume_min);
 
+        // Nat sans ouvrants : absence d'entrée d'air permanente (VBA Aer_Sheets_TAB_1, vba_dump.txt:
+        // 23992-23993 "Ouvrants ne donnant pas sur l'extérieur ou non accessibles et absence de
+        // ventilation mécanique") force Non Satisfaisant, mais uniquement si explicitement répondu
+        // "Non" — champ ajouté après coup, ne pas pénaliser un dossier où il n'a jamais été demandé.
+        if (d.type_ventilation === 'Nat sans ouvrants' && d.entree_air_permanente === 'Non') return 'Non Satisfaisant';
+
         // Ventilation naturelle : le critère est uniquement le volume du local (pas de débit à mesurer).
         if (d.type_ventilation === 'Nat sans ouvrants' || d.type_ventilation === 'Nat avec ouvrants') {
           if (isNaN(vol) || isNaN(volMin)) return 'Impossible de se prononcer';
           return vol >= volMin ? 'Satisfaisant' : 'Non Satisfaisant';
         }
+
+        // Ventilation mécanique : une extraction sans aucune entrée d'air (ouvrant ou entrée d'air
+        // dédiée) ne produit pas de renouvellement d'air réel (VBA Aer_Sheets_TAB_1, cas Extraction :
+        // "En l'absence d'ouvrants et d'entrée d'air donnant sur l'extérieur, il n'y a pas d'apport
+        // d'air neuf dans ce local." — même règle que erp.avis). N'est appliqué que si le technicien a
+        // explicitement répondu "Non" à entree_air_exterieur — champ ajouté après coup : sur un dossier
+        // existant où il n'a jamais été demandé, on ne veut pas faire basculer l'avis en Non Satisfaisant
+        // sur la seule base d'une question jamais posée ; on retombe alors sur le calcul débit/volume.
+        if (d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur === 'Non') return 'Non Satisfaisant';
 
         var min = num(d.debit_min_air_neuf);
         var vt = d.type_ventilation;
@@ -380,9 +413,17 @@ var CALC_RULES = {
         if (!t || t.vol === null || isNaN(eff)) return '';
         return t.vol * eff;
       } },
+    // ⚠️ BUG CORRIGÉ : le libellé "Nat sans ouvrants" distingue désormais "Naturelle par ouverture
+    // permanente" / "Absence de ventilation" selon entree_air_permanente (colonne 9 de TAB_ERP,
+    // structure identique confirmée sur TAB_ERP vs "autres locaux", vba_dump.txt:23963-23966) —
+    // uniquement si le champ a été explicitement répondu ; sinon le libellé générique historique est
+    // conservé (ne rien changer rétroactivement sur les dossiers où la question n'a jamais été posée).
     { target: 'type_ventilation_libelle', fn: function (d) {
         switch (d.type_ventilation) {
-          case 'Nat sans ouvrants': return 'Naturelle (absence d\u2019ouvrants)';
+          case 'Nat sans ouvrants':
+            if (d.entree_air_permanente === 'Oui') return 'Naturelle par ouverture permanente';
+            if (d.entree_air_permanente === 'Non') return 'Absence de ventilation';
+            return 'Naturelle (absence d\u2019ouvrants)';
           case 'Nat avec ouvrants': return 'Naturelle par ouvrants';
           case 'Extraction': return 'Mécanique Simple Flux';
           case 'Soufflage': return 'Mécanique Simple Flux (soufflage)';
@@ -394,12 +435,20 @@ var CALC_RULES = {
         var v = debitAirNeufMesure(d);
         return isNaN(v) ? '' : v;
       } },
+    // ⚠️ BUG CORRIGÉ : la branche ventilation naturelle réutilisait à tort ouvrant_exterieur/
+    // entree_air_exterieur (champs réservés à la ventilation mécanique côté VBA — TAB_1/TAB_ERP les
+    // vident explicitement pour "Nat sans ouvrants", vba_dump.txt:23813). Le vrai critère pour "Nat
+    // sans ouvrants" est entree_air_permanente (colonne 9) ; "Nat avec ouvrants" n'a aucun critère de
+    // ce type côté VBA (uniquement le volume). Impact pratique limité : ouvrant_exterieur/
+    // entree_air_exterieur sont masqués par showIf pour la ventilation naturelle, donc quasi toujours
+    // vides sur les dossiers Nat déjà saisis — la règle fautive ne se déclenchait presque jamais.
     { target: 'avis', fn: function (d) {
         if (d.type_local === 'Local occupé occasionnellement') return 'Sans objet';
         if (!d.type_local || !d.type_ventilation) return 'Impossible de se prononcer';
 
+        if (d.type_ventilation === 'Nat sans ouvrants' && d.entree_air_permanente === 'Non') return 'Non Satisfaisant';
+
         if (d.type_ventilation === 'Nat sans ouvrants' || d.type_ventilation === 'Nat avec ouvrants') {
-          if (d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur !== 'Oui') return 'Non Satisfaisant';
           var vmin = num(d.volume_min), vol = num(d.volume);
           if (isNaN(vmin) || isNaN(vol)) return 'Impossible de se prononcer';
           return vol >= vmin ? 'Satisfaisant' : 'Non Satisfaisant';
@@ -407,7 +456,8 @@ var CALC_RULES = {
 
         // Ventilation mécanique (Extraction / Soufflage / Double flux) : une extraction sans aucune
         // entrée d'air (ouvrant ou entrée d'air dédiée) ne produit pas de renouvellement d'air réel.
-        if (d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur !== 'Oui') return 'Non Satisfaisant';
+        // N'est appliqué que si le technicien a explicitement répondu "Non" à entree_air_exterieur.
+        if (d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur === 'Non') return 'Non Satisfaisant';
 
         var min = num(d.debit_min_air_neuf);
         var vt = d.type_ventilation;
@@ -446,10 +496,34 @@ var CALC_RULES = {
         if (isNaN(t)) return '';
         return t >= 10 ? 'Oui' : 'Non';
       } },
+    // Fidèle à TestNonConformite (VBA UserForm_LOCFUMEUR, vba_dump.txt:25276-25293) : Non Satisfaisant
+    // dès qu'au moins un des 21 critères est explicitement répondu "Non Satisfaisant" (ou "Non" pour les
+    // 3 critères numériques crit_surface_35/crit_ratio_20/crit_renouvellement), Satisfaisant sinon dès
+    // qu'au moins un critère a été renseigné.
+    // ⚠️ BUG CORRIGÉ : la formulation était "Conforme/Non Conforme" — le VBA utilise "Satisfaisant/Non
+    // Satisfaisant" (TextBox47 = Libelle_Usf_Satisfaisant / Libelle_Usf_Non_Satisfaisant).
+    // ⚠️ Écart volontaire par rapport au VBA : un critère jamais cliqué y est aussi traité comme un
+    // échec (bouton par défaut sur "Satisf / Non Satisf ?"). On ne reproduit pas ce comportement ici —
+    // les 17 nouveaux critères n'existaient pas dans l'ancien schéma à 3 critères et ne sont jamais
+    // renseignés sur les dossiers déjà saisis ; un critère non renseigné est simplement ignoré plutôt
+    // que de faire basculer rétroactivement l'avis en Non Satisfaisant.
     { target: 'avis_csp', fn: function (d) {
-        var c1 = d.crit_surface_35, c2 = d.crit_ratio_20, c3 = d.crit_renouvellement;
-        if (!c1 || !c2 || !c3) return 'Impossible de se prononcer';
-        return (c1 === 'Oui' && c2 === 'Oui' && c3 === 'Oui') ? 'Conforme' : 'Non Conforme';
+        var criteresTexte = [d.critere_local_clos, d.critere_aucune_prestation, d.critere_entretien_apres_renouvellement,
+          d.critere_pas_lieu_passage, d.critere_fermetures_auto, d.critere_ventilation_mecanique, d.critere_rejet_exterieur,
+          d.critere_rejet_distance_passage, d.critere_rejet_distance_prises_air, d.critere_ventilation_independante,
+          d.critere_depression, d.critere_attestation_installateur, d.critere_attestation_disponible,
+          d.critere_entretien_regulier, d.critere_consultation_chsct, d.critere_panneau_zone_fumeur, d.critere_panneau_interdiction,
+          d.critere_reprise_totale];
+        var uneReponse = false, echec = false;
+        criteresTexte.forEach(function (c) {
+          if (c === 'Non Satisfaisant') { echec = true; uneReponse = true; }
+          else if (c === 'Satisfaisant') { uneReponse = true; }
+        });
+        if (d.crit_surface_35 === 'Non' || d.crit_ratio_20 === 'Non' || d.crit_renouvellement === 'Non') { echec = true; uneReponse = true; }
+        if (d.crit_surface_35 === 'Oui' || d.crit_ratio_20 === 'Oui' || d.crit_renouvellement === 'Oui') { uneReponse = true; }
+        if (echec) return 'Non Satisfaisant';
+        if (!uneReponse) return '';
+        return 'Satisfaisant';
       } }
   ],
 
@@ -896,6 +970,9 @@ var CALC_RULES = {
         return Math.sqrt(inner) * 100;
       } },
     { target: 'conclusion_distance', fn: function (d) {
+        // VBA Caller_Conclusion_BOA : Recyclage = Oui force systématiquement Non Satisfaisant (non-respect
+        // du code du travail pour le recyclage), quelle que soit la distance de captage mesurée.
+        if (d.recyclage === 'Oui') return 'Non Satisfaisant';
         var dmax = num(d.distance_max_captage), dutil = num(d.distance_utilisation);
         if (isNaN(dmax) || isNaN(dutil)) return '';
         return dutil <= dmax ? 'Satisfaisant' : 'Non Satisfaisant';
@@ -966,6 +1043,11 @@ var CALC_RULES = {
     { target: 'masse_volumique', decimals: 3, fn: function (d) {
         return masseVolumique(d.temperature_conduit, d.pression_statique);
       } },
+    { target: 'vitesse_moyenne_grille', decimals: 3, fn: function (d) {
+        var s = gridStats(d.vitesse_grid, d.vitesse_nb_axes, d.vitesse_nb_points);
+        if (!s || s.incomplete) return '';
+        return s.moyenne;
+      } },
     { target: 'v1_avis', fn: function (d) {
         return avisVitesse(d.v1_mesuree, d.v1_reference, d.v1_valeur_recommandee);
       } },
@@ -975,7 +1057,9 @@ var CALC_RULES = {
       } },
     { target: 'debit_avis', fn: function (d) { return avisSorbonneRef(d.debit_mesure, d.debit_reference); } },
     { target: 'conclusion', fn: function (d) {
-        var avis = [d.v1_avis];
+        // Fidèle à Caller_Conclusion_CDP (VBA, UserForm_CDP) : l'avis global agrège aussi l'avis
+        // débit (Tbx_Debit_1_3/2_3), pas seulement les avis de vitesse.
+        var avis = [d.v1_avis, d.debit_avis];
         if (d.v2_active === 'Oui') avis.push(d.v2_avis);
         avis = avis.filter(function (a) { return a; });
         if (avis.length === 0) return '';
