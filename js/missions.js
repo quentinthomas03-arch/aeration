@@ -3,7 +3,8 @@
 function renderHome() {
   var h = '<div class="card"><h1>' + ICONS.zap + ' Contrôle Aération</h1><p class="subtitle">' + state.missions.length + ' mission(s)</p></div>';
   h += '<button class="btn btn-primary" onclick="createMission();">' + ICONS.plus + ' Nouvelle mission</button>';
-  h += '<button class="btn btn-gray" onclick="triggerImportMission();" style="margin-top:8px;">' + ICONS.upload + ' Importer une mission (.json)</button>';
+  h += '<button class="btn btn-gray" onclick="triggerImportMission();" style="margin-top:8px;">' + ICONS.upload + ' Reprendre une mission en cours (.json)</button>';
+  h += '<button class="btn btn-gray" onclick="triggerImportPreviousSite();" style="margin-top:8px;">' + ICONS.upload + ' Charger un site précédent (préremplissage N-1)</button>';
   h += '<button class="btn btn-gray" onclick="state.view=\'profil-technicien\';render();" style="margin-top:8px;">' + ICONS.user + ' Mon profil technicien</button>';
 
   if (state.missions.length === 0) {

@@ -18,7 +18,11 @@ var state = {
   overviewMode: 'batiment',   // 'batiment' | 'type'
   overviewExpanded: {},       // clé de groupe -> replié/déplié (accordéon)
   overviewGroupMode: null,    // mode du groupe ouvert en plein écran ("Voir tout")
-  overviewGroupKey: null
+  overviewGroupKey: null,
+
+  // Transfert de mission entre appareils (js/import-export.js) — conflit d'id en attente de
+  // résolution (écraser / garder les deux / annuler), jamais persisté
+  pendingImport: null
 };
 
 function generateId() {
@@ -198,6 +202,64 @@ function createEmptyMission() {
 
     installations: installations
   };
+}
+
+// Champs "structure" repris lors du chargement d'un site précédent : uniquement les champs
+// d'identification (bâtiment, repère, emplacement, référence...), pas les champs d'état/
+// configuration/mesure — ceux-là repartent vierges pour que chaque visite reflète un constat
+// réellement fait cette année-là. Une règle par TYPE de champ (garder tous les 'select', par ex.)
+// aurait été trop large : plusieurs 'select' sont des constats de visite, pas des attributs fixes
+// (ex. CTA : 'batterie_froide' ou 'avis' ne doivent jamais être prérempli avec la conclusion de
+// l'année précédente). On s'appuie donc sur les étapes "Identification" déjà curées dans
+// js/wizard-steps.js ; sanitaires (wizard dédié, hors WIZARD_STEPS) est listé à la main.
+function structuralFieldKeys(typeId) {
+  if (typeId === 'sanitaires') return ['batiment', 'repere', 'nom_usage'];
+  var steps = (typeof WIZARD_STEPS !== 'undefined' && WIZARD_STEPS[typeId]) || [];
+  var keys = [];
+  steps.forEach(function (step) {
+    if (step.title === 'Identification') keys = keys.concat(step.fields);
+  });
+  return keys;
+}
+
+// Reprend la structure d'une mission source (bâtiments, installations, noms, emplacements) avec les
+// mesures vierges, pour préremplir une nouvelle visite du même site — distinct du transfert de
+// mission (js/import-export.js finishImportMission) qui reprend une mission EN COURS à l'identique,
+// même id. Ici on part toujours d'une mission neuve : nouvel id de mission, nouveaux id
+// d'installation, aucune résolution de conflit nécessaire.
+function buildInstallationDataFromPrevious(typeId, sourceData) {
+  var data = {};
+  if (!sourceData) return data;
+  structuralFieldKeys(typeId).forEach(function (key) {
+    if (sourceData[key] !== undefined) data[key] = sourceData[key];
+  });
+  var n1Fields = N1_COMPARISON_FIELDS[typeId];
+  if (n1Fields) {
+    n1Fields.forEach(function (pair) {
+      var v = sourceData[pair.current];
+      if (v !== undefined && v !== '' && !isNaN(parseFloat(v))) data[pair.n1] = v;
+    });
+  }
+  return data;
+}
+
+function createMissionFromPreviousSite(source) {
+  var m = createEmptyMission();
+  m.infosClient = JSON.parse(JSON.stringify(source.infosClient || m.infosClient));
+  m.intervenantSite = JSON.parse(JSON.stringify(source.intervenantSite || m.intervenantSite));
+  m.infosSiteIntervention = JSON.parse(JSON.stringify(source.infosSiteIntervention || m.infosSiteIntervention));
+  m.clientSite = source.clientSite || m.infosClient.nomEntreprise || '';
+  m.typeMission = source.typeMission || '';
+  m.typesSelectionnes = (source.typesSelectionnes || []).slice();
+
+  Object.keys(source.installations || {}).forEach(function (typeId) {
+    if (!m.installations.hasOwnProperty(typeId)) return;
+    m.installations[typeId] = (source.installations[typeId] || []).map(function (inst) {
+      return { id: generateId(), data: buildInstallationDataFromPrevious(typeId, inst.data) };
+    });
+  });
+  normalizeMission(m);
+  return m;
 }
 
 console.log('✓ State chargé');

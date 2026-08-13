@@ -69,7 +69,7 @@ function buildBoxCaptageFields(n) {
     { key: p + '_vitesse_nb_axes', label: "Nombre d'axes", type: 'number', showIf: combine(modeGrille) },
     { key: p + '_vitesse_nb_points', label: 'Nombre de points par axe', type: 'number', showIf: combine(modeGrille) },
     { key: p + '_vitesse_grid', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid',
-      colsKey: p + '_vitesse_nb_points', rowsKey: p + '_vitesse_nb_axes', showIf: combine(modeGrille) },
+      colsKey: p + '_vitesse_nb_points', rowsKey: p + '_vitesse_nb_axes', showIf: combine(modeGrille), pointEntry: true },
     { key: p + '_vitesse_directe', label: 'Vitesse (m/s)', type: 'number', showIf: combine(modeDirecte) },
     { key: p + '_vitesse_moyenne', label: 'Vitesse moyenne mesurée (m/s)', type: 'computed', showIf: showIf },
     { key: p + '_debit', label: 'Débit mesuré (m³/h)', type: 'computed', showIf: showIf }
@@ -147,6 +147,26 @@ function buildLocalChargeGrilleFields(i) {
     { key: p + '_debit_obtenu', label: 'Débit obtenu (m³/h)', type: 'computed' }
   ];
 }
+
+// Préremplissage N-1 (js/state.js createMissionFromPreviousSite) — inventaire VBA (rapso_modules/) :
+// seuls 4 types ont un mécanisme dédié de rappel N-1 (contrairement au report intégral générique de
+// Recopier_Les_Donnees.bas, qui recopie tout) — bras_aspiration (UserForm_BOA, "Evolution des
+// valeurs"), extracteur et menuiserie (TextBoxFrC1TAB7/TAB8, "Débit année N-1"/"Débit année en
+// cours"), cta (3 réseaux, mêmes colonnes que Inserer_Annexes.bas). Chaque paire { current, n1 }
+// relie le champ "mesure de cette année" (calculé) à son champ N-1 correspondant (saisi
+// manuellement) : le préremplissage y recopie la valeur "current" de la mission source, et le
+// wizard (gwComputedBadge, js/wizard-engine.js) y lit la valeur N-1 pour l'afficher en rappel sous
+// le champ calculé de l'année en cours.
+var N1_COMPARISON_FIELDS = {
+  bras_aspiration: [{ current: 'debit_calcule', n1: 'debit_precedent' }],
+  extracteur: [{ current: 'debit_annee_en_cours', n1: 'debit_annee_n1' }],
+  menuiserie: [{ current: 'debit_annee_en_cours', n1: 'debit_annee_n1' }],
+  cta: [
+    { current: 'neuf_debit', n1: 'neuf_debit_n1' },
+    { current: 'souf_debit', n1: 'souf_debit_n1' },
+    { current: 'rep_debit', n1: 'rep_debit_n1' }
+  ]
+};
 
 var INSTALLATION_TYPES = [
   {
@@ -348,7 +368,7 @@ var INSTALLATION_TYPES = [
       { key: 'vitesse_mode', label: 'Saisie de la vitesse', type: 'select', options: ['Vitesse moyenne directe', 'Grille de points'] },
       { key: 'vitesse_nb_axes', label: "Nombre d'axes", type: 'number', showIf: { key: 'vitesse_mode', equals: 'Grille de points' } },
       { key: 'vitesse_nb_points', label: 'Nombre de points par axe', type: 'number', showIf: { key: 'vitesse_mode', equals: 'Grille de points' } },
-      { key: 'vitesse_grid', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid', colsKey: 'vitesse_nb_points', rowsKey: 'vitesse_nb_axes', showIf: { key: 'vitesse_mode', equals: 'Grille de points' } },
+      { key: 'vitesse_grid', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid', colsKey: 'vitesse_nb_points', rowsKey: 'vitesse_nb_axes', showIf: { key: 'vitesse_mode', equals: 'Grille de points' }, pointEntry: true },
       { key: 'vitesse', label: 'Vitesse (m/s)', type: 'number', showIf: { key: 'vitesse_mode', equals: 'Vitesse moyenne directe' } },
       { key: 'vitesse_moyenne_grille', label: 'Vitesse moyenne calculée (m/s)', type: 'computed', showIf: { key: 'vitesse_mode', equals: 'Grille de points' } },
 
@@ -416,6 +436,10 @@ var INSTALLATION_TYPES = [
         showIf: { key: 'type_ventilation', in: ['Soufflage', 'Double flux'] } },
       { key: 'debit_air_neuf_introduit', label: "Débit d'air neuf introduit (m³/h)", type: 'computed',
         showIf: { key: 'type_ventilation', in: ['Soufflage', 'Double flux'] } },
+      // Le VBA (UserForm ERP, CheckBox18-20) a 3 options pour l'état des bouches ;
+      // le libellé exact de la 3e est introuvable dans les sources disponibles (cf.
+      // aeration_word_export_schema_gaps.md). Ne pas deviner — à confirmer par un
+      // rapport terrain avant ajout.
       { key: 'etat_bouches', label: 'État des bouches', type: 'select',
         options: ['En bon état', 'A réparer'],
         showIf: { key: 'type_ventilation', in: ['Extraction', 'Soufflage', 'Double flux'] } },
@@ -481,7 +505,7 @@ var INSTALLATION_TYPES = [
 
       { key: 'section_grille', label: 'Relevé des vitesses mesurées dans le plan d\u2019ouverture', type: 'section' },
       { key: 'nb_lignes', label: 'Nombre de lignes', type: 'computed' },
-      { key: 'grille', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid', rowsKey: 'nb_lignes', colsKey: 'nb_colonnes' },
+      { key: 'grille', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid', rowsKey: 'nb_lignes', colsKey: 'nb_colonnes', rowLabel: 'Ligne', colLabel: 'Colonne', pointEntry: true },
       { key: 'commentaire', label: 'Commentaire', type: 'textarea' },
 
       { key: 'section_resultats', label: 'Résultats (guide INRS ED 795)', type: 'section' },
@@ -505,7 +529,7 @@ var INSTALLATION_TYPES = [
       // Optionnel : colonne marquée "ne pas prendre en compte" dans le classeur Excel d'origine, et
       // vue systématiquement vide ("/") sur tous les rapports de référence analysés — à ne pas rendre
       // obligatoire côté saisie.
-      { key: 'date_installation', label: "Date d'installation (optionnel)", type: 'text' },
+      { key: 'date_installation', label: "Date d'installation (optionnel)", type: 'text', optional: true },
       { key: 'date_mesure', label: 'Date de mesure', type: 'text' },
       { key: 'reference_equipement', label: "Réf. de l'équipement et/ou implantation", type: 'text' },
 
@@ -532,7 +556,7 @@ var INSTALLATION_TYPES = [
       { key: 'vpe_nb_points_hauteur', label: 'Nombre de points sur la hauteur (max 5)', type: 'number',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_grid', label: 'Valeurs mesurées (m/s) — saisir « / » pour exclure un point', type: 'grid',
-        colsKey: 'vpe_nb_points_largeur', rowsKey: 'vpe_nb_points_hauteur',
+        colsKey: 'vpe_nb_points_largeur', rowsKey: 'vpe_nb_points_hauteur', pointEntry: true,
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
 
       { key: 'vpe_min', label: 'Vitesse minimale mesurée (m/s)', type: 'computed',
@@ -663,7 +687,7 @@ var INSTALLATION_TYPES = [
       { key: 'longueur_cabine', label: 'Longueur (m)', type: 'number' },
       { key: 'vitesse_nb_axes', label: 'Nombre d’axes', type: 'number' },
       { key: 'vitesse_nb_points', label: 'Nombre de points par axe', type: 'number' },
-      { key: 'vitesse_grid', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid', colsKey: 'vitesse_nb_points', rowsKey: 'vitesse_nb_axes' },
+      { key: 'vitesse_grid', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid', colsKey: 'vitesse_nb_points', rowsKey: 'vitesse_nb_axes', pointEntry: true },
       { key: 'vitesse_moyenne_grille', label: 'Vitesse moyenne calculée (m/s)', type: 'computed' },
 
       { key: 'section_v1', label: 'Vitesse d\u2019air — Vitesse moyenne', type: 'section' },
@@ -793,7 +817,7 @@ var INSTALLATION_TYPES = [
       { key: "vitesse_mode", label: "Saisie de la vitesse", type: "select", options: ["Vitesse moyenne directe", "Grille de points"] },
       { key: "vitesse_nb_axes", label: "Nombre d\u2019axes", type: "number", showIf: { key: "vitesse_mode", equals: "Grille de points" } },
       { key: "vitesse_nb_points", label: "Nombre de points par axe", type: "number", showIf: { key: "vitesse_mode", equals: "Grille de points" } },
-      { key: "vitesse_grid", label: "Valeurs mesurées (m/s) — « / » pour exclure un point", type: "grid", colsKey: "vitesse_nb_points", rowsKey: "vitesse_nb_axes", showIf: { key: "vitesse_mode", equals: "Grille de points" } },
+      { key: "vitesse_grid", label: "Valeurs mesurées (m/s) — « / » pour exclure un point", type: "grid", colsKey: "vitesse_nb_points", rowsKey: "vitesse_nb_axes", showIf: { key: "vitesse_mode", equals: "Grille de points" }, pointEntry: true },
       { key: "vitesse", label: "Vitesse (m/s)", type: "number", showIf: { key: "vitesse_mode", equals: "Vitesse moyenne directe" } },
       { key: "vitesse_moyenne_grille", label: "Vitesse moyenne calculée (m/s)", type: "computed", showIf: { key: "vitesse_mode", equals: "Grille de points" } },
 
@@ -851,7 +875,7 @@ var INSTALLATION_TYPES = [
       { key: "vitesse_mode", label: "Saisie de la vitesse", type: "select", options: ["Vitesse moyenne directe", "Grille de points"] },
       { key: "vitesse_nb_axes", label: "Nombre d\u2019axes", type: "number", showIf: { key: "vitesse_mode", equals: "Grille de points" } },
       { key: "vitesse_nb_points", label: "Nombre de points par axe", type: "number", showIf: { key: "vitesse_mode", equals: "Grille de points" } },
-      { key: "vitesse_grid", label: "Valeurs mesurées (m/s) — « / » pour exclure un point", type: "grid", colsKey: "vitesse_nb_points", rowsKey: "vitesse_nb_axes", showIf: { key: "vitesse_mode", equals: "Grille de points" } },
+      { key: "vitesse_grid", label: "Valeurs mesurées (m/s) — « / » pour exclure un point", type: "grid", colsKey: "vitesse_nb_points", rowsKey: "vitesse_nb_axes", showIf: { key: "vitesse_mode", equals: "Grille de points" }, pointEntry: true },
       { key: "vitesse", label: "Vitesse (m/s)", type: "number", showIf: { key: "vitesse_mode", equals: "Vitesse moyenne directe" } },
       { key: "vitesse_moyenne_grille", label: "Vitesse moyenne calculée (m/s)", type: "computed", showIf: { key: "vitesse_mode", equals: "Grille de points" } },
       { key: 'temperature_conduit', label: 'Température dans le conduit (°C)', type: 'number' },
@@ -914,7 +938,7 @@ var INSTALLATION_TYPES = [
       { key: 'vitesse_nb_axes', label: 'Nombre d\u2019axes', type: 'number', showIf: { key: 'vitesse_mode', equals: 'Grille de points' } },
       { key: 'vitesse_nb_points', label: 'Nombre de points par axe', type: 'number', showIf: { key: 'vitesse_mode', equals: 'Grille de points' } },
       { key: 'vitesse_grid', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid',
-        colsKey: 'vitesse_nb_points', rowsKey: 'vitesse_nb_axes', showIf: { key: 'vitesse_mode', equals: 'Grille de points' } },
+        colsKey: 'vitesse_nb_points', rowsKey: 'vitesse_nb_axes', showIf: { key: 'vitesse_mode', equals: 'Grille de points' }, pointEntry: true },
       { key: 'vitesse_directe', label: 'Vitesse (m/s)', type: 'number', showIf: { key: 'vitesse_mode', equals: 'Vitesse moyenne directe' } },
       { key: 'commentaire', label: 'Commentaire', type: 'textarea' }
     ]

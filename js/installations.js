@@ -15,7 +15,7 @@ function renderMissionDetail() {
 
   h += '<div class="row" style="margin-bottom:12px;">';
   h += '<button class="btn btn-blue btn-small" onclick="exportRapportWord();">' + ICONS.download + ' Rapport Word</button>';
-  h += '<button class="btn btn-gray btn-small" onclick="exportMissionJSON(' + m.id + ');">' + ICONS.download + ' JSON</button>';
+  h += '<button class="btn btn-gray btn-small" onclick="shareOrExportMission(' + m.id + ');">' + ICONS.download + ' Exporter / Transférer</button>';
   h += '</div>';
 
   // Chantier "ergonomie de saisie terrain" (2026-08) : la liste à plat "un type = une ligne avec
@@ -76,11 +76,15 @@ function renderInstallationForm() {
   var inst = m.installations[t.id][state.currentInstIndex];
   if (!inst) { state.view = 'type-list'; render(); return ''; }
 
-  // Chantier "ergonomie de saisie terrain" (2026-08) : sanitaires est le premier type passé en
-  // écran de saisie par étapes (voir js/wizard-sanitaires.js). Les 17 autres types restent sur
-  // ce rendu générique pour l'instant, le temps de valider le pattern.
+  // Chantier "ergonomie de saisie terrain" (2026-08) : sanitaires garde son wizard dédié (premier
+  // jet validé sur le terrain avant généralisation) ; les autres types passent au fur et à mesure
+  // sur le moteur générique (js/wizard-engine.js) dès qu'ils ont une entrée dans WIZARD_STEPS
+  // (js/wizard-steps.js). Le rendu à plat ci-dessous reste le repli pour les types pas encore migrés.
   if (t.id === 'sanitaires' && typeof renderSanitairesWizard === 'function') {
     return renderSanitairesWizard(m, t, inst);
+  }
+  if (typeof WIZARD_STEPS !== 'undefined' && WIZARD_STEPS[t.id] && typeof renderGenericWizard === 'function') {
+    return renderGenericWizard(m, t, inst);
   }
 
   var h = '<button class="back-btn" onclick="state.view=\'type-list\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>';
@@ -114,7 +118,57 @@ function statusClass(display) {
   return 'status-muted';
 }
 
+// Distinction visuelle à 4 états pour les écrans de saisie en étapes (voir .field-tag/.field-hint/
+// .state-* dans main.css) : calculé auto / optionnel+vide / obligatoire+vide / obligatoire+rempli.
+// "optionnel+rempli" n'a pas d'état dédié (style neutre par défaut).
+//
+// Par défaut TOUT champ non calculé est traité "obligatoire" (à saisir/renseigné) : la plupart des
+// champs du schéma finissent dans le rapport Word même s'ils n'entrent dans aucun calcul (ex.
+// nombre_bouches, état des bouches) — les marquer "optionnel" sur ce seul critère ferait courir le
+// risque qu'un technicien les laisse vides en pensant qu'ils n'ont pas d'importance, et que le
+// rapport livré ait des trous. Seuls les champs déjà explicitement optionnels au schéma
+// (`optional: true`, ex. date_installation) basculent dans l'état "optionnel".
+function fieldEmptyValue(val) {
+  if (Array.isArray(val)) return val.length === 0;
+  return val === undefined || val === null || val === '';
+}
+
+function fieldState(f, inst) {
+  if (f.type === 'computed') return 'computed';
+  var empty = fieldEmptyValue(inst.data[f.key]);
+  if (f.optional) return empty ? 'optional-empty' : 'optional-filled';
+  return empty ? 'required-empty' : 'required-filled';
+}
+
+function fieldLabelWithTag(f, state) {
+  var tag = (state === 'optional-empty' || state === 'optional-filled')
+    ? '<span class="field-tag field-tag-optional">optionnel</span>' : '';
+  return '<label class="label">' + escapeHtml(f.label) + tag + '</label>';
+}
+
+function computedLabelWithTag(label) {
+  return '<label class="label"><span class="field-computed-icon">' + ICONS.zap + '</span>' +
+    escapeHtml(label) + '<span class="field-tag field-tag-auto">calculé</span></label>';
+}
+
+function fieldHint(state) {
+  if (state === 'required-empty') return '<div class="field-hint field-hint-required">À saisir</div>';
+  if (state === 'required-filled') return '<div class="field-hint field-hint-done">' + ICONS.check + ' Renseigné</div>';
+  return '';
+}
+
 function evalShowIf(cond, data) {
+  // ⚠️ BUG CORRIGÉ (2026-08) : le combinateur `and: [...]` (utilisé par buildBoxCaptageFields pour
+  // combiner "nombre_captage sélectionné" + une condition propre au captage, ex. forme rectangulaire
+  // ou mode de vitesse) n'était pas géré ici — faute de correspondance avec contains/in/equals, la
+  // fonction retombait sur `return true` par défaut. Résultat, dans box_peinture : captageN_cote2 et
+  // les 4 champs liés au mode de vitesse (vitesse_nb_axes/nb_points/grid/directe) restaient TOUJOURS
+  // affichés quel que soit nombre_captage ou le mode choisi, dans le rendu à plat existant comme
+  // dans le nouveau wizard. Protection dossiers existants : aucune formule de calcul (calculations.js)
+  // ne dépend de la visibilité d'un champ — surfaceSection()/etc. branchent directement sur
+  // forme_conduit/vitesse_mode — donc aucun avis recalculé ni donnée supprimée ; seuls les champs
+  // now correctement masqués cessent d'apparaître à l'écran.
+  if (cond.and) return cond.and.every(function (c) { return evalShowIf(c, data); });
   var v = data[cond.key];
   if (cond.contains !== undefined) {
     return Array.isArray(v) ? v.indexOf(cond.contains) !== -1 : v === cond.contains;

@@ -90,29 +90,32 @@ function renderSanitairesWizard(m, t, inst) {
 
 function sanBigText(f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
-  return '<div class="field-big"><label class="label">' + escapeHtml(f.label) + '</label>' +
-    '<input type="text" class="input-text-big" value="' + escapeHtml(val) +
-    '" onchange="sanField(\'' + f.key + '\',this.value);"></div>';
+  var state = fieldState(f, inst);
+  return '<div class="field-big">' + fieldLabelWithTag(f, state) +
+    '<input type="text" class="input-text-big state-' + state + '" value="' + escapeHtml(val) +
+    '" onchange="sanField(\'' + f.key + '\',this.value);">' + fieldHint(state) + '</div>';
 }
 
 function sanBigNumber(f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
-  return '<div class="field-big"><label class="label">' + escapeHtml(f.label) + '</label>' +
-    '<input type="text" inputmode="decimal" class="input-big" value="' + escapeHtml(val) +
-    '" onchange="sanField(\'' + f.key + '\',this.value);"></div>';
+  var state = fieldState(f, inst);
+  return '<div class="field-big">' + fieldLabelWithTag(f, state) +
+    '<input type="text" inputmode="decimal" class="input-big state-' + state + '" value="' + escapeHtml(val) +
+    '" onchange="sanField(\'' + f.key + '\',this.value);">' + fieldHint(state) + '</div>';
 }
 
 // Boutons larges (2 colonnes max) pour les select à choix restreint (Oui/Non, Individuel/Collectif,
 // état des bouches...) — remplace le <select> natif pour la saisie au pouce sur tablette/mobile.
 function sanChoiceButtons(f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
-  var h = '<div class="field-big"><label class="label">' + escapeHtml(f.label) + '</label><div class="choice-grid">';
+  var state = fieldState(f, inst);
+  var h = '<div class="field-big">' + fieldLabelWithTag(f, state) + '<div class="choice-grid state-' + state + '">';
   f.options.forEach(function (opt) {
     var jsSafeOpt = String(opt).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     h += '<button type="button" class="choice-btn' + (val === opt ? ' selected' : '') + '" onclick="sanField(\'' +
       f.key + '\',\'' + jsSafeOpt + '\');">' + escapeHtml(opt) + '</button>';
   });
-  h += '</div></div>';
+  h += '</div>' + fieldHint(state) + '</div>';
   return h;
 }
 
@@ -120,26 +123,28 @@ function sanChoiceButtons(f, inst) {
 // <select> natif (agrandi) plutôt qu'une grille de boutons.
 function sanNativeSelect(f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
-  var h = '<div class="field-big"><label class="label">' + escapeHtml(f.label) + '</label>' +
-    '<select class="input-text-big" onchange="sanField(\'' + f.key + '\',this.value);">';
+  var state = fieldState(f, inst);
+  var h = '<div class="field-big">' + fieldLabelWithTag(f, state) +
+    '<select class="input-text-big state-' + state + '" onchange="sanField(\'' + f.key + '\',this.value);">';
   h += '<option value=""' + (val === '' ? ' selected' : '') + '>—</option>';
   f.options.forEach(function (opt) {
     h += '<option value="' + escapeHtml(opt) + '"' + (val === opt ? ' selected' : '') + '>' + escapeHtml(opt) + '</option>';
   });
-  h += '</select></div>';
+  h += '</select>' + fieldHint(state) + '</div>';
   return h;
 }
 
 function sanTextarea(f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
-  return '<div class="field-big"><label class="label">' + escapeHtml(f.label) + '</label>' +
-    '<textarea class="input" rows="4" onchange="sanField(\'' + f.key + '\',this.value);">' + escapeHtml(val) +
-    '</textarea></div>';
+  var state = fieldState(f, inst);
+  return '<div class="field-big">' + fieldLabelWithTag(f, state) +
+    '<textarea class="input state-' + state + '" rows="4" onchange="sanField(\'' + f.key + '\',this.value);">' + escapeHtml(val) +
+    '</textarea>' + fieldHint(state) + '</div>';
 }
 
 function sanComputedBadge(label, display) {
   var text = (display === '' || display === undefined) ? '—' : String(display);
-  return '<div class="field-big"><label class="label">' + escapeHtml(label) + '</label>' +
+  return '<div class="field-big">' + computedLabelWithTag(label) +
     '<div class="status-badge ' + statusClass(display) + '">' + escapeHtml(text) + '</div></div>';
 }
 
