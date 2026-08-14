@@ -52,8 +52,8 @@ function renderSanitairesWizard(m, t, inst) {
   }
   var step = state.currentStep;
 
-  var h = '<button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
-    ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>';
+  var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
+    ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
 
   h += '<div class="wizard-progress">';
   SANITAIRES_STEP_LABELS.forEach(function (_, i) {

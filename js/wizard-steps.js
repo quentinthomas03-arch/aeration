@@ -74,7 +74,7 @@ var WIZARD_STEPS = {
   ],
 
   installations_diverses: [
-    { title: 'Identification', fields: ['batiment', 'localisation', 'type_installation', 'date_controle', 'reference_equipement'] },
+    { title: 'Identification', fields: ['batiment', 'localisation', 'type_installation', 'date_controle', 'reference_equipement', 'photo'] },
     { title: 'État visuel', fields: ['etat_visuel_reseau', 'test_fumigene', 'mesures_choisies'] },
     { title: "Vitesse au point d'émission", fields: ['vpe_mesuree', 'vpe_conditions_dispersion', 'vpe_reference', 'vpe_inrs', 'avis_vpe'] },
     { title: 'Vitesse de transport', fields: ['vt_type_polluant', 'vt_inrs', 'vt_mesuree', 'vt_reference', 'avis_vt'] },
@@ -99,7 +99,7 @@ var WIZARD_STEPS = {
   ],
 
   bras_aspiration: [
-    { title: 'Identification', fields: ['batiment', 'activite', 'atelier', 'reference_equipement'] },
+    { title: 'Identification', fields: ['batiment', 'activite', 'atelier', 'reference_equipement', 'photo'] },
     { title: 'Adaptation & recyclage', fields: ['adapte_situation', 'recyclage', 'commentaire_1'] },
     { title: 'État visuel', fields: ['etat_visuel', 'etat_conduits', 'test_fumigene', 'conditions_dispersion'] },
     { title: "Bouche d'aspiration — forme", fields: ['type_bouche', 'forme_bouche', 'diametre_bouche', 'largeur_bouche_ovale', 'longueur_bouche_ovale', 'surface_bouche_autre', 'surface_bouche'] },
@@ -122,7 +122,7 @@ var WIZARD_STEPS = {
   // Grille de points (vitesse_grid) non retravaillée : reste au rendu existant via gwPassthrough.
   gaz_echappement: [
     { title: "Type d'équipement", fields: ['type_vehicule', 'type_vehicule_autre', 'type_captage'] },
-    { title: 'Identification', fields: ['batiment', 'atelier', 'date_controle', 'reference_equipement'] },
+    { title: 'Identification', fields: ['batiment', 'atelier', 'date_controle', 'reference_equipement', 'photo'] },
     { title: 'État visuel', fields: ['type_captage_adapte', 'etat_visuel_installations', 'etat_visuel_si_autres', 'commentaire'] },
     { title: 'Section du conduit', fields: ['forme_section', 'diametre_cote1', 'cote2', 'surface_m2'] },
     { title: 'Vitesse', fields: ['vitesse_mode', 'vitesse_nb_axes', 'vitesse_nb_points', 'vitesse_grid', 'vitesse', 'vitesse_moyenne_grille'] },

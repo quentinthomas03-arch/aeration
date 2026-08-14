@@ -16,6 +16,7 @@ function render() {
     default: h = renderHome();
   }
   document.getElementById('app').innerHTML = h;
+  if (typeof hydratePhotoThumbnails === 'function') hydratePhotoThumbnails();
 }
 
 // PWA - Service Worker
@@ -46,6 +47,12 @@ history.pushState({ view: state.view }, '', '');
 
 loadData();
 render();
+
+// Migration rétrocompatible des photos base64 brutes (voir js/photos.js migrateLegacyPhotos) — hors
+// du chemin critique du premier rendu, ne relance un rendu que si une migration a eu lieu.
+if (typeof migrateLegacyPhotos === 'function') {
+  migrateLegacyPhotos().then(function (changed) { if (changed) render(); });
+}
 
 // Splash screen
 setTimeout(function () {

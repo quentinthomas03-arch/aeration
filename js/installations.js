@@ -61,11 +61,111 @@ function addInstallation(typeId) {
   render();
 }
 
+// Annuler la dernière action (chantier "sécurité de saisie terrain") : un seul niveau, en mémoire
+// (state.undoToast n'est jamais persisté) — juste le temps d'une fausse manip évidente, pas un
+// historique. scheduleUndo() écrase silencieusement toute annulation en attente : planifier une
+// 2e action pendant que le bandeau de la 1re est encore affiché rend la 1re définitive (comportement
+// voulu, cf. consigne "annuler seulement la toute dernière action").
+var UNDO_TOAST_DURATION_MS = 6000;
+var _undoTimeoutId = null;
+
+function scheduleUndo(message, restoreFn) {
+  if (_undoTimeoutId) clearTimeout(_undoTimeoutId);
+  state.undoToast = { message: message, restore: restoreFn };
+  _undoTimeoutId = setTimeout(function () {
+    state.undoToast = null;
+    _undoTimeoutId = null;
+    renderUndoToastRoot();
+  }, UNDO_TOAST_DURATION_MS);
+  renderUndoToastRoot();
+}
+
+function performUndo() {
+  if (!state.undoToast) return;
+  if (_undoTimeoutId) { clearTimeout(_undoTimeoutId); _undoTimeoutId = null; }
+  var restore = state.undoToast.restore;
+  state.undoToast = null;
+  if (typeof restore === 'function') restore();
+  render();
+}
+
+// Rendu à part de #app (pas au fil de render()) : #app rejoue une animation CSS avec transform à
+// chaque rendu (fadeSlideIn, main.css), ce qui en ferait un containing block pour un bandeau
+// position:fixed pendant l'animation et le décalerait du bas d'écran réel vers le bas du contenu.
+function renderUndoToastRoot() {
+  var el = document.getElementById('undo-toast-root');
+  if (!el) return;
+  el.innerHTML = state.undoToast
+    ? '<div class="undo-toast"><span>' + escapeHtml(state.undoToast.message) + '</span>' +
+      '<button type="button" class="undo-toast-btn" onclick="performUndo();">Annuler</button></div>'
+    : '';
+}
+
+// Bouton "Dupliquer" de l'écran de détail (chantier "duplication rapide") — même action que la
+// ligne de la vue d'ensemble (js/site-overview.js), partagée par les 3 rendus d'écran de saisie
+// (wizard générique, wizard sanitaires dédié, rendu à plat de repli).
+function duplicateButtonHtml(typeId, idx) {
+  return '<button type="button" class="btn btn-gray btn-small" title="Dupliquer cette installation" ' +
+    'onclick="duplicateInstallation(\'' + typeId + '\',' + idx + ');">' + ICONS.copy + ' Dupliquer</button>';
+}
+
+// Duplication rapide (chantier "forte volumétrie") : reprend les champs de configuration de la
+// source (js/state.js buildInstallationDataForDuplicate) mais jamais ses mesures/constats — la
+// nouvelle installation est donc toujours "À faire"/"En cours", jamais "Terminé" même si la source
+// l'était, puisqu'aucun champ d'avis/conclusion n'est recopié. Nom repris + " (copie)" sur le même
+// champ texte "distinctif" qu'utilise déjà l'écran de vue d'ensemble (overviewRowTitle) — insérée
+// juste après la source et ouverte immédiatement pour que le technicien édite ce nom sans avoir à le
+// chercher.
+function duplicateInstallation(typeId, idx) {
+  var m = getCurrentMission();
+  var t = getInstallationType(typeId);
+  var list = m && m.installations[typeId];
+  if (!m || !t || !list || !list[idx]) return;
+
+  var data = buildInstallationDataForDuplicate(typeId, list[idx].data || {});
+  var nameField = t.fields.find(function (f) { return f.type === 'text' && f.key !== 'batiment'; });
+  if (nameField) {
+    var base = data[nameField.key] || '';
+    data[nameField.key] = (base ? base + ' ' : '') + '(copie)';
+  }
+
+  var newInst = { id: generateId(), data: data };
+  if (typeof applyCalculations === 'function') applyCalculations(typeId, newInst);
+  list.splice(idx + 1, 0, newInst);
+  persistMissions();
+
+  var missionId = m.id;
+  scheduleUndo('Installation dupliquée.', function () {
+    var mm = state.missions.find(function (x) { return x.id === missionId; });
+    if (!mm || !mm.installations[typeId]) return;
+    var pos = mm.installations[typeId].findIndex(function (x) { return x.id === newInst.id; });
+    if (pos !== -1) mm.installations[typeId].splice(pos, 1);
+    persistMissions();
+  });
+
+  state.currentTypeId = typeId;
+  state.currentInstIndex = idx + 1;
+  state.currentStep = 0;
+  state.view = 'installation-form';
+  render();
+}
+
 function deleteInstallation(typeId, idx) {
   if (!confirm('Supprimer cette installation ?')) return;
   var m = getCurrentMission();
-  m.installations[typeId].splice(idx, 1);
+  var list = m.installations[typeId];
+  var removed = list[idx];
+  list.splice(idx, 1);
   persistMissions();
+
+  var missionId = m.id;
+  scheduleUndo('Installation supprimée.', function () {
+    var mm = state.missions.find(function (x) { return x.id === missionId; });
+    if (!mm || !mm.installations[typeId]) return;
+    mm.installations[typeId].splice(idx, 0, removed);
+    persistMissions();
+  });
+
   render();
 }
 
@@ -87,7 +187,8 @@ function renderInstallationForm() {
     return renderGenericWizard(m, t, inst);
   }
 
-  var h = '<button class="back-btn" onclick="state.view=\'type-list\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>';
+  var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=\'type-list\';render();">' +
+    ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
   h += '<div class="card"><h1>' + getIcon(t.icon) + ' ' + escapeHtml(t.label) + '</h1></div>';
 
   t.fields.forEach(function (f) {
@@ -259,8 +360,22 @@ function renderFieldInput(typeId, f, inst) {
     return h;
   }
   if (f.type === 'photo') {
-    return '<input type="file" accept="image/*" capture="environment" onchange="handleInstallationPhoto(\'' + typeId + '\',\'' + f.key + '\',this);">' +
-      (val ? '<img src="' + val + '" style="max-width:100%;margin-top:8px;border-radius:8px;">' : '');
+    var photos = Array.isArray(val) ? val : [];
+    var h = '<div class="photo-gallery">';
+    photos.forEach(function (p) {
+      h += '<div class="photo-thumb">' +
+        '<img data-photo-src="' + escapeHtml(p.id) + '" alt="Photo" onclick="openPhotoViewer(\'' + escapeHtml(p.id) + '\');">' +
+        '<button type="button" class="agent-delete" title="Supprimer cette photo" ' +
+          'onclick="event.stopPropagation();removeInstallationPhoto(\'' + typeId + '\',\'' + f.key + '\',\'' + escapeHtml(p.id) + '\');">' +
+          ICONS.trash + '</button></div>';
+    });
+    if (photos.length < PHOTO_MAX_PER_INSTALLATION) {
+      h += '<label class="photo-add-btn">' + ICONS.plus +
+        '<input type="file" accept="image/*" capture="environment" ' +
+        'onchange="handleInstallationPhoto(\'' + typeId + '\',\'' + f.key + '\',this);"></label>';
+    }
+    h += '</div>';
+    return h;
   }
   return '';
 }
@@ -327,14 +442,46 @@ function toggleInstallationCheckbox(typeId, key, option, checked) {
   if (state.view === 'installation-form') render();
 }
 
+// ⚠️ BUG CORRIGÉ : avant ce chantier, ce handler stockait la photo brute non compressée en base64
+// directement dans inst.data.photo (readAsDataURL, aucun redimensionnement) — donc dans le JSON de
+// mission persisté en localStorage à chaque saisie. Une seule photo de smartphone (3-8 Mo bruts)
+// pouvait suffire à approcher les quotas localStorage habituels (5-10 Mo) et menacer de perdre des
+// données de saisie d'autres installations. Remplacé par une compression côté client (canvas, cf.
+// js/photos.js compressImageFile) puis un stockage IndexedDB — seule une référence légère {id} reste
+// dans les données de mission. Protection dossiers existants : migration automatique au chargement,
+// voir js/photos.js migrateLegacyPhotos.
 function handleInstallationPhoto(typeId, key, input) {
   var file = input.files[0];
+  input.value = '';
   if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function (e) {
-    updateInstallationField(typeId, key, e.target.result); // rend déjà la vue si nécessaire
-  };
-  reader.readAsDataURL(file);
+  compressImageFile(file).then(function (blob) {
+    var id = generatePhotoId();
+    return savePhotoBlob(id, blob).then(function () { return id; });
+  }).then(function (id) {
+    var m = getCurrentMission();
+    var inst = m.installations[typeId][state.currentInstIndex];
+    var photos = Array.isArray(inst.data[key]) ? inst.data[key] : [];
+    inst.data[key] = photos.concat([{ id: id }]).slice(0, PHOTO_MAX_PER_INSTALLATION);
+    persistMissions();
+    render();
+  }).catch(function (err) {
+    alert('Erreur lors de l’ajout de la photo :\n\n' + err.message);
+  });
+}
+
+function removeInstallationPhoto(typeId, key, photoId) {
+  if (!confirm('Supprimer cette photo ?')) return;
+  var m = getCurrentMission();
+  var inst = m.installations[typeId][state.currentInstIndex];
+  var photos = Array.isArray(inst.data[key]) ? inst.data[key] : [];
+  inst.data[key] = photos.filter(function (p) { return p.id !== photoId; });
+  persistMissions();
+  deletePhotoBlob(photoId); // suppression explicite d'une photo précise : pas d'annulation possible
+  // (chantier "Annuler la dernière action" volontairement limité à suppression/duplication
+  // d'installation), le fil de confirmation ci-dessus est le seul garde-fou, comme pour
+  // deleteInstallation.
+  if (_photoObjectUrlCache[photoId]) { URL.revokeObjectURL(_photoObjectUrlCache[photoId]); delete _photoObjectUrlCache[photoId]; }
+  render();
 }
 
 console.log('✓ Moteur installations chargé');

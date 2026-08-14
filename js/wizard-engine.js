@@ -227,8 +227,8 @@ function renderGenericWizard(m, t, inst) {
   var posInVisible = visibleIdx.indexOf(step);
   if (posInVisible === -1) posInVisible = 0;
 
-  var h = '<button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
-    ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>';
+  var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
+    ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
 
   h += '<div class="wizard-progress">';
   visibleIdx.forEach(function (_, i) {

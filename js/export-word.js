@@ -111,16 +111,20 @@ function exportRapportWord() {
   var sectionImagePaths = []; // à plat : [g0img0, g0img1, g1img0, ...]
   var sectionImageCounts = SECTION_GROUPS.map(function (g) { return g.images.length; });
   SECTION_GROUPS.forEach(function (g) { sectionImagePaths = sectionImagePaths.concat(g.images); });
-  Promise.all([fetchAsset(LOGO_PATH), fetchAsset(BANNER_PATH), fetchAsset(CTA_SCHEMA_PATH)].concat(sectionImagePaths.map(fetchAsset))).then(function (bufs) {
-    var logoBuf = bufs[0], bannerBuf = bufs[1], ctaSchemaBuf = bufs[2];
+  // Chantier "photos par installation" : inst.data.photo est désormais une référence IndexedDB
+  // ([{id}]), plus la chaîne base64 que fichePhotoBox attend — resolveMissionPhotosForWord
+  // (js/photos.js) résout ça sur un CLONE de la mission avant de construire le document. Aucun
+  // changement de mise en page/contenu : seule la façon dont l'octet image est obtenu change.
+  Promise.all([resolveMissionPhotosForWord(m), fetchAsset(LOGO_PATH), fetchAsset(BANNER_PATH), fetchAsset(CTA_SCHEMA_PATH)].concat(sectionImagePaths.map(fetchAsset))).then(function (bufs) {
+    var resolvedM = bufs[0], logoBuf = bufs[1], bannerBuf = bufs[2], ctaSchemaBuf = bufs[3];
     var dividerBufs = {};
-    var cursor = 3;
+    var cursor = 4;
     SECTION_GROUPS.forEach(function (g, i) {
       dividerBufs[g.key] = bufs.slice(cursor, cursor + sectionImageCounts[i]);
       cursor += sectionImageCounts[i];
     });
     try {
-      var doc = buildRapportDoc(m, logoBuf, bannerBuf, dividerBufs, ctaSchemaBuf);
+      var doc = buildRapportDoc(resolvedM, logoBuf, bannerBuf, dividerBufs, ctaSchemaBuf);
       docx.Packer.toBlob(doc).then(function (blob) {
         var rawName = (m.clientSite || 'Mission').replace(/[^a-zA-Z0-9\u00e0\u00e2\u00e4\u00e9\u00e8\u00ea\u00eb\u00ef\u00ee\u00f4\u00f9\u00fb\u00fc\u00e7\s-]/g, '').trim();
         var a = document.createElement('a');

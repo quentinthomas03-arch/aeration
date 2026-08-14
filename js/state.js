@@ -19,6 +19,11 @@ var state = {
   overviewExpanded: {},       // clé de groupe -> replié/déplié (accordéon)
   overviewGroupMode: null,    // mode du groupe ouvert en plein écran ("Voir tout")
   overviewGroupKey: null,
+  overviewSearch: '',         // recherche en direct (nom / bâtiment / repère), jamais persistée
+
+  // Annuler la dernière action (js/installations.js scheduleUndo) — un seul niveau, en mémoire,
+  // jamais persisté : { message, restore }. restore() est appelé par performUndo().
+  undoToast: null,
 
   // Transfert de mission entre appareils (js/import-export.js) — conflit d'id en attente de
   // résolution (écraser / garder les deux / annuler), jamais persisté
@@ -222,6 +227,83 @@ function structuralFieldKeys(typeId) {
   return keys;
 }
 
+// Duplication rapide d'une installation (chantier "forte volumétrie", ex. 50 sanitaires) : élargit
+// le découpage Identification/Constat ci-dessus aux champs de configuration qui ne sont pas des
+// constats de visite (dimensions, type de ventilation, comptages d'équipement...), toujours avec la
+// même prudence que le préremplissage N-1 — ne jamais reconduire un constat comme si déjà validé.
+// Deux couches de protection : (1) whitelist d'étapes par type ci-dessous, dérivée de
+// wizard-steps.js, qui n'ajoute que des étapes relues champ par champ comme purement
+// configuration — une étape ambiguë (mesure et configuration mélangées sans filtre fiable, ex.
+// "Cabine vide — dimensions & grille") est sciemment laissée de côté plutôt que risquée ; (2) même
+// dans une étape retenue, un champ dont la clé signale un constat individuel reste explicitement
+// exclu (ceinture et bretelles) — repéré grâce au bug CTA du chantier N-1 où batterie_froide/avis
+// auraient été reconduits comme validés par une règle basée sur le seul type de champ.
+var DUPLICATION_FINDING_KEY_PATTERN = /^(avis|conclusion|constat|critere_|etat_)|_etat$/;
+var DUPLICATION_FINDING_KEYS = {
+  adapte_situation: true, conditions_dispersion: true, direction_flux: true, fiche_maintenance: true,
+  mesures_choisies: true, obstacle_point_mesure: true, operateur_hors_volume: true, perturbations: true,
+  prise_air_neuf: true, recyclage: true, remarques_complementaires: true, test_fumigene: true,
+  type_captage_adapte: true, vpe_conditions_dispersion: true, zones_mortes: true, zones_turbulentes: true,
+  batterie_chaude: true, batterie_froide: true, canalisations_gaines: true, ventilateur_courroie: true
+};
+function isDuplicationFindingField(f) {
+  return DUPLICATION_FINDING_KEY_PATTERN.test(f.key) || !!DUPLICATION_FINDING_KEYS[f.key];
+}
+
+// Étapes de configuration au-delà d'Identification ('Localisation' pour menuiserie_bis) jugées sûres
+// à dupliquer intégralement (la couche 2 ci-dessus filtre quand même tout champ de constat qui s'y
+// serait glissé, ex. les 'etat_*' des étapes filtration CTA).
+var DUPLICATION_EXTRA_KEEP_STEPS = {
+  bureaux: ['Type de ventilation'],
+  erp: ['Occupation', 'Type de ventilation'],
+  locaux_fumeurs: ['Dimensions du local', "Ratio avec l'établissement"],
+  bras_aspiration: ["Bouche d'aspiration — forme", "Bouche d'aspiration — implantation"],
+  extracteur: ['Section du conduit', 'Taux de renouvellement (optionnel)'],
+  gaz_echappement: ["Type d'équipement", 'Section du conduit'],
+  hottes: ['VPE — dimensions & grille'],
+  menuiserie: ['Machines reliées', 'Caractéristique du réseau', 'Dépoussiéreur', 'Section du conduit'],
+  sorbonnes: ['Ouverture de travail', 'Dispositif de sécurité'],
+  tts: ['Cuve — caractéristiques', 'Cuve — dimensions', 'Procédé'],
+  locaux_charge: ['Ventilation'],
+  box_peinture: ['État visuel & ventilation'],
+  cabines_peinture: ['Caractéristiques'],
+  cta: ['Filtration — pré-filtre', 'Filtration — filtre', 'Filtration — filtre absolu',
+    'Réseau neuf — section', 'Réseau soufflé — section', 'Réseau repris (optionnel) — section']
+};
+
+function duplicationFieldKeys(typeId) {
+  if (typeId === 'sanitaires') {
+    return ['batiment', 'repere', 'nom_usage', 'chambre_erp_individuelle', 'wc_urinoirs', 'douches',
+      'lavabos', 'individuel_collectif', 'nombre_bouches'];
+  }
+  var steps = (typeof WIZARD_STEPS !== 'undefined' && WIZARD_STEPS[typeId]) || [];
+  var keepTitles = { Identification: true, Localisation: true };
+  (DUPLICATION_EXTRA_KEEP_STEPS[typeId] || []).forEach(function (title) { keepTitles[title] = true; });
+  var keys = [];
+  steps.forEach(function (step) {
+    if (keepTitles[step.title]) keys = keys.concat(step.fields);
+  });
+  return keys;
+}
+
+var DUPLICATION_ALWAYS_RESET_TYPES = { computed: true, textarea: true, grid: true, 'charger-list': true, photo: true };
+
+function buildInstallationDataForDuplicate(typeId, sourceData) {
+  var t = getInstallationType(typeId);
+  var data = {};
+  if (!t || !sourceData) return data;
+  var keepKeys = {};
+  duplicationFieldKeys(typeId).forEach(function (k) { keepKeys[k] = true; });
+  var n1Targets = {};
+  (N1_COMPARISON_FIELDS[typeId] || []).forEach(function (pair) { n1Targets[pair.n1] = true; });
+  t.fields.forEach(function (f) {
+    if (f.type === 'section' || !keepKeys[f.key]) return;
+    if (DUPLICATION_ALWAYS_RESET_TYPES[f.type] || n1Targets[f.key] || isDuplicationFindingField(f)) return;
+    if (sourceData[f.key] !== undefined) data[f.key] = sourceData[f.key];
+  });
+  return data;
+}
+
 // Reprend la structure d'une mission source (bâtiments, installations, noms, emplacements) avec les
 // mesures vierges, pour préremplir une nouvelle visite du même site — distinct du transfert de
 // mission (js/import-export.js finishImportMission) qui reprend une mission EN COURS à l'identique,
@@ -230,7 +312,18 @@ function structuralFieldKeys(typeId) {
 function buildInstallationDataFromPrevious(typeId, sourceData) {
   var data = {};
   if (!sourceData) return data;
+  var t = getInstallationType(typeId);
+  var fieldByKey = {};
+  if (t) t.fields.forEach(function (f) { fieldByKey[f.key] = f; });
   structuralFieldKeys(typeId).forEach(function (key) {
+    // Chantier "photos par installation" : 'photo' a rejoint l'étape Identification de 3 types
+    // (bras_aspiration, installations_diverses, gaz_echappement) — une photo est propre à une visite
+    // précise, jamais une référence à reconduire d'un site à l'autre (même logique que les autres
+    // champs de constat/mesure déjà exclus). Filtre défensif générique par type de champ plutôt qu'un
+    // cas particulier sur 'photo', au cas où une future étape Identification embarquerait un autre
+    // champ de ce genre.
+    var f = fieldByKey[key];
+    if (f && DUPLICATION_ALWAYS_RESET_TYPES[f.type]) return;
     if (sourceData[key] !== undefined) data[key] = sourceData[key];
   });
   var n1Fields = N1_COMPARISON_FIELDS[typeId];

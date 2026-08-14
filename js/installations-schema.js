@@ -621,6 +621,9 @@ var INSTALLATION_TYPES = [
       { key: 'activite', label: 'Activité', type: 'text' },
       { key: 'atelier', label: 'Atelier', type: 'text' },
       { key: 'reference_equipement', label: 'Référence équipement', type: 'text' },
+      // Photo confirmée côté VBA (UserForm_BOA, LabelPhoto) mais absente du schéma web jusqu'ici —
+      // écart repéré lors de l'inventaire du chantier "photos par installation".
+      { key: 'photo', label: 'Photo', type: 'photo' },
       { key: 'adapte_situation', label: 'Adapté à la situation', type: 'select', options: ['Oui', 'Non'] },
       { key: 'commentaire_1', label: 'Commentaire', type: 'textarea' },
       { key: 'recyclage', label: 'Recyclage', type: 'select', options: ['Oui', 'Non'] },
@@ -729,6 +732,9 @@ var INSTALLATION_TYPES = [
       { key: 'type_installation', label: "Type d'installation", type: 'text' },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
       { key: 'reference_equipement', label: "Référence de l'équipement", type: 'text' },
+      // Photo confirmée côté VBA (UserForm_EQUIP, LabelPhoto) mais absente du schéma web jusqu'ici —
+      // écart repéré lors de l'inventaire du chantier "photos par installation".
+      { key: 'photo', label: 'Photo', type: 'photo' },
       { key: 'etat_visuel_reseau', label: "État visuel du réseau d'aspiration", type: 'select',
         options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués'] },
       { key: 'test_fumigene', label: 'Test fumigène', type: 'select',
@@ -798,6 +804,10 @@ var INSTALLATION_TYPES = [
       { key: 'atelier', label: 'Atelier', type: 'text' },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
       { key: 'reference_equipement', label: 'Réf. équipement et/ou implantation', type: 'text' },
+      // Photo confirmée côté VBA (UserForm_ECHAP, LabelPhoto, "Identification + photo") mais absente
+      // du schéma web jusqu'ici — écart déjà repéré, confirmé par l'inventaire du chantier "photos
+      // par installation".
+      { key: 'photo', label: 'Photo', type: 'photo' },
       { key: 'type_captage_adapte', label: 'Type de captage adapté à la situation', type: 'select', options: ['Oui', 'Non'] },
       // "Le système de fixation est hors-service", "La gaine est trouée" et "Bon état" confirmés
       // verbatim par plusieurs rapports de référence réels (ex. EK2L0_25_1909, ek2l0_1910).
