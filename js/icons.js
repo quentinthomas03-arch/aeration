@@ -79,6 +79,34 @@ function getIcon(name) {
   return ICONS[name] || ICONS.empty;
 }
 
+/**
+ * Obtient une icône avec une classe CSS personnalisée
+ * @param {string} name - Nom de l'icône
+ * @param {string} className - Classe(s) CSS à appliquer
+ * @returns {string} HTML avec l'icône wrappée dans un span
+ */
+function getIconWithClass(name, className) {
+  return `<span class="${className}">${getIcon(name)}</span>`;
+}
+
+/**
+ * Obtient une icône avec un style inline
+ * @param {string} name - Nom de l'icône
+ * @param {string} style - Style CSS inline
+ * @returns {string} HTML avec l'icône wrappée dans un span
+ */
+function getIconWithStyle(name, style) {
+  return `<span style="${style}">${getIcon(name)}</span>`;
+}
+
+/**
+ * Liste toutes les icônes disponibles
+ * @returns {Array<string>} Tableau des noms d'icônes disponibles
+ */
+function listAvailableIcons() {
+  return Object.keys(ICONS);
+}
+
 // ==================================================================
 // LOG DE CHARGEMENT
 // ==================================================================
