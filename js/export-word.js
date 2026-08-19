@@ -955,6 +955,15 @@ function formatCrosstabValue(val) {
   return String(val);
 }
 
+// Arrondi d'affichage uniquement (la valeur calculée en mémoire garde sa pleine précision pour les
+// avis en aval) : le PDF de référence affiche les débits d'air (m³/h) sans décimale — cf. tableaux
+// CTA/Extracteur du classeur VBA d'origine (Débit année en cours, Débit N-1).
+function formatCrosstabDebit(val) {
+  if (val === undefined || val === null || val === '') return '-';
+  var n = parseFloat(String(val).replace(',', '.'));
+  return isNaN(n) ? formatCrosstabValue(val) : String(Math.round(n));
+}
+
 function bodyCellSmall(D, text, width, opts) {
   opts = opts || {};
   return new D.TableCell({
@@ -1242,7 +1251,7 @@ function buildAnnexeSanitaires(D, list, logoBuf) {
 function ficheCtaReseauRow(D, label, d, prefix, cols) {
   var vals = [label, formatCrosstabValue(d[prefix + '_forme']), formatCrosstabValue(d[prefix + '_diametre_cote1']),
     formatCrosstabValue(d[prefix + '_cote2']), formatCrosstabValue(d[prefix + '_surface']), formatCrosstabValue(d[prefix + '_vitesse']),
-    formatCrosstabValue(d[prefix + '_reference']), formatCrosstabValue(d[prefix + '_debit_n1']), formatCrosstabValue(d[prefix + '_debit'])];
+    formatCrosstabValue(d[prefix + '_reference']), formatCrosstabDebit(d[prefix + '_debit_n1']), formatCrosstabDebit(d[prefix + '_debit'])];
   return new D.TableRow({ children: cols.map(function (c, i) { return bodyCell(D, vals[i], c[1], { center: true }); }) });
 }
 
@@ -1445,7 +1454,7 @@ function buildAnnexeExtracteur(D, list, logoBuf) {
     ];
     var vals = ['Extrait', formatCrosstabValue(d.forme_section), formatCrosstabValue(d.diametre_cote1),
       formatCrosstabValue(d.cote2), formatCrosstabValue(d.surface_m2), formatCrosstabValue(vitesse),
-      formatCrosstabValue(d.valeur_reference_recommandee), formatCrosstabValue(d.debit_annee_n1), formatCrosstabValue(d.debit_annee_en_cours)];
+      formatCrosstabValue(d.valeur_reference_recommandee), formatCrosstabDebit(d.debit_annee_n1), formatCrosstabDebit(d.debit_annee_en_cours)];
     children.push(ficheBar(D, 'Mesures de vitesse'));
     children.push(new D.Table({ width: { size: ANNEXE_CONTENT_WIDTH, type: D.WidthType.DXA }, rows: [
       new D.TableRow({ children: cols.map(function (c) { return headerCell(D, c[0], c[1]); }) }),
@@ -2058,31 +2067,36 @@ function buildAnnexeSorbonnes(D, list, logoBuf) {
       children.push(new D.Paragraph({ text: '', spacing: { after: 120 } }));
     }
 
-    // Résultats : avis dédoublé en 2 colonnes (référence vs normative), fidèle au PDF de référence.
+    // Résultats : 3 valeurs (mesurée / référence site / norme ED795 fixe) x avis dédoublé en 2
+    // colonnes (référence vs normative), fidèle au PDF de référence (colonne "Valeurs de référence"
+    // manquante et "Valeurs normes" confondue avec la référence site — corrigé le 19/08).
     children.push(ficheBar(D, 'Résultats (guide INRS ED 795)'));
-    var rCols = [2000, 1636, 1636, 2182, 2182];
+    var rCols = [2000, 1200, 1200, 1200, 2018, 2018];
     children.push(new D.Table({ width: { size: ANNEXE_CONTENT_WIDTH, type: D.WidthType.DXA }, rows: [
-      new D.TableRow({ children: [headerCell(D, '', rCols[0]), headerCell(D, 'Valeurs mesurées', rCols[1]), headerCell(D, 'Valeurs normes', rCols[2]), headerCell(D, 'Avis par rapport aux valeurs de référence', rCols[3]), headerCell(D, 'Avis par rapport aux valeurs normatives', rCols[4])] }),
+      new D.TableRow({ children: [headerCell(D, '', rCols[0]), headerCell(D, 'Valeurs mesurées', rCols[1]), headerCell(D, 'Valeurs de référence', rCols[2]), headerCell(D, 'Valeurs normes', rCols[3]), headerCell(D, 'Avis par rapport aux valeurs de référence', rCols[4]), headerCell(D, 'Avis par rapport aux valeurs normatives', rCols[5])] }),
       new D.TableRow({ children: [
         headerCell(D, 'Vitesse minimale (m/s)', rCols[0]),
         bodyCell(D, formatCrosstabValue(d.vitesse_min_mesuree), rCols[1], { center: true }),
         bodyCell(D, formatCrosstabValue(d.vitesse_min_reference), rCols[2], { center: true }),
-        bodyCell(D, formatCrosstabValue(d.vitesse_min_avis_reference), rCols[3], { center: true, bold: true }),
-        bodyCell(D, formatCrosstabValue(d.vitesse_min_avis_norme), rCols[4], { center: true, bold: true })
+        bodyCell(D, '0,4', rCols[3], { center: true }),
+        bodyCell(D, formatCrosstabValue(d.vitesse_min_avis_reference), rCols[4], { center: true, bold: true }),
+        bodyCell(D, formatCrosstabValue(d.vitesse_min_avis_norme), rCols[5], { center: true, bold: true })
       ] }),
       new D.TableRow({ children: [
         headerCell(D, 'Vitesse moyenne (m/s)', rCols[0]),
         bodyCell(D, formatCrosstabValue(d.vitesse_moy_mesuree), rCols[1], { center: true }),
-        bodyCell(D, '-', rCols[2], { center: true }),
-        bodyCell(D, formatCrosstabValue(d.vitesse_moy_avis_reference), rCols[3], { center: true, bold: true }),
-        bodyCell(D, '-', rCols[4], { center: true })
+        bodyCell(D, formatCrosstabValue(d.vitesse_moy_reference), rCols[2], { center: true }),
+        bodyCell(D, '/', rCols[3], { center: true }),
+        bodyCell(D, formatCrosstabValue(d.vitesse_moy_avis_reference), rCols[4], { center: true, bold: true }),
+        bodyCell(D, '/', rCols[5], { center: true })
       ] }),
       new D.TableRow({ children: [
         headerCell(D, 'Débit d’air extrait (m³/h)', rCols[0]),
         bodyCell(D, formatCrosstabValue(d.debit_mesure), rCols[1], { center: true }),
-        bodyCell(D, '-', rCols[2], { center: true }),
-        bodyCell(D, formatCrosstabValue(d.debit_avis_reference), rCols[3], { center: true, bold: true }),
-        bodyCell(D, '-', rCols[4], { center: true })
+        bodyCell(D, formatCrosstabValue(d.debit_reference), rCols[2], { center: true }),
+        bodyCell(D, '-', rCols[3], { center: true }),
+        bodyCell(D, formatCrosstabValue(d.debit_avis_reference), rCols[4], { center: true, bold: true }),
+        bodyCell(D, formatCrosstabValue(d.debit_avis_reference), rCols[5], { center: true, bold: true })
       ] })
     ] }));
   });

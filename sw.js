@@ -1,5 +1,10 @@
 // sw.js - Service Worker Contrôle Aération
-const CACHE_NAME = 'aeration-v1.11';
+// IMPORTANT : incrémenter CACHE_NAME à chaque changement significatif de js/*.js ou main.css, sinon
+// les techniciens de terrain restent bloqués sur une version périmée (cf. incident du 19/08/2026 :
+// des correctifs export-word.js n'étaient pas pris en compte malgré un rechargement normal de la
+// page, car fetch() sans option "cache" consulte le cache HTTP heuristique du navigateur avant même
+// d'atteindre ce fetch handler "network-first" — un simple F5 ne suffisait pas).
+const CACHE_NAME = 'aeration-v1.12';
 const urlsToCache = [
   './',
   './index.html',
@@ -34,8 +39,15 @@ self.addEventListener('install', function (event) {
           console.warn('[SW] Fichier ignoré:', url, err);
         });
       }));
-    }).then(function () { return self.skipWaiting(); })
+    })
+    // Pas de skipWaiting() automatique ici : la nouvelle version reste "en attente" tant que
+    // l'utilisateur n'a pas confirmé via le bandeau "Nouvelle version disponible" (js/app.js), pour
+    // ne jamais couper une saisie en cours sur le terrain. Voir le message 'skipWaiting' ci-dessous.
   );
+});
+
+self.addEventListener('message', function (event) {
+  if (event.data === 'skipWaiting') self.skipWaiting();
 });
 
 self.addEventListener('activate', function (event) {
@@ -50,7 +62,11 @@ self.addEventListener('activate', function (event) {
 
 self.addEventListener('fetch', function (event) {
   event.respondWith(
-    fetch(event.request).then(function (response) {
+    // cache: 'no-store' force une vraie requête réseau à chaque fois — sans ça, fetch() peut être
+    // satisfait par le cache HTTP heuristique du navigateur (pas de Cache-Control côté serveur) et ne
+    // jamais atteindre le réseau, malgré cette stratégie "network-first". C'est ce qui causait des
+    // rapports de version périmée persistant après un rechargement normal (cf. commentaire CACHE_NAME).
+    fetch(event.request, { cache: 'no-store' }).then(function (response) {
       if (response && response.status === 200) {
         var copy = response.clone();
         caches.open(CACHE_NAME).then(function (cache) { cache.put(event.request, copy); });

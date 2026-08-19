@@ -21,12 +21,54 @@ function render() {
 }
 
 // PWA - Service Worker
+// Le SW ne s'active jamais tout seul (pas de skipWaiting() côté install, cf. sw.js) : on affiche un
+// bandeau et c'est le technicien qui décide quand actualiser, pour ne jamais couper une saisie en
+// cours sur le terrain. reg.update() est aussi relancé périodiquement + au retour au premier plan,
+// car le navigateur ne vérifie une nouvelle version qu'à la navigation par défaut — un onglet PWA
+// laissé ouvert toute une journée de contrôle ne le détecterait sinon jamais tout seul.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./sw.js').catch(function (err) {
+    navigator.serviceWorker.register('./sw.js').then(function (reg) {
+      setInterval(function () { reg.update(); }, 60 * 60 * 1000);
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') reg.update();
+      });
+      // Un SW peut déjà être "waiting" au moment où cette page se charge (ex. l'utilisateur avait
+      // fermé l'app avant de confirmer une mise à jour précédente) : 'updatefound' ne se redéclenche
+      // pas dans ce cas, donc il faut vérifier explicitement ici, pas seulement via l'évènement.
+      if (reg.waiting && navigator.serviceWorker.controller) showSwUpdateBanner(reg);
+      reg.addEventListener('updatefound', function () {
+        var newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', function () {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            showSwUpdateBanner(reg);
+          }
+        });
+      });
+    }).catch(function (err) {
       console.log('[PWA] Erreur SW:', err);
     });
+
+    var reloadingAfterUpdate = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (reloadingAfterUpdate) return;
+      reloadingAfterUpdate = true;
+      window.location.reload();
+    });
   });
+}
+
+function showSwUpdateBanner(reg) {
+  if (document.getElementById('sw-update-banner')) return;
+  var banner = document.createElement('div');
+  banner.id = 'sw-update-banner';
+  banner.className = 'sw-update-banner';
+  banner.innerHTML = '<span>Nouvelle version disponible</span><button type="button" class="sw-update-btn">Actualiser</button>';
+  banner.querySelector('button').addEventListener('click', function () {
+    if (reg.waiting) reg.waiting.postMessage('skipWaiting');
+  });
+  document.body.appendChild(banner);
 }
 
 // Bouton retour Android

@@ -96,6 +96,15 @@
       box-shadow: 0 10px 30px -6px rgba(0,0,0,0.4); z-index: 1000; animation: fadeSlideIn 0.2s ease-out; }
     .undo-toast span { font-size: 13px; font-weight: 600; }
     .undo-toast-btn { background: none; border: none; color: var(--accent-light); font-size: 13px; font-weight: 700; padding: 6px 10px; cursor: pointer; flex-shrink: 0; }
+
+    /* Bandeau "Nouvelle version disponible" (js/app.js showSwUpdateBanner) — même patron visuel que
+       .undo-toast, en haut de l'écran pour ne pas se superposer aux actions du bas. */
+    .sw-update-banner { position: fixed; left: 12px; right: 12px; top: 16px; max-width: 496px; margin: 0 auto;
+      background: #0c1220; color: white; border-radius: 14px; padding: 12px 10px 12px 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      box-shadow: 0 10px 30px -6px rgba(0,0,0,0.4); z-index: 2100; animation: fadeSlideIn 0.2s ease-out; }
+    .sw-update-banner span { font-size: 13px; font-weight: 600; }
+    .sw-update-btn { background: none; border: none; color: var(--accent-light); font-size: 13px; font-weight: 700; padding: 6px 10px; cursor: pointer; flex-shrink: 0; }
     .row { display: flex; gap: 6px; flex-wrap: wrap; }
     .row .btn { flex: 1; min-width: 80px; }
     .nav-menu { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
