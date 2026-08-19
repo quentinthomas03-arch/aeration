@@ -195,6 +195,7 @@ function gwNextStep(typeId) {
   state.currentStep = 0;
   state.view = 'type-list';
   render();
+  scheduleAutoBackup();
 }
 
 function gwPrevStep(typeId) {

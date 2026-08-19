@@ -42,6 +42,7 @@ function sanitairesNextStep() {
   state.currentStep = 0;
   state.view = 'type-list';
   render();
+  scheduleAutoBackup();
 }
 
 function renderSanitairesWizard(m, t, inst) {
@@ -78,7 +79,7 @@ function renderSanitairesWizard(m, t, inst) {
   if (step < SANITAIRES_STEP_LABELS.length - 1) {
     h += '<button class="btn btn-primary" onclick="sanitairesNextStep();">Suivant ' + ICONS.arrowRight + '</button>';
   } else {
-    h += '<button class="btn btn-primary" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
+    h += '<button class="btn btn-primary" onclick="sanitairesNextStep();">' +
       ICONS.check + ' Terminé</button>';
   }
   h += '</div>';
