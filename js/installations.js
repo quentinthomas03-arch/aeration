@@ -14,7 +14,12 @@ function renderMissionDetail() {
   h += '</div>';
 
   h += '<div class="row" style="margin-bottom:12px;">';
-  h += '<button class="btn btn-blue btn-small" onclick="exportRapportWord();">' + ICONS.download + ' Rapport Word</button>';
+  // Chantier "export PDF direct" (2026-09) : bascule complète depuis le Word — les 18 types sont
+  // portés fidèlement vers pdfmake (voir js/export-pdf.js, PDF_ANNEXES_FIDELES) et validés contre les
+  // rapports de référence réels. Le technicien clique un seul bouton, aucun logiciel externe requis.
+  h += '<button class="btn btn-blue btn-small" onclick="exportRapportPdf();">' + ICONS.download + ' Rapport PDF</button>';
+  h += '</div>';
+  h += '<div class="row" style="margin-bottom:12px;">';
   h += '<button class="btn btn-gray btn-small" onclick="shareOrExportMission(' + m.id + ');">' + ICONS.download + ' Exporter / Transférer</button>';
   h += '</div>';
 
@@ -34,6 +39,7 @@ function renderTypeList() {
 
   var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(m.clientSite || 'Mission') + '</button>';
   h += '<div class="card"><h1>' + getIcon(t.icon) + ' ' + escapeHtml(t.label) + '</h1><p class="subtitle">' + list.length + ' installation(s)</p></div>';
+  if (typeof renderEdReferenceBadge === 'function') h += renderEdReferenceBadge(t.id);
 
   list.forEach(function (inst, idx) {
     var titleField = t.fields.find(function (f) { return f.type === 'text'; });
@@ -69,13 +75,20 @@ function addInstallation(typeId) {
 var UNDO_TOAST_DURATION_MS = 6000;
 var _undoTimeoutId = null;
 
-function scheduleUndo(message, restoreFn) {
+// discardFn (optionnel) est appelé une fois que l'annulation n'est plus possible — expiration du
+// délai, ou écrasement par une action suivante — jamais si l'utilisateur a cliqué "Annuler". Sert à
+// ne libérer une ressource externe (ex : photos IndexedDB d'une installation supprimée) qu'une fois
+// certain qu'elle ne sera plus restaurée (audit du 2026-09-18).
+function scheduleUndo(message, restoreFn, discardFn) {
   if (_undoTimeoutId) clearTimeout(_undoTimeoutId);
-  state.undoToast = { message: message, restore: restoreFn };
+  if (state.undoToast && typeof state.undoToast.discard === 'function') state.undoToast.discard();
+  state.undoToast = { message: message, restore: restoreFn, discard: discardFn };
   _undoTimeoutId = setTimeout(function () {
+    var toast = state.undoToast;
     state.undoToast = null;
     _undoTimeoutId = null;
     renderUndoToastRoot();
+    if (toast && typeof toast.discard === 'function') toast.discard();
   }, UNDO_TOAST_DURATION_MS);
   renderUndoToastRoot();
 }
@@ -164,6 +177,10 @@ function deleteInstallation(typeId, idx) {
     if (!mm || !mm.installations[typeId]) return;
     mm.installations[typeId].splice(idx, 0, removed);
     persistMissions();
+  }, function () {
+    // N'est appelé que si l'annulation n'a pas été utilisée (cf. scheduleUndo) — supprime les
+    // photos IndexedDB de l'installation, qui restaient orphelines indéfiniment auparavant.
+    if (typeof deleteInstallationPhotoBlobs === 'function') deleteInstallationPhotoBlobs(removed);
   });
 
   render();
@@ -380,9 +397,14 @@ function renderFieldInput(typeId, f, inst) {
   return '';
 }
 
+// Les 6 fonctions suivantes vérifient désormais que l'installation existe encore avant de la
+// modifier (getCurrentInstallation renvoie null si la mission a disparu entre-temps, ex. supprimée
+// depuis un autre onglet/écran) — auparavant un plantage possible en pleine saisie (audit du
+// 2026-09-18).
+
 function updateInstallationField(typeId, key, value) {
-  var m = getCurrentMission();
-  var inst = m.installations[typeId][state.currentInstIndex];
+  var inst = getCurrentInstallation(typeId);
+  if (!inst) return;
   inst.data[key] = value;
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
@@ -390,8 +412,8 @@ function updateInstallationField(typeId, key, value) {
 }
 
 function addCharger(typeId) {
-  var m = getCurrentMission();
-  var inst = m.installations[typeId][state.currentInstIndex];
+  var inst = getCurrentInstallation(typeId);
+  if (!inst) return;
   if (!Array.isArray(inst.data.chargeurs)) inst.data.chargeurs = [];
   inst.data.chargeurs.push({ nb: '', tension: '', courant: '' });
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
@@ -400,9 +422,8 @@ function addCharger(typeId) {
 }
 
 function updateCharger(typeId, idx, field, value) {
-  var m = getCurrentMission();
-  var inst = m.installations[typeId][state.currentInstIndex];
-  if (!inst.data.chargeurs[idx]) return;
+  var inst = getCurrentInstallation(typeId);
+  if (!inst || !inst.data.chargeurs || !inst.data.chargeurs[idx]) return;
   inst.data.chargeurs[idx][field] = value;
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
@@ -410,8 +431,8 @@ function updateCharger(typeId, idx, field, value) {
 }
 
 function removeCharger(typeId, idx) {
-  var m = getCurrentMission();
-  var inst = m.installations[typeId][state.currentInstIndex];
+  var inst = getCurrentInstallation(typeId);
+  if (!inst || !Array.isArray(inst.data.chargeurs)) return;
   inst.data.chargeurs.splice(idx, 1);
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
@@ -419,8 +440,8 @@ function removeCharger(typeId, idx) {
 }
 
 function updateGridCell(typeId, key, r, c, value) {
-  var m = getCurrentMission();
-  var inst = m.installations[typeId][state.currentInstIndex];
+  var inst = getCurrentInstallation(typeId);
+  if (!inst) return;
   var grid = Array.isArray(inst.data[key]) ? inst.data[key] : [];
   if (!grid[r]) grid[r] = [];
   grid[r][c] = value.trim();
@@ -431,8 +452,8 @@ function updateGridCell(typeId, key, r, c, value) {
 }
 
 function toggleInstallationCheckbox(typeId, key, option, checked) {
-  var m = getCurrentMission();
-  var inst = m.installations[typeId][state.currentInstIndex];
+  var inst = getCurrentInstallation(typeId);
+  if (!inst) return;
   var current = Array.isArray(inst.data[key]) ? inst.data[key] : [];
   if (checked) { if (current.indexOf(option) === -1) current.push(option); }
   else { current = current.filter(function (o) { return o !== option; }); }

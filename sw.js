@@ -1,10 +1,10 @@
 // sw.js - Service Worker Contrôle Aération
 // IMPORTANT : incrémenter CACHE_NAME à chaque changement significatif de js/*.js ou main.css, sinon
 // les techniciens de terrain restent bloqués sur une version périmée (cf. incident du 19/08/2026 :
-// des correctifs export-word.js n'étaient pas pris en compte malgré un rechargement normal de la
+// des correctifs export-pdf.js n'étaient pas pris en compte malgré un rechargement normal de la
 // page, car fetch() sans option "cache" consulte le cache HTTP heuristique du navigateur avant même
 // d'atteindre ce fetch handler "network-first" — un simple F5 ne suffisait pas).
-const CACHE_NAME = 'aeration-v1.12';
+const CACHE_NAME = 'aeration-v1.18';
 const urlsToCache = [
   './',
   './index.html',
@@ -20,8 +20,14 @@ const urlsToCache = [
   './js/state.js',
   './js/installations-schema.js',
   './js/calculations.js',
-  './js/docx.iife.js',
-  './js/export-word.js',
+  './js/ed-reference.js',
+  './js/report-shared.js',
+  './js/pdfmake.min.js',
+  './js/vfs_fonts.js',
+  './js/fonts-arial.js',
+  './js/export-pdf.js',
+  './js/xlsx.full.min.js',
+  './js/rapso-import.js',
   './js/import-export.js',
   './js/installations.js',
   './js/missions.js',
@@ -34,11 +40,21 @@ const urlsToCache = [
 self.addEventListener('install', function (event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function (cache) {
+      var allOk = true;
       return Promise.all(urlsToCache.map(function (url) {
         return cache.add(url).catch(function (err) {
+          allOk = false;
           console.warn('[SW] Fichier ignoré:', url, err);
         });
-      }));
+      })).then(function () {
+        // Marqueur lu par 'activate' ci-dessous (audit du 2026-09-18) : sous connexion instable sur
+        // le terrain, un seul fichier peut échouer à se mettre en cache ici sans faire échouer
+        // l'installation entière (juste averti en console). Si on purge quand même les anciennes
+        // versions à l'activation, ce fichier manquant n'a alors plus AUCUN exemplaire disponible
+        // hors-ligne. On garde donc les anciennes caches comme filet tant qu'une mise en cache
+        // complète n'a pas réussi.
+        return cache.put('__precache_status__', new Response(allOk ? 'ok' : 'partial'));
+      });
     })
     // Pas de skipWaiting() automatique ici : la nouvelle version reste "en attente" tant que
     // l'utilisateur n'a pas confirmé via le bandeau "Nouvelle version disponible" (js/app.js), pour
@@ -52,11 +68,18 @@ self.addEventListener('message', function (event) {
 
 self.addEventListener('activate', function (event) {
   event.waitUntil(
-    caches.keys().then(function (names) {
-      return Promise.all(names.map(function (n) {
-        if (n !== CACHE_NAME) return caches.delete(n);
-      }));
-    }).then(function () { return self.clients.claim(); })
+    caches.open(CACHE_NAME)
+      .then(function (cache) { return cache.match('__precache_status__'); })
+      .then(function (statusResp) { return statusResp ? statusResp.text() : 'ok'; })
+      .then(function (status) {
+        if (status !== 'ok') return; // mise en cache incomplète : on ne touche pas aux anciennes versions
+        return caches.keys().then(function (names) {
+          return Promise.all(names.map(function (n) {
+            if (n !== CACHE_NAME) return caches.delete(n);
+          }));
+        });
+      })
+      .then(function () { return self.clients.claim(); })
   );
 });
 

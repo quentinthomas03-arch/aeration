@@ -13,6 +13,7 @@ function render() {
     case 'add-installation-picker': h = renderAddInstallationPicker(); break;
     case 'site-overview-group': h = renderSiteOverviewGroupFull(); break;
     case 'import-conflict': h = renderImportConflict(); break;
+    case 'ed-reference': h = renderEdReference(); break;
     default: h = renderHome();
   }
   document.getElementById('app').innerHTML = h;
@@ -71,6 +72,22 @@ function showSwUpdateBanner(reg) {
   document.body.appendChild(banner);
 }
 
+// Appelé par saveData() (js/state.js) en cas d'échec d'écriture localStorage (quota dépassé le plus
+// souvent) — auparavant complètement silencieux : la dernière saisie était perdue sans aucun
+// avertissement (audit du 2026-09-18). Un seul bandeau à la fois, non auto-masqué : l'utilisateur doit
+// le fermer lui-même après avoir libéré de la place, pour ne pas laisser croire que c'est résolu tout seul.
+function showStorageErrorBanner() {
+  if (document.getElementById('storage-error-banner')) return;
+  var banner = document.createElement('div');
+  banner.id = 'storage-error-banner';
+  banner.className = 'storage-error-banner';
+  banner.innerHTML = '<span>' + ICONS.database + ' Espace de stockage insuffisant — la dernière modification n’a PAS été enregistrée. Exportez puis supprimez d’anciennes missions.</span><button type="button" class="storage-error-banner-btn">Fermer</button>';
+  banner.querySelector('button').addEventListener('click', function () {
+    banner.remove();
+  });
+  document.body.appendChild(banner);
+}
+
 // Bouton retour Android
 window.addEventListener('popstate', function (event) {
   event.preventDefault();
@@ -79,6 +96,7 @@ window.addEventListener('popstate', function (event) {
   else if (state.view === 'add-installation-picker') state.view = 'mission-detail';
   else if (state.view === 'site-overview-group') state.view = 'mission-detail';
   else if (state.view === 'import-conflict') state.view = 'home';
+  else if (state.view === 'ed-reference') state.view = 'home';
   else if (state.view === 'select-installations') state.view = 'mission-detail';
   else if (state.view === 'mission-form') state.view = 'home';
   else if (state.view === 'mission-detail') state.view = 'home';

@@ -39,7 +39,10 @@ function sanitairesPrevStep() {
 
 function sanitairesNextStep() {
   if (state.currentStep < SANITAIRES_STEP_LABELS.length - 1) { state.currentStep++; sanitairesPersistStep(state.currentStep); render(); return; }
+  // Persister l'étape 0 (pas seulement en mémoire), même bug/même correctif que gwNextStep
+  // (js/wizard-engine.js) trouvé lors de l'audit du 2026-09-18.
   state.currentStep = 0;
+  sanitairesPersistStep(0);
   state.view = 'type-list';
   render();
   scheduleAutoBackup();

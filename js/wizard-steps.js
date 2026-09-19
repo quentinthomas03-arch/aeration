@@ -198,9 +198,12 @@ var WIZARD_STEPS = {
 
   // 10 points de mesure : un point regroupe volontairement plus que 3-5 champs (mesures + résultat
   // calculé immédiat, même logique que sanitaires étape 3) plutôt que de le scinder en 2 étapes —
-  // un technicien qui mesure le point N veut voir son résultat dans la foulée.
+  // un technicien qui mesure le point N veut voir son résultat dans la foulée. "Nombre de points de
+  // mesure" (ergonomie du 2026-09-19) masque les étapes de points au-delà du nombre choisi — cf.
+  // torchePointShowIf, js/installations-schema.js — pour ne pas imposer 10 étapes à traverser quand
+  // seuls 2-3 points sont mesurés.
   torches_aspirantes: [
-    { title: 'Identification', fields: ['activite_reference_local', 'batiment', 'date_controle', 'reference_equipement'] },
+    { title: 'Identification', fields: ['activite_reference_local', 'batiment', 'date_controle', 'reference_equipement', 'nombre_points_mesure'] },
     { title: 'Constat global', fields: ['note_reference', 'total_debit', 'commentaire'] }
   ].concat(TORCHE_POINT_STEPS),
 

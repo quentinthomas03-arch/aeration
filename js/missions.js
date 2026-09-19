@@ -7,7 +7,9 @@ function renderHome() {
   h += '<button class="btn btn-primary" onclick="createMission();">' + ICONS.plus + ' Nouvelle mission</button>';
   h += '<button class="btn btn-gray" onclick="triggerImportMission();" style="margin-top:8px;">' + ICONS.upload + ' Reprendre une mission en cours (.json)</button>';
   h += '<button class="btn btn-gray" onclick="triggerImportPreviousSite();" style="margin-top:8px;">' + ICONS.upload + ' Charger un site précédent (préremplissage N-1)</button>';
+  h += '<button class="btn btn-gray" onclick="triggerImportRapso();" style="margin-top:8px;">' + ICONS.upload + ' Importer un fichier Rapso (V29)</button>';
   h += '<button class="btn btn-gray" onclick="state.view=\'profil-technicien\';render();" style="margin-top:8px;">' + ICONS.user + ' Mon profil technicien</button>';
+  h += '<button class="btn btn-gray" onclick="state.view=\'ed-reference\';render();" style="margin-top:8px;">' + ICONS.clipboard + ' Aide-mémoire ED (guides INRS)</button>';
   if (typeof renderAutoBackupFolderButton === 'function') h += renderAutoBackupFolderButton();
 
   if (state.missions.length === 0) {
@@ -41,9 +43,14 @@ function createMission() {
 
 function deleteMission(id) {
   if (!confirm('Supprimer cette mission et toutes ses installations ?')) return;
+  var removed = state.missions.find(function (m) { return m.id === id; });
   state.missions = state.missions.filter(function (m) { return m.id !== id; });
   if (state.currentMissionId === id) state.currentMissionId = null;
   persistMissions();
+  // Pas de "undo" ici (confirm() déjà demandé) : les photos peuvent être libérées immédiatement,
+  // contrairement à deleteInstallation qui a une fenêtre d'annulation à respecter. Auparavant jamais
+  // nettoyées, elles restaient orphelines dans IndexedDB indéfiniment (audit du 2026-09-18).
+  if (removed && typeof deleteMissionPhotoBlobs === 'function') deleteMissionPhotoBlobs(removed);
   render();
 }
 

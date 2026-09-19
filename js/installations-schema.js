@@ -90,6 +90,7 @@ function buildCtaReseauFields(prefix, label, optional) {
     { key: prefix + '_temperature_conduit', label: 'Température dans le conduit (°C)', type: 'number', showIf: showIf },
     { key: prefix + '_pression_statique', label: 'Pression statique dans le conduit (Pa)', type: 'number', showIf: showIf },
     { key: prefix + '_masse_volumique', label: 'Masse volumique dans les conditions réelles (kg/m³)', type: 'computed', showIf: showIf },
+    { key: prefix + '_vitesse_n1', label: 'Vitesse année N-1 (m/s)', type: 'number', showIf: showIf },
     { key: prefix + '_vitesse', label: 'Vitesse (m/s)', type: 'number', showIf: showIf },
     { key: prefix + '_reference', label: 'Débit de référence (m³/h)', type: 'number', showIf: showIf },
     { key: prefix + '_debit_n1', label: 'Débit année N-1 (m³/h)', type: 'number', showIf: showIf },
@@ -117,20 +118,32 @@ function buildCtaFiltreFields(prefix, label, avecPerteDeCharge) {
   return f;
 }
 
+// showIf partagé par les 10 champs d'un point de mesure : masque l'étape entière (js/wizard-engine.js
+// gwStepVisible) dès que nombre_points_mesure est renseigné et inférieur à i. La chaîne vide reste
+// dans la liste pour que tous les points restent visibles tant que le technicien n'a pas encore
+// répondu à la question (comportement identique à avant son ajout — jamais de régression sur ce
+// point) — ergonomie du 2026-09-19 : sans ça, un relevé à 2-3 points imposait quand même de traverser
+// les 10 étapes "Point de mesure" une par une.
+function torchePointShowIf(i) {
+  var vals = [''];
+  for (var k = i; k <= 10; k++) vals.push(String(k));
+  return { key: 'nombre_points_mesure', in: vals };
+}
 function buildTorcheRowFields(i) {
   var p = 'torche' + i;
+  var showIf = torchePointShowIf(i);
   return [
-    { key: 'section_' + p, label: 'Point de mesure n°' + i, type: 'section' },
-    { key: p + '_point_mesure', label: 'Point de mesure', type: 'text' },
-    { key: p + '_diametre_tube', label: 'Diamètre du tube (mm)', type: 'number' },
-    { key: p + '_vitesse_centre', label: 'Vitesse au centre (m/s)', type: 'number' },
-    { key: p + '_debit', label: 'Débit (m³/h)', type: 'computed' },
-    { key: p + '_valeur_reference', label: 'Valeur de référence (m³/h) — vide = 100 m³/h (INRS)', type: 'text' },
-    { key: p + '_ecart_pct', label: 'Écart (%)', type: 'computed' },
-    { key: p + '_distance_l', label: 'Distance L (mm)', type: 'number' },
-    { key: p + '_vitesse_point_emission', label: "Vitesse au point d'émission (m/s)", type: 'computed' },
-    { key: p + '_valeur_preconisee', label: 'Valeur préconisée (m/s)', type: 'computed' },
-    { key: p + '_constat', label: 'Constat', type: 'computed' }
+    { key: 'section_' + p, label: 'Point de mesure n°' + i, type: 'section', showIf: showIf },
+    { key: p + '_point_mesure', label: 'Point de mesure', type: 'text', showIf: showIf },
+    { key: p + '_diametre_tube', label: 'Diamètre du tube (mm)', type: 'number', showIf: showIf },
+    { key: p + '_vitesse_centre', label: 'Vitesse au centre (m/s)', type: 'number', showIf: showIf },
+    { key: p + '_debit', label: 'Débit (m³/h)', type: 'computed', showIf: showIf },
+    { key: p + '_valeur_reference', label: 'Valeur de référence (m³/h) — vide = 100 m³/h (INRS)', type: 'text', showIf: showIf },
+    { key: p + '_ecart_pct', label: 'Écart (%)', type: 'computed', showIf: showIf },
+    { key: p + '_distance_l', label: 'Distance L (mm)', type: 'number', showIf: showIf },
+    { key: p + '_vitesse_point_emission', label: "Vitesse au point d'émission (m/s)", type: 'computed', showIf: showIf },
+    { key: p + '_valeur_preconisee', label: 'Valeur préconisée (m/s)', type: 'computed', showIf: showIf },
+    { key: p + '_constat', label: 'Constat', type: 'computed', showIf: showIf }
   ];
 }
 
@@ -148,23 +161,67 @@ function buildLocalChargeGrilleFields(i) {
   ];
 }
 
-// Préremplissage N-1 (js/state.js createMissionFromPreviousSite) — inventaire VBA (rapso_modules/) :
-// seuls 4 types ont un mécanisme dédié de rappel N-1 (contrairement au report intégral générique de
-// Recopier_Les_Donnees.bas, qui recopie tout) — bras_aspiration (UserForm_BOA, "Evolution des
-// valeurs"), extracteur et menuiserie (TextBoxFrC1TAB7/TAB8, "Débit année N-1"/"Débit année en
-// cours"), cta (3 réseaux, mêmes colonnes que Inserer_Annexes.bas). Chaque paire { current, n1 }
-// relie le champ "mesure de cette année" (calculé) à son champ N-1 correspondant (saisi
-// manuellement) : le préremplissage y recopie la valeur "current" de la mission source, et le
-// wizard (gwComputedBadge, js/wizard-engine.js) y lit la valeur N-1 pour l'afficher en rappel sous
-// le champ calculé de l'année en cours.
+// Préremplissage N-1 (js/state.js createMissionFromPreviousSite) — rappel de saisie uniquement,
+// jamais affiché dans le PDF (qui reste 100% fidèle aux rapports de référence déjà envoyés) : seuls
+// 4 types avaient un mécanisme dédié côté VBA (rapso_modules/) — bras_aspiration (UserForm_BOA,
+// "Evolution des valeurs"), extracteur et menuiserie (TextBoxFrC1TAB7/TAB8, "Débit année N-1"/"Débit
+// année en cours"), cta (3 réseaux, mêmes colonnes que Inserer_Annexes.bas). Étendu le 2026-09-18
+// (demande explicite de Quentin) à tous les autres types ayant une mesure de débit/vitesse comparable
+// d'une année sur l'autre — nouveaux champs `*_n1` ajoutés au schéma pour chacun, saisis manuellement
+// par le technicien (valeur de l'an dernier, non calculée). 'sanitaires' n'est volontairement pas
+// couvert : son wizard dédié (js/wizard-sanitaires.js) ne passe pas par gwComputedBadge/gwBigNumber
+// et n'affiche donc pas ce rappel — à traiter séparément si demandé.
+// Chaque paire { current, n1 } relie le champ "mesure de cette année" (calculé OU saisi) à son champ
+// N-1 correspondant (toujours saisi manuellement) : le préremplissage y recopie la valeur "current"
+// de la mission source dans le champ n1 de la nouvelle mission, et le wizard (gwComputedBadge/
+// gwBigNumber, js/wizard-engine.js) y lit cette valeur pour l'afficher en rappel sous le champ de
+// l'année en cours.
 var N1_COMPARISON_FIELDS = {
-  bras_aspiration: [{ current: 'debit_calcule', n1: 'debit_precedent' }],
+  bras_aspiration: [
+    { current: 'debit_calcule', n1: 'debit_precedent' },
+    { current: 'vitesse_moyenne', n1: 'vitesse_moyenne_n1' },
+    { current: 'distance_utilisation', n1: 'distance_utilisation_n1' }
+  ],
   extracteur: [{ current: 'debit_annee_en_cours', n1: 'debit_annee_n1' }],
   menuiserie: [{ current: 'debit_annee_en_cours', n1: 'debit_annee_n1' }],
   cta: [
     { current: 'neuf_debit', n1: 'neuf_debit_n1' },
     { current: 'souf_debit', n1: 'souf_debit_n1' },
-    { current: 'rep_debit', n1: 'rep_debit_n1' }
+    { current: 'rep_debit', n1: 'rep_debit_n1' },
+    { current: 'neuf_vitesse', n1: 'neuf_vitesse_n1' },
+    { current: 'souf_vitesse', n1: 'souf_vitesse_n1' },
+    { current: 'rep_vitesse', n1: 'rep_vitesse_n1' }
+  ],
+  bureaux: [
+    { current: 'debit_total_mesure', n1: 'debit_total_mesure_n1' },
+    { current: 'debit_soufflage', n1: 'debit_soufflage_n1' },
+    { current: 'debit_extraction', n1: 'debit_extraction_n1' }
+  ],
+  erp: [
+    { current: 'debit_total_mesure', n1: 'debit_total_mesure_n1' },
+    { current: 'debit_soufflage', n1: 'debit_soufflage_n1' },
+    { current: 'debit_extraction', n1: 'debit_extraction_n1' }
+  ],
+  locaux_fumeurs: [{ current: 'debit_extraction', n1: 'debit_extraction_n1' }],
+  sorbonnes: [{ current: 'debit_mesure', n1: 'debit_mesure_n1' }],
+  cabines_peinture: [
+    { current: 'debit_mesure', n1: 'debit_mesure_n1' },
+    { current: 'v1_mesuree', n1: 'v1_mesuree_n1' },
+    { current: 'v2_mesuree', n1: 'v2_mesuree_n1' }
+  ],
+  gaz_echappement: [{ current: 'debit_mesure', n1: 'debit_mesure_n1' }],
+  tts: [{ current: 'debit_mesure', n1: 'debit_mesure_n1' }],
+  menuiserie_bis: [{ current: 'debit', n1: 'debit_n1' }],
+  box_peinture: [{ current: 'debit_extraction_box', n1: 'debit_extraction_box_n1' }],
+  torches_aspirantes: [{ current: 'total_debit', n1: 'total_debit_n1' }],
+  locaux_charge: [{ current: 'debit_mesure_local', n1: 'debit_mesure_local_n1' }],
+  hottes: [
+    { current: 'vpe_debit', n1: 'vpe_debit_n1' },
+    { current: 'vt_mesuree', n1: 'vt_mesuree_n1' }
+  ],
+  installations_diverses: [
+    { current: 'vpe_mesuree', n1: 'vpe_mesuree_n1' },
+    { current: 'vt_mesuree', n1: 'vt_mesuree_n1' }
   ]
 };
 
@@ -198,9 +255,15 @@ var INSTALLATION_TYPES = [
         options: ['Oui', 'Non'],
         showIf: { key: 'ouvrant_exterieur', equals: 'Non' } },
 
+      { key: 'debit_total_mesure_n1', label: 'Débit total mesuré année N-1 (m³/h)', type: 'number',
+        showIf: { key: 'type_ventilation', in: ['Extraction', 'Soufflage'] } },
       { key: 'debit_total_mesure', label: 'Débit total mesuré (m³/h)', type: 'number',
         showIf: { key: 'type_ventilation', in: ['Extraction', 'Soufflage'] } },
+      { key: 'debit_soufflage_n1', label: 'Débit soufflage mesuré année N-1 (m³/h)', type: 'number',
+        showIf: { key: 'type_ventilation', equals: 'Double flux' } },
       { key: 'debit_soufflage', label: 'Débit soufflage mesuré (m³/h)', type: 'number',
+        showIf: { key: 'type_ventilation', equals: 'Double flux' } },
+      { key: 'debit_extraction_n1', label: 'Débit extraction mesuré année N-1 (m³/h)', type: 'number',
         showIf: { key: 'type_ventilation', equals: 'Double flux' } },
       { key: 'debit_extraction', label: 'Débit extraction mesuré (m³/h)', type: 'number',
         showIf: { key: 'type_ventilation', equals: 'Double flux' } },
@@ -286,6 +349,7 @@ var INSTALLATION_TYPES = [
       { key: 'critere_rejet_exterieur', label: "Rejet d'air à l'extérieur", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
       { key: 'critere_rejet_distance_passage', label: "Rejet d'air à bonne distance des lieux de passage de personnes", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
       { key: 'critere_rejet_distance_prises_air', label: "Rejet d'air à bonne distance des prises d'air frais ou des ouvertures", type: 'select', options: OPT_CRITERE_LOCFUMEUR },
+      { key: 'debit_extraction_n1', label: "Débit d'extraction mesuré année N-1 (m³/h)", type: 'number' },
       { key: 'debit_extraction', label: "Débit d'extraction mesuré (m³/h)", type: 'number' },
       { key: 'critere_reprise_totale', label: 'Reprise totale (m³/h) — avis', type: 'select', options: OPT_CRITERE_LOCFUMEUR },
       { key: 'taux_renouvellement', label: "Taux de renouvellement d'air (vol/h)", type: 'computed' },
@@ -424,9 +488,15 @@ var INSTALLATION_TYPES = [
       { key: 'entree_air_exterieur', label: "Présence d'entrée d'air donnant directement sur l'extérieur", type: 'select',
         options: ['Oui', 'Non'],
         showIf: { key: 'ouvrant_exterieur', equals: 'Non' } },
+      { key: 'debit_total_mesure_n1', label: 'Débit total mesuré année N-1 (m³/h)', type: 'number',
+        showIf: { key: 'type_ventilation', in: ['Extraction', 'Soufflage'] } },
       { key: 'debit_total_mesure', label: 'Débit total mesuré (m³/h)', type: 'number',
         showIf: { key: 'type_ventilation', in: ['Extraction', 'Soufflage'] } },
+      { key: 'debit_soufflage_n1', label: 'Débit soufflage mesuré année N-1 (m³/h)', type: 'number',
+        showIf: { key: 'type_ventilation', equals: 'Double flux' } },
       { key: 'debit_soufflage', label: 'Débit soufflage mesuré (m³/h)', type: 'number',
+        showIf: { key: 'type_ventilation', equals: 'Double flux' } },
+      { key: 'debit_extraction_n1', label: 'Débit extraction mesuré année N-1 (m³/h)', type: 'number',
         showIf: { key: 'type_ventilation', equals: 'Double flux' } },
       { key: 'debit_extraction', label: 'Débit extraction mesuré (m³/h)', type: 'number',
         showIf: { key: 'type_ventilation', equals: 'Double flux' } },
@@ -516,6 +586,7 @@ var INSTALLATION_TYPES = [
       { key: 'vitesse_moy_mesuree', label: 'Vitesse moyenne — Valeur mesurée (m/s)', type: 'computed' },
       { key: 'vitesse_moy_reference', label: 'Vitesse moyenne — Valeur de référence (m/s, « / » si aucune)', type: 'text' },
       { key: 'vitesse_moy_avis_reference', label: 'Vitesse moyenne — Avis / valeurs de référence', type: 'computed' },
+      { key: 'debit_mesure_n1', label: 'Débit d’air extrait — Valeur mesurée année N-1 (m³/h)', type: 'number' },
       { key: 'debit_mesure', label: 'Débit d\u2019air extrait — Valeur mesurée (m³/h)', type: 'computed' },
       { key: 'debit_reference', label: 'Débit d\u2019air extrait — Valeur de référence (m³/h, « / » si aucune)', type: 'text' },
       { key: 'debit_avis_reference', label: 'Débit d\u2019air extrait — Avis / valeurs de référence', type: 'computed' }
@@ -563,6 +634,8 @@ var INSTALLATION_TYPES = [
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_moyenne', label: 'Vitesse moyenne mesurée (m/s)', type: 'computed',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
+      { key: 'vpe_debit_n1', label: "Débit d'air extrait année N-1 (m³/h)", type: 'number',
+        showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_debit', label: "Débit d'air extrait (m³/h)", type: 'computed',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
 
@@ -593,6 +666,8 @@ var INSTALLATION_TYPES = [
                   'Poussières lourdes', 'Poussières lourdes ou humides'],
         showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
       { key: 'vt_inrs', label: 'Valeur recommandée guide INRS ED 695 (m/s)', type: 'computed',
+        showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
+      { key: 'vt_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number',
         showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
       { key: 'vt_mesuree', label: 'Valeur mesurée (m/s)', type: 'number',
         showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
@@ -648,10 +723,12 @@ var INSTALLATION_TYPES = [
       { key: 'diametre_bras_cone', label: 'Diamètre du bras au niveau du cône (cm)', type: 'number' },
 
       { key: 'section_mesures', label: 'Mesures', type: 'section' },
+      { key: 'vitesse_moyenne_n1', label: 'Vitesse moyenne mesurée année N-1 (m/s)', type: 'number' },
       { key: 'vitesse_moyenne', label: 'Vitesse moyenne mesurée (m/s)', type: 'number' },
       { key: 'debit_calcule', label: 'Débit calculé (m³/h)', type: 'computed' },
       { key: 'vitesse_captage', label: 'Vitesse de captage recherchée (m/s)', type: 'number' },
       { key: 'distance_max_captage', label: 'Distance maximum de captage (cm)', type: 'computed' },
+      { key: 'distance_utilisation_n1', label: "Distance d'utilisation année N-1 (cm)", type: 'number' },
       { key: 'distance_utilisation', label: "Distance d'utilisation (cm)", type: 'number' },
       { key: 'conclusion_distance', label: 'Conclusion distance de captage', type: 'computed' },
 
@@ -694,6 +771,7 @@ var INSTALLATION_TYPES = [
       { key: 'vitesse_moyenne_grille', label: 'Vitesse moyenne calculée (m/s)', type: 'computed' },
 
       { key: 'section_v1', label: 'Vitesse d\u2019air — Vitesse moyenne', type: 'section' },
+      { key: 'v1_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number' },
       { key: 'v1_mesuree', label: 'Valeur mesurée (m/s)', type: 'number' },
       { key: 'v1_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text' },
       { key: 'v1_valeur_recommandee', label: 'Valeur recommandée (m/s)', type: 'number' },
@@ -702,6 +780,7 @@ var INSTALLATION_TYPES = [
 
       { key: 'section_v2', label: 'Vitesse d\u2019air — Vitesse minimale', type: 'section' },
       { key: 'v2_active', label: 'Ajouter la vitesse minimale', type: 'select', options: ['Oui', 'Non'] },
+      { key: 'v2_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number', showIf: { key: 'v2_active', equals: 'Oui' } },
       { key: 'v2_mesuree', label: 'Valeur mesurée (m/s)', type: 'number', showIf: { key: 'v2_active', equals: 'Oui' } },
       { key: 'v2_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text', showIf: { key: 'v2_active', equals: 'Oui' } },
       { key: 'v2_valeur_recommandee', label: 'Valeur recommandée (m/s)', type: 'number', showIf: { key: 'v2_active', equals: 'Oui' } },
@@ -709,6 +788,7 @@ var INSTALLATION_TYPES = [
       { key: 'v2_avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed', showIf: { key: 'v2_active', equals: 'Oui' } },
 
       { key: 'section_debit', label: 'Débit d\u2019air dans la cabine vide', type: 'section' },
+      { key: 'debit_mesure_n1', label: 'Débit mesuré année N-1 (m³/h)', type: 'number' },
       { key: 'debit_mesure', label: 'Débit mesuré (m³/h)', type: 'number' },
       { key: 'debit_reference', label: 'Débit de référence (m³/h, « / » si aucune)', type: 'text' },
       { key: 'debit_avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed' },
@@ -748,6 +828,8 @@ var INSTALLATION_TYPES = [
 
       { key: 'section_vpe', label: "Vitesse au point d'émission", type: 'section',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
+      { key: 'vpe_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number',
+        showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_mesuree', label: 'Valeur mesurée (m/s)', type: 'number',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_conditions_dispersion', label: 'Condition de dispersion du polluant', type: 'select',
@@ -770,6 +852,8 @@ var INSTALLATION_TYPES = [
                   'Poussières lourdes', 'Poussières lourdes ou humides'],
         showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
       { key: 'vt_inrs', label: 'Valeur recommandée guide INRS ED 695 (m/s)', type: 'computed',
+        showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
+      { key: 'vt_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number',
         showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
       { key: 'vt_mesuree', label: 'Valeur mesurée (m/s)', type: 'number',
         showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
@@ -832,6 +916,7 @@ var INSTALLATION_TYPES = [
       { key: "vitesse_moyenne_grille", label: "Vitesse moyenne calculée (m/s)", type: "computed", showIf: { key: "vitesse_mode", equals: "Grille de points" } },
 
       { key: 'section_debits', label: 'Débits', type: 'section' },
+      { key: 'debit_mesure_n1', label: 'Débit mesuré année N-1 (m³/h)', type: 'number' },
       { key: 'debit_mesure', label: 'Débit mesuré (m³/h)', type: 'computed' },
       { key: 'debit_reference', label: 'Débit de référence (m³/h)', type: 'number' },
       { key: 'debit_min_inrs', label: 'Débit minimum préconisé INRS (m³/h)', type: 'number' },
@@ -923,6 +1008,7 @@ var INSTALLATION_TYPES = [
       { key: 'vitesse_avis', label: 'Avis', type: 'computed' },
 
       { key: 'section_debit', label: 'Calcul du débit', type: 'section' },
+      { key: 'debit_n1', label: 'Débit année N-1 (m³/h)', type: 'number' },
       { key: 'debit', label: 'Débit (m³/h)', type: 'computed' },
       { key: 'debit_reference', label: 'Valeur de référence (m³/h)', type: 'computed' },
       { key: 'debit_inrs_ed750', label: 'Valeur recommandée par le guide INRS (ED 750)', type: 'computed' },
@@ -979,6 +1065,7 @@ var INSTALLATION_TYPES = [
 
       { key: 'section_renouvellement', label: 'Taux de renouvellement', type: 'section' },
       { key: 'volume_local', label: 'Volume du local (m³)', type: 'number' },
+      { key: 'debit_extraction_box_n1', label: "Débit d'extraction du box année N-1 (m³/h)", type: 'number' },
       { key: 'debit_extraction_box', label: "Débit d'extraction du box (m³/h)", type: 'computed' },
       { key: 'volume_par_heure', label: 'Volume par heure (vol/h)', type: 'computed' },
       { key: 'debit_minimal_50vh', label: 'Débit minimal (m³/h) pour 50 volumes/heure', type: 'computed' },
@@ -1001,7 +1088,10 @@ var INSTALLATION_TYPES = [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
       { key: 'reference_equipement', label: "Réf. de l'équipement", type: 'text' },
+      { key: 'nombre_points_mesure', label: 'Nombre de points de mesure', type: 'select',
+        options: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] },
       { key: 'note_reference', label: 'Note', type: 'computed' },
+      { key: 'total_debit_n1', label: 'Total débit année N-1 (m³/h)', type: 'number' },
       { key: 'total_debit', label: 'Total débit (m³/h)', type: 'computed' },
       { key: 'commentaire', label: 'Commentaire', type: 'textarea' }
     ]
@@ -1040,6 +1130,7 @@ var INSTALLATION_TYPES = [
       .concat([
       { key: 'section_debits', label: 'Mesure du débit', type: 'section' },
       { key: 'valeur_reference', label: 'Valeur de référence (m³/h, « / » si aucune)', type: 'text' },
+      { key: 'debit_mesure_local_n1', label: 'Débit mesuré du local année N-1 (m³/h)', type: 'number' },
       { key: 'debit_mesure_local', label: 'Débit mesuré du local (m³/h)', type: 'computed' },
       { key: 'avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed' },
       { key: 'observation', label: 'Observation', type: 'textarea' }
@@ -1093,6 +1184,7 @@ var INSTALLATION_TYPES = [
       { key: 'debit_qr10', label: 'Débit Qr/10 ou Qc/10 (m³/h)', type: 'computed' },
       { key: 'debit_so', label: 'Débit So × V (m³/h)', type: 'computed' },
       { key: 'debit_min_inrs', label: 'Débit minimum préconisé INRS (m³/h)', type: 'computed' },
+      { key: 'debit_mesure_n1', label: 'Débit mesuré année N-1 (m³/h)', type: 'number' },
       { key: 'debit_mesure', label: 'Débit mesuré (m³/h)', type: 'number' },
       { key: 'debit_reference', label: 'Débit de référence (m³/h, « / » si aucune)', type: 'text' },
       { key: 'avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed' },

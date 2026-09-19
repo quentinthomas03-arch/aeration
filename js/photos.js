@@ -5,9 +5,8 @@
 // aux 12 types confirmés par preuve VBA directe (contrôle LabelPhoto + insere_image_ratio dans
 // l'annexe Word) — voir l'inventaire fait avant ce chantier. Trois consommateurs :
 //  - js/installations.js : galerie (miniatures, capture, suppression, visionneuse plein écran)
-//  - js/export-word.js : résolution id -> dataURL juste avant de construire le docx (fichePhotoBox
-//    attend toujours une chaîne base64 comme avant ce chantier — adaptateur, pas de changement de
-//    mise en page)
+//  - js/export-pdf.js : résolution id -> dataURL juste avant de construire le PDF (pdfFichePhotoBox
+//    attend toujours une chaîne base64 — adaptateur, pas de changement de mise en page)
 //  - js/import-export.js : embarque les photos en base64 dans le JSON exporté/transféré, les
 //    réimporte vers IndexedDB à la réception
 
@@ -148,12 +147,11 @@ function migrateLegacyPhotos() {
   });
 }
 
-// Adaptateur export Word (js/export-word.js exportRapportWord) : fichePhotoBox attend toujours une
-// chaîne base64 exploitable directement, comme avant ce chantier — mise en page/contenu du rapport
-// inchangés, seule la façon dont l'octet est obtenu change (résolution IndexedDB au lieu d'une
-// lecture directe du champ). Ne mute jamais la mission réelle : travaille sur un clone, et ne garde
-// que la 1re photo (fichePhotoBox n'affiche qu'une seule image par installation).
-function resolveMissionPhotosForWord(m) {
+// Adaptateur export PDF (js/export-pdf.js exportRapportPdf) : pdfFichePhotoBox attend toujours une
+// chaîne base64 exploitable directement — seule la façon dont l'octet est obtenu change (résolution
+// IndexedDB au lieu d'une lecture directe du champ). Ne mute jamais la mission réelle : travaille sur
+// un clone, et ne garde que la 1re photo (pdfFichePhotoBox n'affiche qu'une seule image par installation).
+function resolveMissionPhotos(m) {
   var clone = JSON.parse(JSON.stringify(m));
   var jobs = [];
   forEachInstallationPhotoField(clone, function (inst) {
@@ -208,6 +206,29 @@ function restoreMissionPhotosFromImport(mission) {
     }).filter(Boolean);
   });
   return Promise.all(jobs).then(function () { return mission; });
+}
+
+// Supprime de IndexedDB toutes les photos référencées par une mission entière — à appeler avant de
+// retirer la mission de state.missions (deleteMission). Auparavant jamais appelé à la suppression :
+// les blobs restaient orphelins indéfiniment, rongeant la marge de stockage (fuite trouvée lors de
+// l'audit du 2026-09-18).
+function deleteMissionPhotoBlobs(mission) {
+  var ids = [];
+  forEachInstallationPhotoField(mission, function (inst) {
+    (Array.isArray(inst.data.photo) ? inst.data.photo : []).forEach(function (p) {
+      if (p && p.id) ids.push(p.id);
+    });
+  });
+  return Promise.all(ids.map(function (id) { return deletePhotoBlob(id).catch(function () {}); }));
+}
+
+// Supprime de IndexedDB les photos référencées par une seule installation — à appeler avant de la
+// retirer d'une mission (deleteInstallation), même raison que deleteMissionPhotoBlobs ci-dessus.
+function deleteInstallationPhotoBlobs(inst) {
+  var photos = (inst && inst.data && Array.isArray(inst.data.photo)) ? inst.data.photo : [];
+  return Promise.all(photos.map(function (p) {
+    return (p && p.id) ? deletePhotoBlob(p.id).catch(function () {}) : Promise.resolve();
+  }));
 }
 
 // === Galerie (js/installations.js renderFieldInput) : miniatures, capture, suppression, visionneuse ===

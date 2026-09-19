@@ -47,7 +47,8 @@ function gwBigNumber(typeId, f, inst) {
   var st = fieldState(f, inst);
   return '<div class="field-big">' + fieldLabelWithTag(f, st) +
     '<input type="text" inputmode="decimal" class="input-big state-' + st + '" value="' + escapeHtml(val) +
-    '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + fieldHint(st) + '</div>';
+    '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + fieldHint(st) +
+    gwN1Hint(typeId, f.key, inst) + '</div>';
 }
 
 // Boutons larges (2 colonnes max) : select/toggle à choix restreint (≤4 options).
@@ -102,10 +103,10 @@ function gwTextarea(typeId, f, inst) {
     escapeHtml(val) + '</textarea>' + fieldHint(st) + '</div>';
 }
 
-// Rappel N-1 (js/installations-schema.js N1_COMPARISON_FIELDS) : petit texte sous le champ calculé
-// "année en cours" des 4 types qui ont un mécanisme N-1 côté VBA, distinct du hint "Renseigné" des
-// champs saisis (fieldHint) pour ne pas laisser croire que le technicien a lui-même déjà validé cette
-// valeur cette année — elle vient de la mission source chargée via "Charger un site précédent".
+// Rappel N-1 (js/installations-schema.js N1_COMPARISON_FIELDS) : petit texte sous le champ "mesure
+// de cette année" (calculé ou saisi) des types qui ont un mécanisme N-1, distinct du hint "Renseigné"
+// des champs saisis (fieldHint) pour ne pas laisser croire que le technicien a lui-même déjà validé
+// cette valeur cette année — elle vient de la mission source chargée via "Charger un site précédent".
 function gwN1Hint(typeId, key, inst) {
   var pairs = N1_COMPARISON_FIELDS[typeId];
   if (!pairs) return '';
@@ -188,19 +189,36 @@ function gwPersistStep(typeId, step) {
 
 function gwNextStep(typeId) {
   var m = getCurrentMission();
-  var inst = m.installations[typeId][state.currentInstIndex];
+  var inst = m && m.installations[typeId][state.currentInstIndex];
+  if (!inst) { state.view = 'type-list'; render(); return; }
   var steps = WIZARD_STEPS[typeId] || [];
   var next = gwWalkToVisible(typeId, inst, state.currentStep + 1, 1);
   if (next < steps.length) { state.currentStep = next; gwPersistStep(typeId, next); render(); return; }
+  // Fin du parcours : persister l'étape 0 (pas seulement en mémoire) — sinon inst.data._step reste
+  // sur la dernière étape visitée et rouvrir cette installation plus tard saute directement dessus
+  // au lieu de repartir du début (bug trouvé lors de l'audit du 2026-09-18).
   state.currentStep = 0;
+  gwPersistStep(typeId, 0);
   state.view = 'type-list';
   render();
   scheduleAutoBackup();
 }
 
+// Sélecteur d'étape (ergonomie du 2026-09-19) : pour les types à beaucoup d'étapes (ex. CTA, 13
+// étapes), naviguer uniquement via Suivant/Précédent impose de traverser tout le formulaire pour
+// revenir corriger une valeur en étape 2 depuis l'étape 11. `stepIdx` est un index dans WIZARD_STEPS
+// (pas dans la liste des étapes visibles) — toujours une étape réellement visible puisqu'il vient des
+// options du <select> rempli par gwVisibleStepIndices.
+function gwJumpToStep(typeId, stepIdx) {
+  state.currentStep = parseInt(stepIdx, 10);
+  gwPersistStep(typeId, state.currentStep);
+  render();
+}
+
 function gwPrevStep(typeId) {
   var m = getCurrentMission();
-  var inst = m.installations[typeId][state.currentInstIndex];
+  var inst = m && m.installations[typeId][state.currentInstIndex];
+  if (!inst) { state.view = 'type-list'; render(); return; }
   var prev = gwWalkToVisible(typeId, inst, state.currentStep - 1, -1);
   if (prev >= 0) { state.currentStep = prev; gwPersistStep(typeId, prev); render(); return; }
   state.currentStep = 0;
@@ -237,8 +255,22 @@ function renderGenericWizard(m, t, inst) {
   });
   h += '</div>';
 
-  h += '<div class="wizard-step-header"><div class="step-count">Étape ' + (posInVisible + 1) + ' / ' +
-    visibleIdx.length + '</div><h2>' + getIcon(t.icon) + ' ' + escapeHtml(steps[step].title) + '</h2></div>';
+  h += '<div class="wizard-step-header"><div class="step-count">';
+  // Sélecteur d'étape natif (<select>, ouvre le picker OS sur mobile — pas de composant custom à
+  // rendre tap-friendly) : n'apparaît que s'il y a plus d'une étape à choisir, pour ne rien changer
+  // aux types courts (sanitaires, box_peinture...). Ne liste que les étapes visibles (visibleIdx) —
+  // sauter sur une étape masquée par showIf n'aurait aucun sens.
+  if (visibleIdx.length > 1) {
+    h += '<select class="wizard-step-jump" onchange="gwJumpToStep(\'' + t.id + '\',this.value);">';
+    visibleIdx.forEach(function (idx, i) {
+      h += '<option value="' + idx + '"' + (idx === step ? ' selected' : '') + '>' +
+        (i + 1) + '/' + visibleIdx.length + ' — ' + escapeHtml(steps[idx].title) + '</option>';
+    });
+    h += '</select>';
+  } else {
+    h += 'Étape ' + (posInVisible + 1) + ' / ' + visibleIdx.length;
+  }
+  h += '</div><h2>' + getIcon(t.icon) + ' ' + escapeHtml(steps[step].title) + '</h2></div>';
 
   h += '<div class="card">';
   gwStepFields(t.id, steps[step]).forEach(function (f) { h += gwRenderField(t.id, f, inst); });

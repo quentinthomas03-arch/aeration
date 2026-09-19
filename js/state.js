@@ -45,7 +45,16 @@ function escapeHtml(t) {
 }
 
 function saveData(k, d) {
-  try { localStorage.setItem(k, JSON.stringify(d)); } catch (e) {}
+  try {
+    localStorage.setItem(k, JSON.stringify(d));
+    return true;
+  } catch (e) {
+    // Auparavant avalé silencieusement (audit du 2026-09-18) : un quota localStorage dépassé perdait
+    // la dernière saisie sans aucun avertissement, l'app continuant comme si tout était enregistré.
+    console.error('[Stockage] Échec de sauvegarde locale :', e);
+    if (typeof showStorageErrorBanner === 'function') showStorageErrorBanner();
+    return false;
+  }
 }
 
 function loadData() {
@@ -112,7 +121,7 @@ function normalizeMission(m) {
 }
 
 function persistMissions() {
-  saveData('aeration_missions_v1', state.missions);
+  return saveData('aeration_missions_v1', state.missions);
 }
 
 function getCurrentMission() {
@@ -120,6 +129,14 @@ function getCurrentMission() {
     if (state.missions[i].id === state.currentMissionId) return state.missions[i];
   }
   return null;
+}
+
+// Résout l'installation actuellement affichée (état state.currentInstIndex), en tolérant que la
+// mission ait disparu entre-temps (ex. supprimée depuis un autre onglet/écran) — plusieurs endroits
+// indexaient m.installations[...] sans vérifier m d'abord et pouvaient planter (audit du 2026-09-18).
+function getCurrentInstallation(typeId) {
+  var m = getCurrentMission();
+  return (m && m.installations[typeId]) ? m.installations[typeId][state.currentInstIndex] : null;
 }
 
 function createEmptyMission() {
@@ -209,39 +226,30 @@ function createEmptyMission() {
   };
 }
 
-// Champs "structure" repris lors du chargement d'un site précédent : uniquement les champs
-// d'identification (bâtiment, repère, emplacement, référence...), pas les champs d'état/
-// configuration/mesure — ceux-là repartent vierges pour que chaque visite reflète un constat
-// réellement fait cette année-là. Une règle par TYPE de champ (garder tous les 'select', par ex.)
-// aurait été trop large : plusieurs 'select' sont des constats de visite, pas des attributs fixes
-// (ex. CTA : 'batterie_froide' ou 'avis' ne doivent jamais être prérempli avec la conclusion de
-// l'année précédente). On s'appuie donc sur les étapes "Identification" déjà curées dans
-// js/wizard-steps.js ; sanitaires (wizard dédié, hors WIZARD_STEPS) est listé à la main.
-function structuralFieldKeys(typeId) {
-  if (typeId === 'sanitaires') return ['batiment', 'repere', 'nom_usage'];
-  var steps = (typeof WIZARD_STEPS !== 'undefined' && WIZARD_STEPS[typeId]) || [];
-  var keys = [];
-  steps.forEach(function (step) {
-    if (step.title === 'Identification') keys = keys.concat(step.fields);
-  });
-  return keys;
-}
-
-// Duplication rapide d'une installation (chantier "forte volumétrie", ex. 50 sanitaires) : élargit
-// le découpage Identification/Constat ci-dessus aux champs de configuration qui ne sont pas des
-// constats de visite (dimensions, type de ventilation, comptages d'équipement...), toujours avec la
-// même prudence que le préremplissage N-1 — ne jamais reconduire un constat comme si déjà validé.
-// Deux couches de protection : (1) whitelist d'étapes par type ci-dessous, dérivée de
+// Champs de configuration repris aussi bien par la duplication rapide dans une même mission
+// (buildInstallationDataForDuplicate) que par le préremplissage N-1 (buildInstallationDataFromPrevious,
+// plus bas) : les deux posent exactement la même question ("cette donnée décrit-elle l'installation
+// physique, ou un constat propre à cette visite ?") et partagent donc la même whitelist et le même
+// double filtre de sécurité. Une règle par TYPE de champ (garder tous les 'select', par ex.) aurait
+// été trop large : plusieurs 'select' sont des constats de visite, pas des attributs fixes (ex. CTA :
+// 'batterie_froide' ou 'avis' ne doivent jamais être préremplis avec la conclusion de l'année
+// précédente). Deux couches de protection : (1) whitelist d'étapes par type ci-dessous, dérivée de
 // wizard-steps.js, qui n'ajoute que des étapes relues champ par champ comme purement
 // configuration — une étape ambiguë (mesure et configuration mélangées sans filtre fiable, ex.
 // "Cabine vide — dimensions & grille") est sciemment laissée de côté plutôt que risquée ; (2) même
 // dans une étape retenue, un champ dont la clé signale un constat individuel reste explicitement
 // exclu (ceinture et bretelles) — repéré grâce au bug CTA du chantier N-1 où batterie_froide/avis
 // auraient été reconduits comme validés par une règle basée sur le seul type de champ.
-var DUPLICATION_FINDING_KEY_PATTERN = /^(avis|conclusion|constat|critere_|etat_)|_etat$/;
+// (^|_)temperature(_conduit)?$ / (^|_)pression_statique$ : conditions ambiantes relevées AU MOMENT de
+// la mesure de vitesse (servent au calcul de masse volumique) — jamais structurelles, même motif que
+// les critères réglementaires, qu'il s'agisse de la forme nue (extracteur, tts...), préfixée par
+// réseau (cta : neuf_temperature_conduit, souf_pression_statique...) ou préfixée par captage
+// (box_peinture : captage1_temperature — seul endroit du schéma où ce champ perd le suffixe "_conduit",
+// vérifié par grep avant d'élargir le motif).
+var DUPLICATION_FINDING_KEY_PATTERN = /^(avis|conclusion|constat|critere_|etat_)|_etat$|(^|_)temperature(_conduit)?$|(^|_)pression_statique$/;
 var DUPLICATION_FINDING_KEYS = {
   adapte_situation: true, conditions_dispersion: true, direction_flux: true, fiche_maintenance: true,
-  mesures_choisies: true, obstacle_point_mesure: true, operateur_hors_volume: true, perturbations: true,
+  mesures_choisies: true, mesure_mode: true, obstacle_point_mesure: true, operateur_hors_volume: true, perturbations: true,
   prise_air_neuf: true, recyclage: true, remarques_complementaires: true, test_fumigene: true,
   type_captage_adapte: true, vpe_conditions_dispersion: true, zones_mortes: true, zones_turbulentes: true,
   batterie_chaude: true, batterie_froide: true, canalisations_gaines: true, ventilateur_courroie: true
@@ -253,22 +261,40 @@ function isDuplicationFindingField(f) {
 // Étapes de configuration au-delà d'Identification ('Localisation' pour menuiserie_bis) jugées sûres
 // à dupliquer intégralement (la couche 2 ci-dessus filtre quand même tout champ de constat qui s'y
 // serait glissé, ex. les 'etat_*' des étapes filtration CTA).
+// Étendu le 2026-09-18 (demande explicite de Quentin : "un tech d'une année à l'autre devrait n'avoir
+// qu'à vérifier les données et faire la mesure", puis "fais-toi confiance, le but est de rendre
+// l'appli top" pour aller au bout du principe) : chaque étape ajoutée ici ne l'a été qu'après
+// vérification qu'elle ne contient plus aucun champ de mesure brute non protégé — soit le champ
+// "mesure de cette année" a désormais une paire N-1 (auto-exclu par n1PairedFieldKeys, même s'il est
+// resté de type 'number' plutôt que 'computed' — des paires vitesse/distance ont été ajoutées le
+// 2026-09-18 spécifiquement pour débloquer bras_aspiration/cta/cabines_peinture), soit il est de type
+// 'computed' (déjà exclu par DUPLICATION_ALWAYS_RESET_TYPES), soit c'est temperature_conduit/
+// pression_statique (exclus par motif, cf. DUPLICATION_FINDING_KEY_PATTERN — conditions ambiantes au
+// moment de LA mesure, jamais structurelles). Étapes encore délibérément écartées : celles qui
+// contiennent au moins un champ de mesure brute sans aucune de ces protections (ex. les 10 points de
+// torches_aspirantes, les captages "vitesse & débit" de box_peinture, cta "Réseau *** — section" est
+// déjà inclus mais pas d'étape mélangeant mesure+config sans filtre fiable) — les y ajouter ferait
+// passer une vraie mesure de l'an dernier pour une donnée déjà vérifiée cette année.
 var DUPLICATION_EXTRA_KEEP_STEPS = {
-  bureaux: ['Type de ventilation'],
-  erp: ['Occupation', 'Type de ventilation'],
+  bureaux: ['Type de ventilation', 'Débits mesurés'],
+  erp: ['Occupation', 'Type de ventilation', 'Débits mesurés'],
   locaux_fumeurs: ['Dimensions du local', "Ratio avec l'établissement"],
-  bras_aspiration: ["Bouche d'aspiration — forme", "Bouche d'aspiration — implantation"],
-  extracteur: ['Section du conduit', 'Taux de renouvellement (optionnel)'],
-  gaz_echappement: ["Type d'équipement", 'Section du conduit'],
-  hottes: ['VPE — dimensions & grille'],
-  menuiserie: ['Machines reliées', 'Caractéristique du réseau', 'Dépoussiéreur', 'Section du conduit'],
-  sorbonnes: ['Ouverture de travail', 'Dispositif de sécurité'],
-  tts: ['Cuve — caractéristiques', 'Cuve — dimensions', 'Procédé'],
-  locaux_charge: ['Ventilation'],
-  box_peinture: ['État visuel & ventilation'],
-  cabines_peinture: ['Caractéristiques'],
+  bras_aspiration: ["Bouche d'aspiration — forme", "Bouche d'aspiration — implantation", 'Mesures & captage'],
+  extracteur: ['Section du conduit', 'Taux de renouvellement (optionnel)', 'Débit & avis', 'Mesure dans le conduit'],
+  gaz_echappement: ["Type d'équipement", 'Section du conduit', 'Débits & données constructeur', 'Mesure dans le conduit'],
+  hottes: ['VPE — dimensions & grille', 'VPE — avis vs référence'],
+  installations_diverses: ["Vitesse au point d'émission", 'Vitesse de transport', 'Mesure dans le conduit'],
+  menuiserie: ['Machines reliées', 'Caractéristique du réseau', 'Dépoussiéreur', 'Section du conduit', 'Débit', 'Mesure dans le conduit'],
+  menuiserie_bis: ['Conduit — section'],
+  sorbonnes: ['Ouverture de travail', 'Dispositif de sécurité', 'Résultats — vitesse', 'Résultats — débit'],
+  tts: ['Type & état visuel', 'Cuve — caractéristiques', 'Cuve — dimensions', 'Procédé', 'Mesure dans le conduit'],
+  locaux_charge: ['Ventilation', 'Mesure du débit'],
+  box_peinture: ['État visuel & ventilation', 'Taux de renouvellement',
+    'Captage n°1 — conduit', 'Captage n°2 — conduit', 'Captage n°3 — conduit', 'Captage n°4 — conduit'],
+  cabines_peinture: ['Caractéristiques', 'Débit dans la cabine vide', 'Vitesse moyenne', 'Vitesse minimale (optionnel)'],
   cta: ['Filtration — pré-filtre', 'Filtration — filtre', 'Filtration — filtre absolu',
-    'Réseau neuf — section', 'Réseau soufflé — section', 'Réseau repris (optionnel) — section']
+    'Réseau neuf — section', 'Réseau soufflé — section', 'Réseau repris (optionnel) — section',
+    'Réseau neuf — mesures', 'Réseau soufflé — mesures', 'Réseau repris — mesures']
 };
 
 function duplicationFieldKeys(typeId) {
@@ -288,14 +314,24 @@ function duplicationFieldKeys(typeId) {
 
 var DUPLICATION_ALWAYS_RESET_TYPES = { computed: true, textarea: true, grid: true, 'charger-list': true, photo: true };
 
+// Un champ apparié dans N1_COMPARISON_FIELDS (des deux côtés, 'current' et 'n1') est par définition
+// LA mesure de l'année, jamais un attribut fixe de l'installation — exclu au même titre qu'un champ
+// de constat. Ça permet d'inclure sans risque toute une étape "Débit(s)"/"Résultats" qui mélange une
+// mesure chiffrée d'une année sur l'autre (protégée par sa paire N-1) avec de vraies valeurs de
+// référence/config (cylindrée, débit préconisé...) qui, elles, doivent être reconduites.
+function n1PairedFieldKeys(typeId) {
+  var keys = {};
+  (N1_COMPARISON_FIELDS[typeId] || []).forEach(function (pair) { keys[pair.n1] = true; keys[pair.current] = true; });
+  return keys;
+}
+
 function buildInstallationDataForDuplicate(typeId, sourceData) {
   var t = getInstallationType(typeId);
   var data = {};
   if (!t || !sourceData) return data;
   var keepKeys = {};
   duplicationFieldKeys(typeId).forEach(function (k) { keepKeys[k] = true; });
-  var n1Targets = {};
-  (N1_COMPARISON_FIELDS[typeId] || []).forEach(function (pair) { n1Targets[pair.n1] = true; });
+  var n1Targets = n1PairedFieldKeys(typeId);
   t.fields.forEach(function (f) {
     if (f.type === 'section' || !keepKeys[f.key]) return;
     if (DUPLICATION_ALWAYS_RESET_TYPES[f.type] || n1Targets[f.key] || isDuplicationFindingField(f)) return;
@@ -304,27 +340,37 @@ function buildInstallationDataForDuplicate(typeId, sourceData) {
   return data;
 }
 
-// Reprend la structure d'une mission source (bâtiments, installations, noms, emplacements) avec les
-// mesures vierges, pour préremplir une nouvelle visite du même site — distinct du transfert de
-// mission (js/import-export.js finishImportMission) qui reprend une mission EN COURS à l'identique,
-// même id. Ici on part toujours d'une mission neuve : nouvel id de mission, nouveaux id
-// d'installation, aucune résolution de conflit nécessaire.
+// Reprend la structure ET la configuration stable d'une mission source (bâtiments, noms,
+// emplacements, dimensions, type de ventilation, comptages d'équipement...) avec les mesures/constats
+// vierges, pour préremplir une nouvelle visite du même site — distinct du transfert de mission
+// (js/import-export.js finishImportMission) qui reprend une mission EN COURS à l'identique, même id.
+// Ici on part toujours d'une mission neuve : nouvel id de mission, nouveaux id d'installation, aucune
+// résolution de conflit nécessaire.
+// Réutilise volontairement la même whitelist et les mêmes deux couches de protection que la
+// duplication rapide dans une même mission (duplicationFieldKeys / DUPLICATION_ALWAYS_RESET_TYPES /
+// isDuplicationFindingField ci-dessus) : élargi le 2026-09-18 au-delà de la seule étape
+// "Identification" (bâtiment/référence) après avoir constaté qu'un technicien revisitant le même site
+// d'une année sur l'autre devait ressaisir des attributs qui ne changent pourtant jamais (dimensions
+// d'une cabine, type de ventilation, nombre de machines reliées...) — cette même whitelist est déjà
+// éprouvée en production par la duplication rapide (chantier "forte volumétrie").
+// 'date_controle'/'date_mesure' restent exclus explicitement : contrairement aux autres champs
+// d'Identification, ce sont des constats de LA visite (la date de l'an dernier n'a rien à faire
+// préremplie dans le contrôle de cette année) — pas de type de champ dédié pour les distinguer (ce
+// sont de simples 'text' comme bâtiment/référence), d'où une liste explicite plutôt qu'un filtre par
+// type. 'date_installation' (date de pose de l'équipement) reste volontairement structurel.
+var N1_EXCLUDED_STRUCTURAL_KEYS = { date_controle: true, date_mesure: true };
+
 function buildInstallationDataFromPrevious(typeId, sourceData) {
-  var data = {};
-  if (!sourceData) return data;
   var t = getInstallationType(typeId);
-  var fieldByKey = {};
-  if (t) t.fields.forEach(function (f) { fieldByKey[f.key] = f; });
-  structuralFieldKeys(typeId).forEach(function (key) {
-    // Chantier "photos par installation" : 'photo' a rejoint l'étape Identification de 3 types
-    // (bras_aspiration, installations_diverses, gaz_echappement) — une photo est propre à une visite
-    // précise, jamais une référence à reconduire d'un site à l'autre (même logique que les autres
-    // champs de constat/mesure déjà exclus). Filtre défensif générique par type de champ plutôt qu'un
-    // cas particulier sur 'photo', au cas où une future étape Identification embarquerait un autre
-    // champ de ce genre.
-    var f = fieldByKey[key];
-    if (f && DUPLICATION_ALWAYS_RESET_TYPES[f.type]) return;
-    if (sourceData[key] !== undefined) data[key] = sourceData[key];
+  var data = {};
+  if (!t || !sourceData) return data;
+  var n1Targets = n1PairedFieldKeys(typeId);
+  var keepKeys = {};
+  duplicationFieldKeys(typeId).forEach(function (k) { keepKeys[k] = true; });
+  t.fields.forEach(function (f) {
+    if (f.type === 'section' || !keepKeys[f.key] || N1_EXCLUDED_STRUCTURAL_KEYS[f.key]) return;
+    if (DUPLICATION_ALWAYS_RESET_TYPES[f.type] || n1Targets[f.key] || isDuplicationFindingField(f)) return;
+    if (sourceData[f.key] !== undefined) data[f.key] = sourceData[f.key];
   });
   var n1Fields = N1_COMPARISON_FIELDS[typeId];
   if (n1Fields) {

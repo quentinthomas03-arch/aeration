@@ -79,14 +79,25 @@ function filterOverviewItems(items, search) {
   return items.filter(function (it) { return overviewSearchHaystack(it).indexOf(term) !== -1; });
 }
 
+var _overviewSearchDebounceId = null;
+
+// Débounce du rendu complet (audit du 2026-09-18) : listAllInstallations reconstruit le statut de
+// TOUTES les installations du site à chaque frappe, même si seul le terme de recherche a changé —
+// perceptible sur un site à forte volumétrie. La frappe elle-même n'attend jamais (le champ affiche
+// déjà ce qui a été tapé nativement) ; seul le re-rendu de la liste filtrée est différé et regroupé.
 function setOverviewSearch(v) {
   state.overviewSearch = v;
-  render();
-  var input = document.getElementById('overview-search-input');
-  if (input) { input.focus(); var pos = v.length; input.setSelectionRange(pos, pos); }
+  if (_overviewSearchDebounceId) clearTimeout(_overviewSearchDebounceId);
+  _overviewSearchDebounceId = setTimeout(function () {
+    _overviewSearchDebounceId = null;
+    render();
+    var input = document.getElementById('overview-search-input');
+    if (input) { input.focus(); var pos = input.value.length; input.setSelectionRange(pos, pos); }
+  }, 150);
 }
 
 function clearOverviewSearch() {
+  if (_overviewSearchDebounceId) { clearTimeout(_overviewSearchDebounceId); _overviewSearchDebounceId = null; }
   state.overviewSearch = '';
   render();
 }
@@ -254,7 +265,11 @@ function renderOverviewGroup(g, mode) {
 
   var h = '<div class="card overview-group">';
   h += '<div class="overview-group-header"' +
-    (isBig ? '' : ' onclick="toggleOverviewGroup(\'' + jsSafeStr(g.key) + '\');"') + '>';
+    // g.key est un nom de bâtiment saisi librement par le technicien en mode 'batiment' : jsSafeStr()
+    // seul échappe backslash/quote simple pour le littéral JS mais pas le guillemet double, qui casse
+    // l'attribut HTML onclick="..." si le nom en contient un — escapeHtml() en plus corrige ça
+    // (bug trouvé lors de l'audit du 2026-09-18).
+    (isBig ? '' : ' onclick="toggleOverviewGroup(\'' + escapeHtml(jsSafeStr(g.key)) + '\');"') + '>';
   h += '<span class="status-dot ' + agg.cls + '" title="' + escapeHtml(statusDotLabel(agg)) +
     '" aria-label="' + escapeHtml(statusDotLabel(agg)) + '"></span>';
   h += '<span class="overview-group-icon">' + icon + '</span>';
@@ -269,7 +284,7 @@ function renderOverviewGroup(g, mode) {
 
   if (isBig) {
     h += '<div class="overview-voir-tout"><button class="btn btn-gray btn-small" onclick="openOverviewGroupFull(\'' +
-      mode + '\',\'' + jsSafeStr(g.key) + '\');">Voir tout (' + g.items.length + ') ' + ICONS.chevronRight + '</button></div>';
+      mode + '\',\'' + escapeHtml(jsSafeStr(g.key)) + '\');">Voir tout (' + g.items.length + ') ' + ICONS.chevronRight + '</button></div>';
   } else if (expanded) {
     g.items.forEach(function (it) { h += renderOverviewRow(it, mode); });
   }

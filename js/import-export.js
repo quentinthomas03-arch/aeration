@@ -160,9 +160,21 @@ function resolveImportConflict(action) {
   if (!pending) return;
   state.pendingImport = null;
 
-  if (action === 'cancel') { state.view = 'home'; render(); return; }
+  if (action === 'cancel') {
+    // restoreMissionPhotosFromImport (appelé avant l'affichage de cet écran, dans
+    // importMissionFromText) a déjà écrit les photos de la mission entrante dans IndexedDB —
+    // annuler l'import doit aussi les libérer, sinon elles restent orphelines indéfiniment
+    // (audit du 2026-09-18).
+    if (typeof deleteMissionPhotoBlobs === 'function') deleteMissionPhotoBlobs(pending.incoming);
+    state.view = 'home';
+    render();
+    return;
+  }
 
   if (action === 'overwrite') {
+    // Même raison : les photos de l'ancienne version écrasée doivent être libérées, pas seulement
+    // conservées orphelines dans IndexedDB.
+    if (typeof deleteMissionPhotoBlobs === 'function') deleteMissionPhotoBlobs(pending.existing);
     state.missions = state.missions.filter(function (m) { return m.id !== pending.existing.id; });
     finishImportMission(pending.incoming);
     return;
@@ -171,6 +183,14 @@ function resolveImportConflict(action) {
   if (action === 'keep-both') {
     pending.incoming.id = generateId();
     pending.incoming.clientSite = (pending.incoming.clientSite || 'Sans nom') + ' (copie importée)';
+    // Régénère aussi les id des installations (pas seulement celui de la mission) : sans ça, une
+    // installation de la copie partage le même id qu'une installation de la mission déjà présente,
+    // ce qui peut provoquer une collision dans un cache indexé par id (ex. l'étape en cours du
+    // wizard sanitaires, js/wizard-sanitaires.js) si les deux sont ouvertes dans la même session
+    // (audit du 2026-09-18).
+    Object.keys(pending.incoming.installations || {}).forEach(function (typeId) {
+      pending.incoming.installations[typeId].forEach(function (inst) { inst.id = generateId(); });
+    });
     finishImportMission(pending.incoming);
     return;
   }
@@ -236,6 +256,77 @@ function importPreviousSiteFromText(text) {
       ' installation(s) — mesures vierges, valeurs N-1 préremplies quand disponibles.');
   } catch (err) {
     alert('Erreur lors du chargement :\n\n' + err.message);
+  }
+}
+
+// ————————————————————————————————————————————
+// Importer un fichier Rapso V29 rempli (.xlsb/.xlsx) — même finalité que "Charger un site précédent"
+// (préremplir une mission neuve avec les données non-mesure d'un site déjà suivi), mais depuis
+// l'ancien outil Excel/VBA plutôt que depuis un export JSON de cette app. Pensé pour la phase
+// d'adoption : une équipe qui a déjà des sites dans Rapso ne doit pas avoir à tout ressaisir pour
+// commencer à utiliser l'app. js/rapso-import.js fait la traduction classeur → objet "source" au
+// même format qu'une mission ; le reste du pipeline (createMissionFromPreviousSite, js/state.js) est
+// rigoureusement le même que pour le préremplissage N-1 — mêmes garanties de sécurité (jamais une
+// mesure, toujours vérifié par le technicien).
+// ————————————————————————————————————————————
+
+function triggerImportRapso() {
+  if (typeof XLSX === 'undefined') { alert('Bibliothèque de lecture Excel non chargée. Rechargez l’application.'); return; }
+  var input = document.getElementById('import-rapso-input');
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsb,.xlsx,.xls';
+    input.style.display = 'none';
+    input.id = 'import-rapso-input';
+    input.onchange = handleImportRapso;
+    document.body.appendChild(input);
+  }
+  input.value = '';
+  input.click();
+}
+
+function handleImportRapso(event) {
+  var file = event.target ? event.target.files[0] : null;
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function (e) { importRapsoFromArrayBuffer(e.target.result, file.name); };
+  reader.onerror = function () { alert('Erreur de lecture du fichier.'); };
+  reader.readAsArrayBuffer(file);
+}
+
+function importRapsoFromArrayBuffer(buf, fileName) {
+  try {
+    var workbook = XLSX.read(buf, { type: 'array' });
+    var result = rapsoWorkbookToSourceMission(workbook, { clientSite: fileName.replace(/\.(xlsb|xlsx|xls)$/i, '') });
+    var totalFound = 0;
+    Object.keys(result.typesFound).forEach(function (k) { totalFound += result.typesFound[k]; });
+    if (totalFound === 0) {
+      alert('Aucune donnée reconnue dans ce fichier.\n\nVérifiez qu’il s’agit bien d’un classeur Rapso Aération (V27/V29) rempli.');
+      return;
+    }
+
+    var m = createMissionFromPreviousSite(result.source);
+    state.missions.push(m);
+    persistMissions();
+    state.currentMissionId = m.id;
+    state.view = 'mission-form';
+    render();
+
+    var total = 0;
+    Object.keys(m.installations).forEach(function (k) { total += m.installations[k].length; });
+    var detail = Object.keys(result.typesFound).map(function (t) {
+      var label = (getInstallationType(t) || {}).label || t;
+      return '- ' + label + ' : ' + result.typesFound[t];
+    }).join('\n');
+    var warn = result.typesNonVerifies.length
+      ? '\n\n⚠️ Types repérés mais jamais confirmés sur un vrai fichier Rapso, à vérifier avec plus d’attention : ' +
+        result.typesNonVerifies.map(function (t) { return (getInstallationType(t) || {}).label || t; }).join(', ')
+      : '';
+    alert('Fichier Rapso importé avec succès !\n\n' + (m.clientSite || 'Sans nom') + '\n' + total +
+      ' installation(s) reprise(s) — mesures vierges, données à vérifier avant contrôle :\n\n' + detail + warn);
+  } catch (err) {
+    alert('Erreur lors de la lecture du fichier Rapso :\n\n' + err.message);
   }
 }
 

@@ -49,15 +49,17 @@ function chargerDebit(c) {
 // === HOTTES : logique fidèle au VBA (UserForm_HOTTE) ===
 
 // Table INRS ED 695 : type de polluant -> vitesse de transport recommandée
-// ⚠ Valeurs standard ED 695 à valider (la table d'origine est dans une feuille cachée du classeur)
+// Valeurs vérifiées le 2026-09-18 contre le Tableau VI du guide pratique de ventilation n°0
+// (ED 695, juillet 2022, p.19) — 3 valeurs étaient erronées (17,5→18 ; 22,5→23 deux fois), ce qui
+// changeait le verdict Satisfaisant/Non Satisfaisant pour des vitesses mesurées dans ces intervalles.
 var HOTTE_POLLUANTS = {
   'Gaz et vapeurs': 'pas de vitesse de transport minimum nécessaire',
   'Fumées': '7 à 10',
   'Poussières très fines et légères': '10 à 13',
   'Poussières sèches et poudres': '13 à 18',
-  'Poussières industrielles moyennes': '17,5 à 20',
-  'Poussières lourdes': '20 à 22,5',
-  'Poussières lourdes ou humides': '> 22,5'
+  'Poussières industrielles moyennes': '18 à 20',
+  'Poussières lourdes': '20 à 23',
+  'Poussières lourdes ou humides': '> 23'
 };
 
 var POURCENTAGE_REF = 0.8; // Pourcentage_Ref_TABx dans le VBA
@@ -407,8 +409,11 @@ var CALC_RULES = {
         return t.debit * occ;
       } },
     { target: 'volume_min', fn: function (d) {
+        // Restriction à la ventilation naturelle retirée le 2026-09-18 (audit) : bureaux.volume_min
+        // (formule identique par ailleurs) le calcule sans condition de ventilation, et le champ est
+        // affiché sans showIf dans le schéma des deux types — cette restriction empêchait aussi le
+        // repli "débit insuffisant mais volume suffisant" de s'appliquer en ventilation mécanique.
         if (LOCAL_LPNS_FORFAIT.hasOwnProperty(d.type_local)) return '';
-        if (d.type_ventilation !== 'Nat sans ouvrants' && d.type_ventilation !== 'Nat avec ouvrants') return '';
         var t = LOCAL_LPNS[d.type_local]; var eff = num(d.travailleur);
         if (!t || t.vol === null || isNaN(eff)) return '';
         return t.vol * eff;
@@ -446,12 +451,13 @@ var CALC_RULES = {
         if (d.type_local === 'Local occupé occasionnellement') return 'Sans objet';
         if (!d.type_local || !d.type_ventilation) return 'Impossible de se prononcer';
 
+        var vol = num(d.volume), volMin = num(d.volume_min);
+
         if (d.type_ventilation === 'Nat sans ouvrants' && d.entree_air_permanente === 'Non') return 'Non Satisfaisant';
 
         if (d.type_ventilation === 'Nat sans ouvrants' || d.type_ventilation === 'Nat avec ouvrants') {
-          var vmin = num(d.volume_min), vol = num(d.volume);
-          if (isNaN(vmin) || isNaN(vol)) return 'Impossible de se prononcer';
-          return vol >= vmin ? 'Satisfaisant' : 'Non Satisfaisant';
+          if (isNaN(volMin) || isNaN(vol)) return 'Impossible de se prononcer';
+          return vol >= volMin ? 'Satisfaisant' : 'Non Satisfaisant';
         }
 
         // Ventilation mécanique (Extraction / Soufflage / Double flux) : une extraction sans aucune
@@ -462,8 +468,17 @@ var CALC_RULES = {
         var min = num(d.debit_min_air_neuf);
         var vt = d.type_ventilation;
         var mesure = (vt === 'Extraction') ? num(d.debit_total_mesure) : debitAirNeufMesure(d);
-        if (isNaN(min) || isNaN(mesure)) return 'Impossible de se prononcer';
-        return mesure >= min ? 'Satisfaisant' : 'Non Satisfaisant';
+        // Aligné sur bureaux.avis (même logique de repli/compensation par le volume) — écart repéré
+        // lors de l'audit du 2026-09-18 : ERP n'avait ni le repli "mesure manquante → volume" ni la
+        // compensation "débit insuffisant mais volume suffisant" que bureaux.avis possède déjà.
+        if (isNaN(min)) return 'Impossible de se prononcer';
+        if (isNaN(mesure)) {
+          if (isNaN(vol) || isNaN(volMin)) return 'Impossible de se prononcer';
+          return vol >= volMin ? 'Satisfaisant' : 'Non Satisfaisant';
+        }
+        if (mesure >= min) return 'Satisfaisant';
+        if (!isNaN(vol) && !isNaN(volMin) && vol >= volMin) return 'Satisfaisant';
+        return 'Non Satisfaisant';
       } }
   ],
 
@@ -557,16 +572,19 @@ var CALC_RULES = {
         return vph >= rec ? 'Satisfaisant' : 'Non Satisfaisant';
       } },
     { target: 'avis_constructeur', fn: function (d) {
-        // VBA : débit année en cours >= référence × 0.8 ; + prise en compte du taux si affiché
+        // VBA : débit année en cours >= référence × 0.8 ; + prise en compte du taux si affiché.
+        // Combine les deux sous-avis selon la priorité Impossible > Non Satisfaisant > Satisfaisant
+        // (même règle que conclusionHotte/les autres avis multi-critères) — écart corrigé le
+        // 2026-09-18 : un taux de renouvellement indéterminé ("Impossible de se prononcer") pouvait
+        // auparavant être masqué par un débit constructeur satisfaisant et afficher "Satisfaisant".
         var debit = num(d.debit_annee_en_cours), ref = num(d.valeur_reference_recommandee);
-        var avis;
-        if (isNaN(debit) || isNaN(ref)) avis = 'Impossible de se prononcer';
-        else avis = debit >= ref * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
-        if (d.afficher_taux === 'Oui') {
-          var ct = d.conclusion_taux;
-          if (avis === 'Satisfaisant' && ct === 'Non Satisfaisant') avis = 'Non Satisfaisant';
-        }
-        return avis;
+        var avisDebit = (isNaN(debit) || isNaN(ref)) ? 'Impossible de se prononcer'
+          : (debit >= ref * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant');
+        var avis = [avisDebit];
+        if (d.afficher_taux === 'Oui') avis.push(d.conclusion_taux);
+        if (avis.indexOf('Impossible de se prononcer') !== -1) return 'Impossible de se prononcer';
+        if (avis.indexOf('Non Satisfaisant') !== -1) return 'Non Satisfaisant';
+        return 'Satisfaisant';
       } }
   ],
 
@@ -1030,7 +1048,17 @@ var CALC_RULES = {
         return isNaN(v) ? '' : v;
       } },
     { target: 'vitesse_min_avis_reference', fn: function (d) { return avisSorbonneRef(d.vitesse_min_mesuree, d.vitesse_min_reference); } },
+    // Le seuil de 0,4 m/s vient de l'ancienne norme XP X15-203 (avant 2005, ouverture 400 mm) — le
+    // guide ED 795 (encadré 2) précise que les normes NF EN 14175 (après 2005) qui l'ont remplacée ne
+    // fixent plus de seuil numérique unique et renvoient à l'analyse au cas par cas / aux données du
+    // fabricant. Distinction ajoutée le 2026-09-18 : ce seuil fixe n'est donc appliqué qu'aux sorbonnes
+    // "Avant 2005" ; pour les autres, seul l'avis par rapport aux valeurs de référence (site/fabricant)
+    // reste pertinent.
+    { target: 'vitesse_min_norme_valeur', fn: function (d) {
+        return (d.annee_construction === 'Avant janvier 2005 - Norme XP X15-203 (h=400mm)') ? '0,4' : '';
+      } },
     { target: 'vitesse_min_avis_norme', fn: function (d) {
+        if (d.annee_construction !== 'Avant janvier 2005 - Norme XP X15-203 (h=400mm)') return '';
         var mes = num(d.vitesse_min_mesuree);
         if (isNaN(mes)) return '';
         return mes >= 0.4 ? 'Satisfaisant' : 'Non Satisfaisant';

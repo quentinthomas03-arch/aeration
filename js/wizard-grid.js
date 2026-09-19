@@ -6,7 +6,7 @@
 //
 // Réutilise updateGridCell (installations.js) pour écrire dans inst.data[key][r][c] — même fonction
 // que l'ancien rendu dense (gwPassthrough), donc format de stockage garanti identique. C'est ce
-// format que consomme ficheGrilleTable côté export Word (js/export-word.js), qui ne sait rien de la
+// format que consomme pdfFicheGrilleTable côté export PDF (js/export-pdf.js), qui ne sait rien de la
 // façon dont la grille a été saisie.
 
 function gwGridMeta(f, inst) {
