@@ -294,7 +294,15 @@ function evalShowIf(cond, data) {
   // forme_conduit/vitesse_mode — donc aucun avis recalculé ni donnée supprimée ; seuls les champs
   // now correctement masqués cessent d'apparaître à l'écran.
   if (cond.and) return cond.and.every(function (c) { return evalShowIf(c, data); });
+  // ⚠️ BUG CORRIGÉ (2026-09-19) : v vaut `undefined` (jamais '') tant que le technicien n'a pas
+  // touché le champ — torchePointShowIf (installations-schema.js) compte sur `in: ['', '1', ...]`
+  // pour que "pas encore répondu" affiche tous les points de mesure, mais `[...].indexOf(undefined)`
+  // ne matchait jamais, masquant TOUS les points par défaut (y compris sur les installations créées
+  // avant l'ajout de ce champ). Normaliser ici une bonne fois pour toutes : aucune autre condition du
+  // schéma n'utilise '' dans un `in`/`equals` (vérifié), donc ça ne change le comportement d'aucun
+  // autre champ.
   var v = data[cond.key];
+  if (v === undefined) v = '';
   if (cond.contains !== undefined) {
     return Array.isArray(v) ? v.indexOf(cond.contains) !== -1 : v === cond.contains;
   }

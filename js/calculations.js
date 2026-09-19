@@ -1104,8 +1104,16 @@ var CALC_RULES = {
     .concat(buildTorcheRowCalcRules(10))
     .concat([
     { target: 'total_debit', fn: function (d) {
+        // ⚠️ BUG CORRIGÉ (2026-09-19) : bouclait sur 1..10 sans tenir compte de nombre_points_mesure,
+        // contrairement au même patron pour box_peinture (buildBoxCaptageCalcRules, ci-dessus) qui
+        // borne sa boucle sur nombre_captage. Résultat : baisser le nombre de points après avoir
+        // rempli des points au-delà (ex. 5 → 2) les masquait du wizard (torchePointShowIf) mais leurs
+        // valeurs restaient comptées dans le total, sans que le technicien puisse s'en rendre compte.
+        // Non répondu (undefined/'') => 10, pour rester cohérent avec torchePointShowIf qui affiche
+        // tous les points tant que le technicien n'a pas choisi de valeur.
+        var n = d.nombre_points_mesure ? (parseInt(d.nombre_points_mesure, 10) || 0) : 10;
         var total = 0, any = false;
-        for (var i = 1; i <= 10; i++) {
+        for (var i = 1; i <= n; i++) {
           var v = num(d['torche' + i + '_debit']);
           if (!isNaN(v)) { total += v; any = true; }
         }
@@ -1115,8 +1123,9 @@ var CALC_RULES = {
         // Avis global = pire des constats des points de mesure renseignés (mêmes règles que
         // conclusionHotte / avis des Box préparation peinture) — sert de colonne "avis" pour la
         // synthèse du contrôle (export Word).
+        var n = d.nombre_points_mesure ? (parseInt(d.nombre_points_mesure, 10) || 0) : 10;
         var avis = [];
-        for (var i = 1; i <= 10; i++) {
+        for (var i = 1; i <= n; i++) {
           if (!isNaN(num(d['torche' + i + '_debit']))) {
             avis.push(d['torche' + i + '_constat']);
           }

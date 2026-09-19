@@ -14,10 +14,11 @@ function renderHome() {
   h += '<div class="section-title" style="margin-top:16px;">Reprendre un site existant</div>';
   h += '<div class="card home-action-group">';
   h += '<button type="button" class="home-action-row" onclick="triggerImportPreviousSite();">' +
-    '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>' +
+    '<span class="home-action-row-icon" style="color:var(--primary);">' + ICONS.download + '</span>' +
     '<div><div class="home-action-row-title">Charger un site précédent</div><div class="home-action-row-sub">Préremplissage N-1, mesures vierges</div></div></button>';
   h += '<button type="button" class="home-action-row" onclick="triggerImportRapso();">' +
-    '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent-magenta)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>' +
+    '<span class="home-action-row-icon" style="color:var(--accent-magenta);">' +
+    '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>' +
     '<div><div class="home-action-row-title">Importer un fichier Rapso (V29)</div><div class="home-action-row-sub">Ancien classeur Excel rempli</div></div></button>';
   h += '</div>';
 

@@ -134,6 +134,10 @@
     .home-action-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 16px; border: none; border-top: 1px solid var(--border-subtle); background: none; font: inherit; text-align: left; color: inherit; cursor: pointer; }
     .home-action-row:first-child { border-top: none; }
     .home-action-row svg { flex-shrink: 0; }
+    /* ICONS.* n'a pas d'attribut width/height propre (dimensionné par CSS selon le contexte, cf.
+       .nav-icon svg) — même règle ici pour l'icône réutilisée (ICONS.download). */
+    .home-action-row-icon { display: flex; flex-shrink: 0; }
+    .home-action-row-icon svg { width: 17px; height: 17px; }
     .home-action-row-title { font-size: 13px; font-weight: 600; color: var(--text-dark); }
     .home-action-row-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
     .home-tabbar { display: flex; justify-content: center; gap: 26px; margin-top: 12px; padding-top: 6px; }

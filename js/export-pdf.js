@@ -2122,7 +2122,10 @@ function pdfBuildAnnexeTorchesAspirantes(list, logoDataUrl) {
       ['Distance L (mm)', 839], ["Vitesse au point d’émission (m/s)", 979], ['Valeur préconisée (m/s)', 886], ['Constat', 1339]
     ];
     var rows = [cols.map(function (c) { return pdfHeaderCell(c[0]); })];
-    for (var i = 1; i <= 10; i++) {
+    // Bornée sur nombre_points_mesure (même correction que calculations.js total_debit) : un point
+    // masqué du wizard après une baisse du compteur ne doit pas non plus réapparaître dans le rapport.
+    var nPointsMesure = d.nombre_points_mesure ? (parseInt(d.nombre_points_mesure, 10) || 0) : 10;
+    for (var i = 1; i <= nPointsMesure; i++) {
       var p = 'torche' + i;
       if (!d[p + '_point_mesure'] && d[p + '_debit'] === undefined) continue;
       var vals = [d[p + '_point_mesure'], d[p + '_diametre_tube'], d[p + '_vitesse_centre'], d[p + '_debit'],
