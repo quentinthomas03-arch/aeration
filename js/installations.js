@@ -258,10 +258,16 @@ function fieldState(f, inst) {
   return empty ? 'required-empty' : 'required-filled';
 }
 
+// Marqueur inline dans le libellé (coche discrète si rempli, point neutre si vide) plutôt qu'un
+// bandeau répétant "Renseigné" en toutes lettres sous le champ — évite le double signal redondant
+// tout en restant repérable en un coup d'œil (retour utilisateur du 19/09/2026).
 function fieldLabelWithTag(f, state) {
   var tag = (state === 'optional-empty' || state === 'optional-filled')
     ? '<span class="field-tag field-tag-optional">optionnel</span>' : '';
-  return '<label class="label">' + escapeHtml(f.label) + tag + '</label>';
+  var marker = '';
+  if (state === 'required-filled') marker = '<span class="field-label-marker field-label-marker-done">' + ICONS.check + '</span>';
+  else if (state === 'required-empty') marker = '<span class="field-label-marker field-label-marker-empty"></span>';
+  return '<label class="label">' + escapeHtml(f.label) + tag + marker + '</label>';
 }
 
 function computedLabelWithTag(label) {
@@ -269,9 +275,10 @@ function computedLabelWithTag(label) {
     escapeHtml(label) + '<span class="field-tag field-tag-auto">calculé</span></label>';
 }
 
+// "required-filled" ne renvoie plus de bandeau ici : la coche est désormais dans le libellé
+// (cf. fieldLabelWithTag) — un second signal "Renseigné" en toutes lettres en dessous était redondant.
 function fieldHint(state) {
   if (state === 'required-empty') return '<div class="field-hint field-hint-required">À saisir</div>';
-  if (state === 'required-filled') return '<div class="field-hint field-hint-done">' + ICONS.check + ' Renseigné</div>';
   return '';
 }
 

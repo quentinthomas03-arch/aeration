@@ -231,7 +231,8 @@ function openOverviewInstallation(typeId, idx) {
 
 // Titre de ligne : en mode "Par type" le nom du bâtiment identifie l'installation (comme sur l'écran
 // type-list existant). En mode "Par bâtiment" ce serait redondant avec l'en-tête du groupe : on
-// affiche plutôt le type + un 2e champ texte pour distinguer les installations entre elles.
+// affiche plutôt le type (en kicker, cf. renderOverviewRow) + un 2e champ texte pour distinguer les
+// installations entre elles.
 function overviewRowTitle(it, mode) {
   var type = it.type, inst = it.inst;
   if (mode === 'type') {
@@ -241,15 +242,19 @@ function overviewRowTitle(it, mode) {
   }
   var f2 = type.fields.find(function (f) { return f.type === 'text' && f.key !== 'batiment'; });
   var v2 = f2 ? inst.data[f2.key] : '';
-  return type.label + (v2 ? ' — ' + v2 : '');
+  return v2 || ('#' + (it.idx + 1));
 }
 
+// Le titre passe désormais sur plusieurs lignes plutôt que d'être tronqué par "..." pile sur la
+// partie qui identifie l'installation, illisible sur site dès que le repère est un peu long
+// (retour utilisateur du 19/09/2026).
 function renderOverviewRow(it, mode) {
   var title = overviewRowTitle(it, mode);
+  var kicker = mode === 'batiment' ? '<div class="overview-row-kicker">' + escapeHtml(it.type.label) + '</div>' : '';
   return '<div class="overview-row" onclick="openOverviewInstallation(\'' + it.type.id + '\',' + it.idx + ');">' +
     '<span class="status-dot ' + it.status.cls + '"></span>' +
-    '<div class="overview-row-body"><div class="overview-row-title">' + escapeHtml(title) + '</div>' +
-    '<div class="overview-row-status">' + escapeHtml(it.status.text) + '</div></div>' +
+    '<div class="overview-row-body">' + kicker + '<div class="overview-row-title">' + escapeHtml(title) + '</div>' +
+    '<div class="overview-row-status ' + it.status.cls + '">' + escapeHtml(it.status.text) + '</div></div>' +
     '<button type="button" class="overview-row-duplicate" title="Dupliquer cette installation" ' +
       'onclick="event.stopPropagation();duplicateInstallation(\'' + it.type.id + '\',' + it.idx + ');">' +
       ICONS.copy + '</button>' +

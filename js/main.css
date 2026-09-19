@@ -241,15 +241,26 @@
 
     .field-hint { font-size: 11px; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; font-weight: 600; }
     .field-hint svg { width: 12px; height: 12px; flex-shrink: 0; }
-    .field-hint-required { color: var(--status-warn-fg); }
-    .field-hint-done { color: var(--status-ok-fg); }
+    /* Gris neutre plutôt qu'orange "alerte" : un champ pas encore rempli n'est pas une erreur, juste
+       une tâche restante (même palette que le marqueur de libellé ci-dessous et que les compteurs
+       "À faire" de l'accueil/vue d'ensemble — l'orange reste réservé à "en cours", retour utilisateur
+       du 19/09/2026). */
+    .field-hint-required { color: var(--text-muted); }
     .field-hint-n1 { color: var(--text-muted); font-weight: 700; }
 
-    /* Obligatoire + vide : bordure/fond ambre pour attirer l'œil */
+    /* Marqueur inline dans le libellé (cf. fieldLabelWithTag) : coche discrète si rempli, point neutre
+       si vide — remplace l'ancien bandeau "Renseigné" redondant sous le champ. */
+    .field-label-marker { display: inline-flex; align-items: center; }
+    .field-label-marker svg { width: 12px; height: 12px; }
+    .field-label-marker-done { color: var(--status-ok-fg); }
+    .field-label-marker-empty { width: 6px; height: 6px; border-radius: 50%; background: var(--status-muted); }
+
+    /* Obligatoire + vide : bordure/fond neutres, repérable sans devenir criant quand plusieurs champs
+       d'un même écran sont encore vides à la fois */
     .input-big.state-required-empty, .input-text-big.state-required-empty, .input.state-required-empty {
-      border-color: var(--status-warn); background: var(--status-warn-bg);
+      border-color: var(--status-muted); background: var(--status-muted-bg);
     }
-    .choice-grid.state-required-empty .choice-btn { border-color: var(--status-warn); background: var(--status-warn-bg); }
+    .choice-grid.state-required-empty .choice-btn { border-color: var(--status-muted); background: var(--status-muted-bg); }
 
     /* Obligatoire + rempli : bordure neutre légèrement teintée vert, sans agresser visuellement */
     .input-big.state-required-filled, .input-text-big.state-required-filled, .input.state-required-filled {
@@ -314,13 +325,21 @@
     .overview-chevron svg { width: 14px; height: 14px; }
     .overview-chevron.expanded { transform: rotate(90deg); }
 
-    .overview-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.15s; }
+    /* align-items: flex-start (pas center) car overview-row-title peut désormais tenir sur 2-3 lignes
+       (cf. overview-row-title ci-dessous) — un repère d'installation tronqué par "..." pile sur la
+       partie qui l'identifie était illisible sur site (retour utilisateur du 19/09/2026). */
+    .overview-row { display: flex; align-items: flex-start; gap: 10px; padding: 11px 16px; border-top: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.15s; }
     .overview-row:active { background: rgba(0,0,0,0.03); }
     .overview-row-body { flex: 1; min-width: 0; }
-    .overview-row-title { font-size: 13px; font-weight: 600; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .overview-row-status { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
-    .overview-row svg:last-child { width: 14px; height: 14px; color: var(--text-muted); flex-shrink: 0; }
-    .overview-row-duplicate { width: 26px; height: 26px; border: none; background: none; color: var(--text-muted); border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+    .overview-row-kicker { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+    .overview-row-title { font-size: 13px; font-weight: 600; color: var(--text-dark); line-height: 1.35; }
+    .overview-row-status { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-weight: 600; }
+    .overview-row-status.status-ok { color: var(--status-ok-fg); }
+    .overview-row-status.status-bad { color: var(--status-bad-fg); }
+    .overview-row-status.status-warn { color: var(--status-warn-fg); }
+    .overview-row .status-dot { margin-top: 4px; }
+    .overview-row svg:last-child { width: 14px; height: 14px; color: var(--text-muted); flex-shrink: 0; margin-top: 4px; }
+    .overview-row-duplicate { width: 26px; height: 26px; border: none; background: none; color: var(--text-muted); border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; margin-top: -2px; }
     .overview-row-duplicate:active { background: rgba(0,0,0,0.06); }
     .overview-row-duplicate svg { width: 15px; height: 15px; }
 
