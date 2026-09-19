@@ -130,6 +130,16 @@
     .wizard-header-row .btn-small { flex-shrink: 0; }
     .section-title { font-size: 11px; font-weight: 700; color: var(--primary); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; }
     .section-title::before { content: ''; width: 3px; height: 13px; background: var(--accent); border-radius: 2px; }
+    .home-action-group { padding: 0; overflow: hidden; }
+    .home-action-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 16px; border: none; border-top: 1px solid var(--border-subtle); background: none; font: inherit; text-align: left; color: inherit; cursor: pointer; }
+    .home-action-row:first-child { border-top: none; }
+    .home-action-row svg { flex-shrink: 0; }
+    .home-action-row-title { font-size: 13px; font-weight: 600; color: var(--text-dark); }
+    .home-action-row-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .home-tabbar { display: flex; justify-content: center; gap: 26px; margin-top: 12px; padding-top: 6px; }
+    .home-tab-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; padding: 4px; color: var(--text-muted); font: inherit; cursor: pointer; }
+    .home-tab-btn svg { width: 19px; height: 19px; }
+    .home-tab-btn span { font-size: 10px; font-weight: 600; }
     .field { margin-bottom: 10px; }
 
     /* Galerie photo (chantier "photos par installation") */

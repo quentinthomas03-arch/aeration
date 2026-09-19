@@ -164,15 +164,13 @@ function refreshAutoBackupIndicator() {
   el.outerHTML = renderAutoBackupIndicator();
 }
 
-// Bouton de configuration (accueil) — masqué entièrement hors Chrome/Edge/Opera desktop, seules
-// plateformes où File System Access est disponible (cf. commentaire d'en-tête).
-function renderAutoBackupFolderButton() {
-  if (!isFsaSupported()) return '';
-  var label = state._autoBackupDirName
-    ? 'Dossier de sauvegarde auto : ' + state._autoBackupDirName + ' (changer)'
-    : 'Choisir un dossier de sauvegarde automatique';
-  return '<button class="btn btn-gray btn-small" onclick="chooseAutoBackupFolder();" style="margin-top:8px;">' +
-    ICONS.folder + ' ' + escapeHtml(label) + '</button>';
+// Confirmation du dossier configuré (accueil, carte d'en-tête) — le bouton de configuration lui-même
+// a été déplacé dans la barre d'icônes du bas (icône "Sauvegarde", cf. renderHome) ; sans cette ligne,
+// choisir un dossier ne donnait plus aucune confirmation visible tant que le premier backup auto
+// n'avait pas encore tourné (renderAutoBackupIndicator ne s'affiche qu'après un backup effectif).
+function renderAutoBackupFolderIndicator() {
+  if (!isFsaSupported() || !state._autoBackupDirName) return '';
+  return '<div class="subtitle" style="margin-top:6px;">' + ICONS.folder + ' Dossier de sauvegarde auto : ' + escapeHtml(state._autoBackupDirName) + '</div>';
 }
 
 console.log('✓ Sauvegarde automatique chargée');

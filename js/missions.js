@@ -3,17 +3,28 @@
 function renderHome() {
   var h = '<div class="card"><h1>' + ICONS.zap + ' Contrôle Aération</h1><p class="subtitle">' + state.missions.length + ' mission(s)</p>' +
     renderStorageIndicatorPlaceholder() +
+    (typeof renderAutoBackupFolderIndicator === 'function' ? renderAutoBackupFolderIndicator() : '') +
     (typeof renderAutoBackupIndicator === 'function' ? renderAutoBackupIndicator() : '') + '</div>';
   h += '<button class="btn btn-primary" onclick="createMission();">' + ICONS.plus + ' Nouvelle mission</button>';
   h += '<button class="btn btn-gray" onclick="triggerImportMission();" style="margin-top:8px;">' + ICONS.upload + ' Reprendre une mission en cours (.json)</button>';
-  h += '<button class="btn btn-gray" onclick="triggerImportPreviousSite();" style="margin-top:8px;">' + ICONS.upload + ' Charger un site précédent (préremplissage N-1)</button>';
-  h += '<button class="btn btn-gray" onclick="triggerImportRapso();" style="margin-top:8px;">' + ICONS.upload + ' Importer un fichier Rapso (V29)</button>';
-  h += '<button class="btn btn-gray" onclick="state.view=\'profil-technicien\';render();" style="margin-top:8px;">' + ICONS.user + ' Mon profil technicien</button>';
-  h += '<button class="btn btn-gray" onclick="state.view=\'ed-reference\';render();" style="margin-top:8px;">' + ICONS.clipboard + ' Aide-mémoire ED (guides INRS)</button>';
-  if (typeof renderAutoBackupFolderButton === 'function') h += renderAutoBackupFolderButton();
+
+  // Regroupées sous une même carte : 2 façons de repartir d'un site déjà connu, différenciées par la
+  // seule couleur du trait de l'icône (pas de badge — trop "app générée par IA", retour utilisateur du
+  // 19/09/2026) ; la magenta de la charte, jusqu'ici inutilisée dans l'appli, sert ici de 2e accent.
+  h += '<div class="section-title" style="margin-top:16px;">Reprendre un site existant</div>';
+  h += '<div class="card home-action-group">';
+  h += '<button type="button" class="home-action-row" onclick="triggerImportPreviousSite();">' +
+    '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>' +
+    '<div><div class="home-action-row-title">Charger un site précédent</div><div class="home-action-row-sub">Préremplissage N-1, mesures vierges</div></div></button>';
+  h += '<button type="button" class="home-action-row" onclick="triggerImportRapso();">' +
+    '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent-magenta)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>' +
+    '<div><div class="home-action-row-title">Importer un fichier Rapso (V29)</div><div class="home-action-row-sub">Ancien classeur Excel rempli</div></div></button>';
+  h += '</div>';
 
   if (state.missions.length === 0) {
     h += '<div class="empty-state"><div class="empty-state-icon">' + ICONS.empty + '</div><p>Aucune mission pour l\u2019instant</p></div>';
+  } else {
+    h += '<div class="section-title" style="margin-top:16px;">Missions</div>';
   }
 
   state.missions.slice().reverse().forEach(function (m) {
@@ -28,6 +39,17 @@ function renderHome() {
     h += '<button class="agent-delete" onclick="event.stopPropagation();deleteMission(' + m.id + ');">' + ICONS.trash + '</button>';
     h += '</div>';
   });
+
+  // Barre d'icônes discrète pour les réglages/ressources peu fréquents, au lieu de boutons gris pleine
+  // largeur qui rivalisaient visuellement avec les missions et les actions ci-dessus.
+  h += '<div class="home-tabbar">';
+  h += '<button type="button" class="home-tab-btn" onclick="state.view=\'profil-technicien\';render();">' + ICONS.user + '<span>Profil</span></button>';
+  h += '<button type="button" class="home-tab-btn" onclick="state.view=\'guide-utilisation\';render();">' + ICONS.play + '<span>Guide</span></button>';
+  h += '<button type="button" class="home-tab-btn" onclick="state.view=\'ed-reference\';render();">' + ICONS.clipboard + '<span>Aide-mémoire</span></button>';
+  if (typeof isFsaSupported === 'function' && isFsaSupported()) {
+    h += '<button type="button" class="home-tab-btn" onclick="chooseAutoBackupFolder();">' + ICONS.folder + '<span>Sauvegarde</span></button>';
+  }
+  h += '</div>';
 
   return h;
 }
