@@ -356,8 +356,8 @@ function renderFieldInput(typeId, f, inst) {
     return '<div class="status-badge ' + statusClass(val) + '">' + escapeHtml(display) + '</div>';
   }
   if (f.type === 'grid') {
-    var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, 5);
-    var rows = Math.min(parseInt(inst.data[f.rowsKey], 10) || 0, 5);
+    var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, GRID_MAX);
+    var rows = Math.min(parseInt(inst.data[f.rowsKey], 10) || 0, GRID_MAX);
     if (!cols || !rows) return '<div class="subtitle">Renseignez d\u2019abord le nombre de points (largeur et hauteur).</div>';
     var grid = Array.isArray(val) ? val : [];
     var h = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;">';

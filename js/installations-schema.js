@@ -711,7 +711,7 @@ var INSTALLATION_TYPES = [
                   'Génération active en zone agitée', 'Projection à grande vitesse'] },
 
       { key: 'section_bouche', label: "Bouche d'aspiration", type: 'section' },
-      { key: 'type_bouche', label: 'Type de bouche d\u2019aspiration', type: 'select', options: ['Sans collerette', 'Avec collerette'] },
+      { key: 'type_bouche', label: 'Type de bouche d\u2019aspiration', type: 'select', options: ['Sans collerette', 'Avec collerette', 'Sans collerette reposant sur un plan', 'Avec collerette reposant sur un plan'] },
       { key: 'forme_bouche', label: 'Forme de la bouche', type: 'select', options: ['Circulaire', 'Ovale', 'Autre (surface connue)'] },
       { key: 'diametre_bouche', label: 'Diamètre de la bouche (cm)', type: 'number', showIf: { key: 'forme_bouche', equals: 'Circulaire' } },
       { key: 'largeur_bouche_ovale', label: 'Largeur de la bouche si ovale (cm)', type: 'number', showIf: { key: 'forme_bouche', equals: 'Ovale' } },
@@ -1003,14 +1003,14 @@ var INSTALLATION_TYPES = [
 
       { key: 'section_vitesse', label: 'Mesure de la vitesse de transport', type: 'section' },
       { key: 'vitesse_moyenne', label: 'Vitesse moyenne (m/s)', type: 'computed' },
-      { key: 'vitesse_reference', label: 'Valeur de référence (m/s)', type: 'number' },
+      { key: 'vitesse_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text' },
       { key: 'vitesse_inrs_ed750', label: 'Valeur recommandée par le guide INRS (ED 750)', type: 'computed' },
       { key: 'vitesse_avis', label: 'Avis', type: 'computed' },
 
       { key: 'section_debit', label: 'Calcul du débit', type: 'section' },
       { key: 'debit_n1', label: 'Débit année N-1 (m³/h)', type: 'number' },
       { key: 'debit', label: 'Débit (m³/h)', type: 'computed' },
-      { key: 'debit_reference', label: 'Valeur de référence (m³/h)', type: 'computed' },
+      { key: 'debit_reference', label: 'Valeur de référence (m³/h, « / » si aucune)', type: 'text' },
       { key: 'debit_inrs_ed750', label: 'Valeur recommandée par le guide INRS (ED 750)', type: 'computed' },
       { key: 'debit_avis', label: 'Avis', type: 'computed' },
 

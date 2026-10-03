@@ -117,11 +117,17 @@ function debitAirNeufMesure(d) {
   return NaN;
 }
 
+// Taille max d'une grille de mesure : 7 colonnes pour une sorbonne de plus de 2,21 m (bandes ED 795,
+// cf. sorbonnes.nb_colonnes). Était plafonnée à 5 jusqu'au 2026-10-03 : les colonnes 6 et 7 d'une
+// sorbonne large n'étaient ni saisissables ni comptées (écart trouvé contre un classeur Rapso réel,
+// sorbonne de 1,90 m : 0,85 m/s au lieu de 0,87).
+var GRID_MAX = 7;
+
 function gridStats(grid, rows, cols) {
   // Reproduit la logique VBA : toutes les cases doivent être remplies (nombre ou "/"),
   // "/" exclut le point ; sinon résultat impossible.
-  var r = Math.min(parseInt(rows, 10) || 0, 5);
-  var c = Math.min(parseInt(cols, 10) || 0, 5);
+  var r = Math.min(parseInt(rows, 10) || 0, GRID_MAX);
+  var c = Math.min(parseInt(cols, 10) || 0, GRID_MAX);
   if (!r || !c || !Array.isArray(grid)) return null;
   var sum = 0, count = 0, min = Infinity, incomplete = false;
   for (var i = 0; i < r; i++) {
@@ -223,8 +229,8 @@ function buildBoxCaptageCalcRules(n) {
         }
         return d[p + '_vitesse_directe'] || '';
       } },
-    { target: p + '_debit', fn: function (d) {
-        var v = debitFromSV(d[p + '_surface'], d[p + '_vitesse_moyenne']);
+    { target: p + '_debit', fn: function (d, x) {
+        var v = debitFromSV(exactOr(x, d, p + '_surface'), exactOr(x, d, p + '_vitesse_moyenne'));
         return isNaN(v) ? '' : v;
       } }
   ];
@@ -301,6 +307,32 @@ function buildLocalChargeGrilleCalcRules(i) {
   ];
 }
 
+// Surface de la bouche d'un bras d'aspiration (m²), en pleine précision.
+// VBA : circulaire π×(D/200)² ; ovale π×(l/200)×(L/200) ; sinon surface saisie
+function surfaceBoucheBOA(d) {
+  if (d.forme_bouche === 'Circulaire') return Math.PI * Math.pow(num(d.diametre_bouche) / 200, 2);
+  if (d.forme_bouche === 'Ovale') return Math.PI * (num(d.largeur_bouche_ovale) / 200) * (num(d.longueur_bouche_ovale) / 200);
+  if (d.forme_bouche === 'Autre (surface connue)') return num(d.surface_bouche_autre);
+  return NaN;
+}
+
+// Libellé canonique d'un type de machine à bois (clé de MACHINE_BOIS_DEBIT_REF), retrouvé sans tenir
+// compte de la casse ni des espaces : le Rapso contient "TeNonneuse" et des espaces insécables avant
+// les deux-points ("Scie à ruban" + insécable + ": ...") — vérifié sur un classeur réel le 2026-10-03.
+function machineBoisCanon(type) {
+  if (!type) return '';
+  if (MACHINE_BOIS_DEBIT_REF.hasOwnProperty(type)) return type;
+  var squash = function (s) { return String(s).replace(/\s+/g, ' ').trim().toLowerCase(); };
+  var t = squash(type);
+  for (var k in MACHINE_BOIS_DEBIT_REF) { if (squash(k) === t) return k; }
+  return '';
+}
+
+function machineBoisDebitRef(type) {
+  var k = machineBoisCanon(type);
+  return k ? MACHINE_BOIS_DEBIT_REF[k] : undefined;
+}
+
 var CALC_RULES = {
 
   bureaux: [
@@ -331,7 +363,7 @@ var CALC_RULES = {
             return 'Naturelle (absence d’ouvrants)';
           case 'Nat avec ouvrants': return 'Naturelle par ouvrants';
           case 'Extraction': return 'Mécanique Simple Flux';
-          case 'Soufflage': return 'Mécanique Simple Flux (soufflage)';
+          case 'Soufflage': return 'Mécanique Simple Flux'; // libellé Rapso (vérifié sur 19 locaux réels, 2026-10-03)
           case 'Double flux': return 'Mécanique Double Flux';
           default: return '';
         }
@@ -431,7 +463,7 @@ var CALC_RULES = {
             return 'Naturelle (absence d\u2019ouvrants)';
           case 'Nat avec ouvrants': return 'Naturelle par ouvrants';
           case 'Extraction': return 'Mécanique Simple Flux';
-          case 'Soufflage': return 'Mécanique Simple Flux (soufflage)';
+          case 'Soufflage': return 'Mécanique Simple Flux'; // libellé Rapso (vérifié sur 19 locaux réels, 2026-10-03)
           case 'Double flux': return 'Mécanique Double Flux';
           default: return '';
         }
@@ -552,9 +584,9 @@ var CALC_RULES = {
         if (!s || s.incomplete) return '';
         return s.moyenne;
       } },
-    { target: 'debit_annee_en_cours', fn: function (d) {
-        var v = (d.vitesse_mode === 'Grille de points') ? num(d.vitesse_moyenne_grille) : num(d.vitesse);
-        var s = num(d.surface_m2);
+    { target: 'debit_annee_en_cours', fn: function (d, x) {
+        var v = (d.vitesse_mode === 'Grille de points') ? exactOr(x, d, 'vitesse_moyenne_grille') : num(d.vitesse);
+        var s = exactOr(x, d, 'surface_m2');
         return (isNaN(v) || isNaN(s)) ? NaN : s * v * 3600;
       } },
     { target: 'masse_volumique', decimals: 3, fn: function (d) {
@@ -598,9 +630,9 @@ var CALC_RULES = {
         if (!s || s.incomplete) return '';
         return s.moyenne;
       } },
-    { target: 'debit_mesure', fn: function (d) {
-        var v = (d.vitesse_mode === 'Grille de points') ? num(d.vitesse_moyenne_grille) : num(d.vitesse);
-        var s = num(d.surface_m2);
+    { target: 'debit_mesure', fn: function (d, x) {
+        var v = (d.vitesse_mode === 'Grille de points') ? exactOr(x, d, 'vitesse_moyenne_grille') : num(d.vitesse);
+        var s = exactOr(x, d, 'surface_m2');
         return (isNaN(v) || isNaN(s)) ? NaN : s * v * 3600;
       } },
     { target: 'debit_min_calcule', fn: function (d) {
@@ -635,9 +667,9 @@ var CALC_RULES = {
         if (!s || s.incomplete) return '';
         return s.moyenne;
       } },
-    { target: 'debit_annee_en_cours', fn: function (d) {
-        var v = (d.vitesse_mode === 'Grille de points') ? num(d.vitesse_moyenne_grille) : num(d.vitesse);
-        var s = num(d.surface_m2);
+    { target: 'debit_annee_en_cours', fn: function (d, x) {
+        var v = (d.vitesse_mode === 'Grille de points') ? exactOr(x, d, 'vitesse_moyenne_grille') : num(d.vitesse);
+        var s = exactOr(x, d, 'surface_m2');
         return (isNaN(v) || isNaN(s)) ? NaN : s * v * 3600;
       } },
     { target: 'masse_volumique', decimals: 3, fn: function (d) {
@@ -657,8 +689,8 @@ var CALC_RULES = {
     { target: 'neuf_masse_volumique', decimals: 3, fn: function (d) {
         return masseVolumique(d.neuf_temperature_conduit, d.neuf_pression_statique);
       } },
-    { target: 'neuf_debit', fn: function (d) {
-        var v = debitFromSV(d.neuf_surface, d.neuf_vitesse);
+    { target: 'neuf_debit', fn: function (d, x) {
+        var v = debitFromSV(exactOr(x, d, 'neuf_surface'), d.neuf_vitesse);
         return isNaN(v) ? '' : v;
       } },
     { target: 'souf_surface', decimals: 4, fn: function (d) {
@@ -667,8 +699,8 @@ var CALC_RULES = {
     { target: 'souf_masse_volumique', decimals: 3, fn: function (d) {
         return masseVolumique(d.souf_temperature_conduit, d.souf_pression_statique);
       } },
-    { target: 'souf_debit', fn: function (d) {
-        var v = debitFromSV(d.souf_surface, d.souf_vitesse);
+    { target: 'souf_debit', fn: function (d, x) {
+        var v = debitFromSV(exactOr(x, d, 'souf_surface'), d.souf_vitesse);
         return isNaN(v) ? '' : v;
       } },
     { target: 'rep_surface', decimals: 4, fn: function (d) {
@@ -679,9 +711,9 @@ var CALC_RULES = {
         if (d.rep_active !== 'Oui') return '';
         return masseVolumique(d.rep_temperature_conduit, d.rep_pression_statique);
       } },
-    { target: 'rep_debit', fn: function (d) {
+    { target: 'rep_debit', fn: function (d, x) {
         if (d.rep_active !== 'Oui') return '';
-        var v = debitFromSV(d.rep_surface, d.rep_vitesse);
+        var v = debitFromSV(exactOr(x, d, 'rep_surface'), d.rep_vitesse);
         return isNaN(v) ? '' : v;
       } }
     // 'avis' est une sélection manuelle (Satisfaisant/Non Satisfaisant/Impossible de se prononcer) :
@@ -706,31 +738,41 @@ var CALC_RULES = {
         var v = num(d.vitesse_directe);
         return isNaN(v) ? '' : v;
       } },
-    { target: 'debit', fn: function (d) {
-        var v = debitFromSV(d.surface_m2, d.vitesse_moyenne);
+    { target: 'debit', fn: function (d, x) {
+        var v = debitFromSV(exactOr(x, d, 'surface_m2'), exactOr(x, d, 'vitesse_moyenne'));
         return isNaN(v) ? '' : Math.round(v);
       } },
     // Valeur recommandée par l'INRS (ED 750/ED 695) pour le transport pneumatique des poussières de bois : 20 m/s
     { target: 'vitesse_inrs_ed750', fn: function () { return 20; } },
+    // Corrigé le 2026-10-03 contre 18 machines réelles (Rapso Verdun) : sans valeur de référence
+    // client ("/"), le Rapso compare la vitesse aux 20 m/s INRS — directement, sans le coefficient
+    // 0,8 (18,71 m/s y est Non Satisfaisant). L'appli répondait "Impossible de se prononcer".
     { target: 'vitesse_avis', fn: function (d) {
-        var v = num(d.vitesse_moyenne), ref = num(d.vitesse_reference);
-        if (isNaN(v) || isNaN(ref)) return 'Impossible de se prononcer';
-        return v >= ref * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
+        var v = num(d.vitesse_moyenne);
+        if (isNaN(v)) return 'Impossible de se prononcer';
+        var ref = num(d.vitesse_reference);
+        if (!isNaN(ref)) return v >= ref * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
+        return v >= 20 ? 'Satisfaisant' : 'Non Satisfaisant';
       } },
-    { target: 'debit_reference', fn: function (d) {
-        var r = MACHINE_BOIS_DEBIT_REF[d.type_machine];
+    // Valeur recommandée INRS (ED 750) du débit = valeur du tableau par type de machine, comme dans
+    // le Rapso. Jusqu'au 2026-10-03, ce champ recevait section × 20 m/s et la valeur du tableau était
+    // rangée à tort dans debit_reference (qui est la référence fournie par le client, "/" le plus
+    // souvent) — 14 écarts sur 14 machines réelles. debit_reference redevient une saisie.
+    { target: 'debit_inrs_ed750', fn: function (d) {
+        if (d.type_machine === '/') return '/';
+        var r = machineBoisDebitRef(d.type_machine);
         return (r === undefined || r === null) ? '' : r;
       } },
-    { target: 'debit_inrs_ed750', fn: function (d) {
-        // Débit nécessaire pour atteindre la vitesse de transport recommandée par l'INRS (20 m/s)
-        // dans la section réelle du conduit — cohérent avec vitesse_inrs_ed750 ci-dessus.
-        var v = debitFromSV(d.surface_m2, 20);
-        return isNaN(v) ? '' : Math.round(v);
-      } },
     { target: 'debit_avis', fn: function (d) {
-        var v = num(d.debit), ref = num(d.debit_reference);
-        if (isNaN(v) || isNaN(ref)) return 'Impossible de se prononcer';
-        return v >= ref * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
+        var v = num(d.debit);
+        if (isNaN(v)) return 'Impossible de se prononcer';
+        var ref = num(d.debit_reference);
+        if (!isNaN(ref)) return v >= ref * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
+        // Comparaison directe à la valeur INRS, comme pour la vitesse (aucune machine réelle ne
+        // permet de trancher pour le débit : le cas entre 80 % et 100 % de la valeur n'apparaît pas).
+        var inrs = num(d.debit_inrs_ed750);
+        if (isNaN(inrs)) return 'Impossible de se prononcer';
+        return v >= inrs ? 'Satisfaisant' : 'Non Satisfaisant';
       } },
     { target: 'conclusion_avis', fn: function (d) {
         // Conforme si vitesse ET débit satisfaisants par rapport aux préconisations INRS
@@ -957,33 +999,34 @@ var CALC_RULES = {
 
   bras_aspiration: [
     { target: 'surface_bouche', decimals: 4, fn: function (d) {
-        // VBA : circulaire π×(D/200)² ; ovale π×(l/200)×(L/200) ; sinon surface saisie
-        if (d.forme_bouche === 'Circulaire') {
-          var D = num(d.diametre_bouche);
-          return isNaN(D) ? '' : Math.PI * Math.pow(D / 200, 2);
-        }
-        if (d.forme_bouche === 'Ovale') {
-          var l = num(d.largeur_bouche_ovale), L = num(d.longueur_bouche_ovale);
-          return (isNaN(l) || isNaN(L)) ? '' : Math.PI * (l / 200) * (L / 200);
-        }
-        if (d.forme_bouche === 'Autre (surface connue)') {
-          var s = num(d.surface_bouche_autre);
-          return isNaN(s) ? '' : s;
-        }
-        return '';
+        var s = surfaceBoucheBOA(d);
+        return isNaN(s) ? '' : s;
       } },
-    { target: 'debit_calcule', fn: function (d) {
-        // VBA : débit = surface bouche × vitesse moyenne × 3600
-        var s = num(d.surface_bouche), v = num(d.vitesse_moyenne);
+    { target: 'debit_calcule', decimals: 0, fn: function (d) {
+        // VBA : débit = surface bouche × vitesse moyenne × 3600, arrondi à l'unité (comme le Rapso).
+        // Surface recalculée en pleine précision plutôt que relue depuis surface_bouche (arrondie à
+        // 4 décimales pour l'affichage) : sur une petite bouche (Ø 5 cm, 0,00196 m² arrondi à 0,0020)
+        // l'arrondi faussait le débit de ~2 % — écart trouvé le 2026-10-03 contre les classeurs Rapso.
+        var s = surfaceBoucheBOA(d), v = num(d.vitesse_moyenne);
         return (isNaN(s) || isNaN(v)) ? '' : s * v * 3600;
       } },
     { target: 'distance_max_captage', decimals: 0, fn: function (d) {
-        // Formule INRS de captage ponctuel : Vc = Q / (10x² + A)  =>  x = √(Q/(10·Vc) − A/10)
-        // (Q en m³/s, A en m², x en m — converti en cm en sortie)
-        var q = num(d.debit_calcule), vc = num(d.vitesse_captage), s = num(d.surface_bouche);
-        if (isNaN(q) || isNaN(vc) || isNaN(s) || vc === 0) return '';
-        var qms = q / 3600;
-        var inner = qms / (10 * vc) - s / 10;
+        // Formules INRS de captage ponctuel (liste des 4 types de bouche du Rapso, feuille LISTE) :
+        //   sans collerette                    Q = Vc × (10x² + A)
+        //   avec collerette                    Q = 0,75 × Vc × (10x² + A)
+        //   sans collerette reposant sur un plan Q = Vc × (5x² + A)
+        //   avec collerette reposant sur un plan Q = 0,75 × Vc × (5x² + A)
+        //   =>  x = √((Q / (f·Vc) − A) / n)   (Q en m³/s, A en m², x en m — converti en cm)
+        // Q = débit ARRONDI à l'unité, comme le VBA (sinon 9,49 cm au lieu de 9,50 → 9 au lieu de 10).
+        // Vérifié le 2026-10-03 sur 71 bras réels : jusque-là seul le cas "sans collerette" était
+        // implémenté (ex. Ø 25 cm avec collerette à 8,4 m/s : 28 cm au lieu de 32). "Sans collerette
+        // reposant sur un plan" n'apparaît dans aucun classeur réel : formule INRS par analogie.
+        var s = surfaceBoucheBOA(d), vc = num(d.vitesse_captage), q = num(d.debit_calcule);
+        if (isNaN(s) || isNaN(q) || isNaN(vc) || vc === 0) return '';
+        var tb = d.type_bouche || '';
+        var f = /^Avec collerette/.test(tb) ? 0.75 : 1;
+        var n = /reposant sur un plan/.test(tb) ? 5 : 10;
+        var inner = (Math.round(q) / 3600 / (f * vc) - s) / n;
         if (inner < 0) return 0;
         return Math.sqrt(inner) * 100;
       } },
@@ -992,8 +1035,14 @@ var CALC_RULES = {
         // du code du travail pour le recyclage), quelle que soit la distance de captage mesurée.
         if (d.recyclage === 'Oui') return 'Non Satisfaisant';
         var dmax = num(d.distance_max_captage), dutil = num(d.distance_utilisation);
-        if (isNaN(dmax) || isNaN(dutil)) return '';
-        return dutil <= dmax ? 'Satisfaisant' : 'Non Satisfaisant';
+        // Mesure incomplète : le Rapso affiche "Impossible de se prononcer" (vérifié 2026-10-03), mais
+        // on laisse vide tant que rien n'a été mesuré pour ne pas marquer "en cours" une fiche vierge.
+        if (isNaN(dmax) || isNaN(dutil)) {
+          return (d.vitesse_moyenne || d.distance_utilisation) ? 'Impossible de se prononcer' : '';
+        }
+        // Comparaison stricte à la distance max arrondie, comme le Rapso : une distance d'utilisation
+        // égale à la distance max est Non Satisfaisante (2 cas réels sur 2, 2026-10-03).
+        return dutil < dmax ? 'Satisfaisant' : 'Non Satisfaisant';
       } },
     { target: 'evolution_pct', decimals: 1, fn: function (d) {
         var prev = num(d.debit_precedent), cur = num(d.debit_calcule);
@@ -1044,7 +1093,10 @@ var CALC_RULES = {
         return (!s || s.incomplete) ? '' : s.moyenne;
       } },
     { target: 'debit_mesure', fn: function (d) {
-        var v = debitFromSV(d.surface_ouverture, d.vitesse_moy_mesuree);
+        // Vitesse moyenne NON arrondie, comme le Rapso (0,2733 et non 0,27 : 1 à 2 % d'écart de débit
+        // trouvé le 2026-10-03 sur 2 sorbonnes réelles).
+        var s = gridStats(d.grille, d.nb_lignes, d.nb_colonnes);
+        var v = (s && !s.incomplete) ? debitFromSV(d.surface_ouverture, s.moyenne) : NaN;
         return isNaN(v) ? '' : v;
       } },
     { target: 'vitesse_min_avis_reference', fn: function (d) { return avisSorbonneRef(d.vitesse_min_mesuree, d.vitesse_min_reference); } },
@@ -1083,10 +1135,17 @@ var CALC_RULES = {
         if (d.v2_active !== 'Oui') return '';
         return avisVitesse(d.v2_mesuree, d.v2_reference, d.v2_valeur_recommandee);
       } },
-    { target: 'debit_avis', fn: function (d) { return avisSorbonneRef(d.debit_mesure, d.debit_reference); } },
+    { target: 'debit_avis', fn: function (d) {
+        // Le Rapso écrit "Sans Objet" (et non le libellé long des sorbonnes) quand il n'y a pas de
+        // débit de référence — vérifié sur 4 cabines réelles le 2026-10-03.
+        var a = avisSorbonneRef(d.debit_mesure, d.debit_reference);
+        return /^Sans Objet/.test(a) ? 'Sans Objet' : a;
+      } },
     { target: 'conclusion', fn: function (d) {
         // Fidèle à Caller_Conclusion_CDP (VBA, UserForm_CDP) : l'avis global agrège aussi l'avis
-        // débit (Tbx_Debit_1_3/2_3), pas seulement les avis de vitesse.
+        // débit (Tbx_Debit_1_3/2_3), pas seulement les avis de vitesse. Débit non mesuré = "Impossible
+        // de se prononcer", même si les vitesses sont renseignées (2 cabines réelles sur 2, 2026-10-03).
+        if (d.v1_mesuree && String(d.debit_mesure || '').trim() === '') return 'Impossible de se prononcer';
         var avis = [d.v1_avis, d.debit_avis];
         if (d.v2_active === 'Oui') avis.push(d.v2_avis);
         avis = avis.filter(function (a) { return a; });
@@ -1149,8 +1208,11 @@ var CALC_RULES = {
         return s.incomplete ? '' : s.moyenne;
       } },
     { target: 'vpe_debit', fn: function (d) {
-        // VBA : (Largeur/100) × (Hauteur/100) × Vmoyenne × 3600
-        var L = num(d.vpe_largeur_cm), H = num(d.vpe_hauteur_cm), V = num(d.vpe_moyenne);
+        // VBA : (Largeur/100) × (Hauteur/100) × Vmoyenne × 3600, avec la moyenne NON arrondie
+        // (vpe_moyenne est arrondie à 2 décimales pour l'affichage : 0,29 au lieu de 0,2936 donnait
+        // 1 % d'écart de débit — trouvé le 2026-10-03 contre un classeur Rapso réel).
+        var s = gridStats(d.vpe_grid, d.vpe_nb_points_hauteur, d.vpe_nb_points_largeur);
+        var L = num(d.vpe_largeur_cm), H = num(d.vpe_hauteur_cm), V = (s && !s.incomplete) ? s.moyenne : NaN;
         return (isNaN(L) || isNaN(H) || isNaN(V)) ? NaN : (L / 100) * (H / 100) * V * 3600;
       } },
     { target: 'avis_vpe_min', fn: function (d) {
@@ -1186,15 +1248,26 @@ function isComputedField(typeId, key) {
 
 // Applique toutes les règles du type ; passe en plusieurs itérations
 // pour propager les calculs en chaîne (surface -> débit -> volume/heure)
+// `exact` (2e argument des fn) garde chaque résultat numérique en PLEINE précision, pour les calculs
+// en chaîne : inst.data ne reçoit que la valeur arrondie pour l'affichage. Ajouté le 2026-10-03 après
+// comparaison aux classeurs Rapso réels : un débit calculé depuis une surface arrondie à 4 décimales
+// (Ø 10 cm : 0,0079 au lieu de 0,007854) était faux de 0,6 %, et davantage sur les petites sections.
+function exactOr(x, d, key) {
+  return (x && typeof x[key] === 'number') ? x[key] : num(d[key]);
+}
+
 function applyCalculations(typeId, inst) {
   var rules = CALC_RULES[typeId];
   if (!rules) return;
+  var exact = {};
   for (var pass = 0; pass < 3; pass++) {
     rules.forEach(function (r) {
-      var v = r.fn(inst.data);
+      var v = r.fn(inst.data, exact);
       if (typeof v === 'string') {
         inst.data[r.target] = v;
+        delete exact[r.target];
       } else if (!isNaN(v) && isFinite(v)) {
+        exact[r.target] = v;
         var dec = (r.decimals !== undefined) ? r.decimals : 2;
         var f = Math.pow(10, dec);
         inst.data[r.target] = String(Math.round(v * f) / f);

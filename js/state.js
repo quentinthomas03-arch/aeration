@@ -118,6 +118,20 @@ function normalizeMission(m) {
       if (inst && inst.data) applyCalculations('locaux_fumeurs', inst);
     });
   }
+  // Menuiserie (machines à bois) : jusqu'au 2026-10-03, debit_reference était un champ CALCULÉ qui
+  // recevait la valeur du tableau INRS par type de machine (désormais dans debit_inrs_ed750, comme
+  // le Rapso). Ce n'était jamais une saisie du technicien : on le vide une seule fois (drapeau
+  // _migMenuiserieRef) pour qu'il ne soit pas pris pour une référence client, puis on recalcule.
+  if (!m._migMenuiserieRef) {
+    if (m.installations && Array.isArray(m.installations.menuiserie_bis) && typeof applyCalculations === 'function') {
+      m.installations.menuiserie_bis.forEach(function (inst) {
+        if (!inst || !inst.data) return;
+        delete inst.data.debit_reference;
+        applyCalculations('menuiserie_bis', inst);
+      });
+    }
+    m._migMenuiserieRef = true;
+  }
   return m;
 }
 
@@ -226,6 +240,10 @@ function createEmptyMission() {
     // Appareils de mesure utilisés (js/terrain-assist.js) : copie figée des appareils du profil
     // technicien choisis pour cette mission, reprise dans le rapport avec la date d'étalonnage.
     appareilsMesure: [],
+
+    // Une mission neuve est déjà au format actuel : pas de migration menuiserie à appliquer (sinon
+    // une référence client reprise d'un import Rapso/N-1 serait effacée, cf. normalizeMission).
+    _migMenuiserieRef: true,
 
     installations: installations
   };

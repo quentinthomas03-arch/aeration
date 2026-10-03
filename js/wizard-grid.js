@@ -10,8 +10,8 @@
 // façon dont la grille a été saisie.
 
 function gwGridMeta(f, inst) {
-  var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, 5);
-  var rows = Math.min(parseInt(inst.data[f.rowsKey], 10) || 0, 5);
+  var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, GRID_MAX);
+  var rows = Math.min(parseInt(inst.data[f.rowsKey], 10) || 0, GRID_MAX);
   return { rows: rows, cols: cols, rowLabel: f.rowLabel || 'Axe', colLabel: f.colLabel || 'Point' };
 }
 

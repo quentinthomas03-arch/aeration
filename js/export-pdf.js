@@ -306,8 +306,8 @@ function pdfLegalParagraph(text, opts) {
 function pdfFicheGrilleTable(grid, nbAxes, nbPoints, rowLabel, colLabel) {
   rowLabel = rowLabel || 'Axe';
   colLabel = colLabel || 'Point';
-  var rows = Math.min(parseInt(nbAxes, 10) || 0, 5);
-  var cols = Math.min(parseInt(nbPoints, 10) || 0, 5);
+  var rows = Math.min(parseInt(nbAxes, 10) || 0, GRID_MAX);
+  var cols = Math.min(parseInt(nbPoints, 10) || 0, GRID_MAX);
   if (!rows || !cols) return { text: '' };
   var W_LABEL = PT(2400), W_COL = (PDF_ANNEXE_CONTENT_WIDTH - W_LABEL) / cols;
   var widths = [W_LABEL];

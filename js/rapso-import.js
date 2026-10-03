@@ -49,6 +49,14 @@ function rapsoStripAvisPrefix(v) {
   return m ? m[2].trim() : v;
 }
 
+function rapsoAnneeSorbonne(v) {
+  var h = parseFloat(String(v || '').replace(',', '.'));
+  if (isNaN(h)) return '';
+  if (h === 400) return 'Avant janvier 2005 - Norme XP X15-203 (h=400mm)';
+  if (h === 500) return 'Après janvier 2005 - Norme NF EN 14175-4 (h=500mm)';
+  return 'Autre';
+}
+
 function rapsoNorm(s) {
   return String(s === undefined || s === null ? '' : s)
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -67,7 +75,11 @@ var RAPSO_FIELD_MAP = {
     ['Batterie(s) froide(s)', 'batterie_froide'], ['Batterie(s) chaude(s)', 'batterie_chaude'],
     ['Canalisations / Gaines', 'canalisations_gaines'], ['Ventilateur / Courroie', 'ventilateur_courroie'],
     ['Fiche de Maintenance', 'fiche_maintenance'],
-    ['Filtration Affiché ?', 'afficher_filtration', function (v) { return v ? 'Oui' : 'Non'; }],
+    // Libellé du bouton bascule, jamais vide (même piège que extracteur.afficher_taux, 2026-10-03) :
+    // "Filtration affiché" = affichée, "Afficher Filtration" = masquée.
+    ['Filtration Affiché ?', 'afficher_filtration', function (v) {
+      return /^filtration affich/i.test(String(v || '').trim()) ? 'Oui' : 'Non';
+    }],
     ['Type (cellules, poches, …)_1', 'filt_pre_type'], ['Nombre / Dimensions_1', 'filt_pre_nombre_dimensions'],
     ["Classe d'éfficacité_1", 'filt_pre_classe'], ['Perte de charge (Pa)_1', 'filt_pre_perte_charge'],
     ['Type (cellules, poches, …)_2', 'filt_filtre_type'], ['Nombre / Dimensions_2', 'filt_filtre_nombre_dimensions'],
@@ -88,7 +100,14 @@ var RAPSO_FIELD_MAP = {
     ['Forme de la section', 'forme_section'], ['Diametre ou côte 1 (cm)', 'diametre_cote1'], ['Côte 2 (cm)', 'cote2'],
     ['Valeur de référence ou recommandée (en m³/h)', 'valeur_reference_recommandee'],
     ['Valeur recommandée', 'valeur_recommandee'], ['Référentiel', 'referentiel'],
-    ['Volume du local (m3)', 'volume_local'], ['Afficher Taux de Renouvellement', 'afficher_taux', function (v) { return v ? 'Oui' : 'Non'; }]
+    // La cellule contient le libellé du bouton bascule du Rapso, jamais vide : "Afficher taux de
+    // renouvellement" = taux NON affiché (le bouton propose de l'afficher), "Taux de renouvellement
+    // affichée" = taux affiché. Bug trouvé le 2026-10-03 en comparant aux classeurs réels : l'ancien
+    // test "cellule non vide" donnait toujours Oui, et l'avis tombait à "Impossible de se prononcer"
+    // faute de valeur recommandée.
+    ['Volume du local (m3)', 'volume_local'], ['Afficher Taux de Renouvellement', 'afficher_taux', function (v) {
+      return /^taux de renouvellement affich/i.test(String(v || '').trim()) ? 'Oui' : 'Non';
+    }]
   ],
 
   bras_aspiration: [
@@ -137,8 +156,13 @@ var RAPSO_FIELD_MAP = {
     ['Autre(s) dispositif(s) de ventilation', 'autres_dispositifs'],
     ['Appareils de mesure utilisés', 'appareils_mesure'],
     ['Largeur (mm)', 'largeur_mm'],
+    // Deux colonnes distinctes côté Rapso, une seule remplie (h = 400 ou 500) — avant le 2026-10-03
+    // la première renvoyait toujours "Avant 2005" même vide, ce qui faussait surface et débit des
+    // sorbonnes "Après 2005" (h = 500 mm). Une hauteur hors 400/500 passe en "Autre".
     ["Ouverture de travail h (mm) en fonction de l'année de construction de la sorbonne (Avant janvier 2005)", 'annee_construction',
-      function () { return 'Avant janvier 2005 - Norme XP X15-203 (h=400mm)'; }],
+      rapsoAnneeSorbonne],
+    ["Ouverture de travail h (mm) en fonction de l'année de construction de la sorbonne (Après janvier 2005)", 'annee_construction',
+      rapsoAnneeSorbonne],
     ['Verrouillage de la paroi vitrée (butée)', 'verrouillage_paroi'], ['Parachute sur a paroi vitrée', 'parachute_paroi'],
     ['Mesure de la vitesse frontale', 'mesure_vitesse_frontale'], ['Alarme sonore', 'alarme_sonore'],
     ['Alarme visuelle', 'alarme_visuelle'], ["Eclairage à l'intérieur du volume", 'eclairage_interieur'],
@@ -204,7 +228,8 @@ var RAPSO_FIELD_MAP = {
 
   menuiserie_bis: [
     ['Référence de la machine à bois', 'reference_machine'], ['Date du contrôle', 'date_controle'],
-    ['Type de machine à bois', 'type_machine'], ["Etat visuel du réseau d'aspiration", 'etat_visuel_reseau'],
+    // Ramené au libellé exact de nos options (espaces insécables / casse du Rapso, cf. machineBoisCanon).
+    ['Type de machine à bois', 'type_machine', function (v) { return (typeof machineBoisCanon === 'function' && machineBoisCanon(v)) || v; }], ["Etat visuel du réseau d'aspiration", 'etat_visuel_reseau'],
     ['Valeur de référence', 'vitesse_reference'], ['Débit de référence (m3/h)', 'debit_reference']
   ],
 
@@ -314,6 +339,13 @@ function rapsoSheetToInstallations(typeId, rows) {
     // dans TAB_ECHAP (cf. commentaire dans RAPSO_FIELD_MAP.gaz_echappement).
     if (typeId === 'gaz_echappement' && data.diametre_cote1) {
       data.forme_section = (data.cote2 && data.cote2 !== '/') ? 'Rectangulaire' : 'Circulaire';
+    }
+    // Hauteur d'ouverture hors 400/500 (sorbonnes) : reprise telle quelle dans le champ "autre".
+    if (typeId === 'sorbonnes' && data.annee_construction === 'Autre') {
+      ['avant janvier 2005', 'apres janvier 2005'].forEach(function (suffix) {
+        var ci = colIndex[rapsoNorm("Ouverture de travail h (mm) en fonction de l'année de construction de la sorbonne (" + suffix + ')')];
+        if (ci !== undefined && String(row[ci] || '').trim()) data.h_mm_autre = String(row[ci]).trim();
+      });
     }
     if (Object.keys(data).length > 0) out.push(data);
   }
