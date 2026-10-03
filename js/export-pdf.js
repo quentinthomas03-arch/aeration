@@ -564,6 +564,22 @@ function pdfBuildPresentationMission(m, di, ic, isi) {
     'Arrêté du 8 octobre 1987 relatif au contrôle périodique des installations d’aération et d’assainissement des locaux de travail.'
   ].forEach(function (t) { content.push({ text: '-    ' + t, fontSize: FS(20) }); });
 
+  // Matériel de mesure (js/terrain-assist.js) : n'apparaît que si des appareils ont été choisis pour
+  // la mission — un rapport sans appareils déclarés reste identique à la mise en page d'origine.
+  var appareils = m.appareilsMesure || [];
+  if (appareils.length) {
+    content.push(pdfSubHeading('Matériel de mesure utilisé'));
+    var body = [[pdfHeaderCell('Matériel'), pdfHeaderCell('Marque / modèle'), pdfHeaderCell('N° d’identification'),
+      pdfHeaderCell('Date du dernier étalonnage'), pdfHeaderCell('Validité')]];
+    appareils.forEach(function (a) {
+      var mois = parseInt(a.validiteMois, 10) || 12;
+      body.push([pdfBodyCell(a.designation || '—'), pdfBodyCell(a.marqueModele || '—'), pdfBodyCell(a.numero || '—', { center: true }),
+        pdfBodyCell(formatDateFr(a.dateEtalonnage) || '—', { center: true }),
+        pdfBodyCell((mois % 12 === 0 ? (mois / 12) + ' an' + (mois > 12 ? 's' : '') : mois + ' mois'), { center: true })]);
+    });
+    content.push(pdfTable(['*', '*', '*', '*', 50], body, { headerRows: 1 }));
+  }
+
   return content;
 }
 

@@ -72,6 +72,7 @@ function normalizeMission(m) {
   if (m.donneesInternes.natureRevision === undefined) m.donneesInternes.natureRevision = ref.donneesInternes.natureRevision;
   if (!m.documentsTransmis) m.documentsTransmis = ref.documentsTransmis;
   if (!m.descriptionLocaux) m.descriptionLocaux = ref.descriptionLocaux;
+  if (!Array.isArray(m.appareilsMesure)) m.appareilsMesure = [];
 
   // Sanitaires : pré-remplit chambre_erp_individuelle depuis nom_usage uniquement si le champ n'a
   // jamais été renseigné — ne modifie jamais une valeur Oui/Non déjà saisie (même incohérente avec
@@ -221,6 +222,10 @@ function createEmptyMission() {
     descriptionLocaux: {
       locauxExclus: ''
     },
+
+    // Appareils de mesure utilisés (js/terrain-assist.js) : copie figée des appareils du profil
+    // technicien choisis pour cette mission, reprise dans le rapport avec la date d'étalonnage.
+    appareilsMesure: [],
 
     installations: installations
   };

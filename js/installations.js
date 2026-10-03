@@ -21,6 +21,7 @@ function renderMissionDetail() {
   h += '</div>';
   h += '<div class="row" style="margin-bottom:12px;">';
   h += '<button class="btn btn-gray btn-small" onclick="shareOrExportMission(' + m.id + ');">' + ICONS.download + ' Exporter / Transférer</button>';
+  h += '<button class="btn btn-gray btn-small" onclick="state.view=\'verification-depart\';render();">' + ICONS.check + ' Vérifier avant de partir</button>';
   h += '</div>';
 
   // Chantier "ergonomie de saisie terrain" (2026-08) : la liste à plat "un type = une ligne avec

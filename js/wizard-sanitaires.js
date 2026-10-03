@@ -143,7 +143,7 @@ function sanTextarea(f, inst) {
   var state = fieldState(f, inst);
   return '<div class="field-big">' + fieldLabelWithTag(f, state) +
     '<textarea class="input state-' + state + '" rows="4" onchange="sanField(\'' + f.key + '\',this.value);">' + escapeHtml(val) +
-    '</textarea>' + fieldHint(state) + '</div>';
+    '</textarea>' + fieldHint(state) + phrasesTypesHtml('sanitaires', f) + '</div>';
 }
 
 function sanComputedBadge(label, display) {

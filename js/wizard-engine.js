@@ -39,7 +39,8 @@ function gwBigText(typeId, f, inst) {
   var st = fieldState(f, inst);
   return '<div class="field-big">' + fieldLabelWithTag(f, st) +
     '<input type="text" class="input-text-big state-' + st + '" value="' + escapeHtml(val) +
-    '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + fieldHint(st) + '</div>';
+    '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + fieldHint(st) +
+    appareilsRepriseHtml(typeId, f, inst) + '</div>';
 }
 
 function gwBigNumber(typeId, f, inst) {
@@ -100,7 +101,7 @@ function gwTextarea(typeId, f, inst) {
   var st = fieldState(f, inst);
   return '<div class="field-big">' + fieldLabelWithTag(f, st) +
     '<textarea class="input state-' + st + '" rows="4" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' +
-    escapeHtml(val) + '</textarea>' + fieldHint(st) + '</div>';
+    escapeHtml(val) + '</textarea>' + fieldHint(st) + phrasesTypesHtml(typeId, f) + '</div>';
 }
 
 // Rappel N-1 (js/installations-schema.js N1_COMPARISON_FIELDS) : petit texte sous le champ "mesure
@@ -114,7 +115,14 @@ function gwN1Hint(typeId, key, inst) {
   if (!pair) return '';
   var v = inst.data[pair.n1];
   if (v === undefined || v === '') return '';
-  return '<div class="field-hint field-hint-n1">N-1 : ' + escapeHtml(v) + '</div>';
+  // Écart avec la mesure de cette année (js/terrain-assist.js) : signalé en couleur au-delà du seuil,
+  // pour revérifier sur place une faute de frappe ou une vraie dérive.
+  var e = n1Ecart(inst.data[key], v);
+  if (e && e.fort) {
+    return '<div class="field-hint field-hint-n1 field-hint-n1-ecart">N-1 : ' + escapeHtml(v) + ' · écart ' +
+      formatEcartPct(e.pct) + ' — vérifier la mesure</div>';
+  }
+  return '<div class="field-hint field-hint-n1">N-1 : ' + escapeHtml(v) + (e ? ' · écart ' + formatEcartPct(e.pct) : '') + '</div>';
 }
 
 function gwComputedBadge(typeId, f, inst) {

@@ -28,8 +28,18 @@ var GUIDE_UTILISATION_ETAPES = [
     texte: 'La vue d’ensemble d’un site liste toutes les installations, avec recherche et regroupement par bâtiment ou par type, pour se repérer même sur un site avec de nombreuses installations.'
   },
   {
+    icon: 'check',
+    titre: '6. Vérifier avant de quitter le site',
+    texte: 'Depuis la fiche mission, « Vérifier avant de partir » liste les installations non commencées, les champs encore vides (un tap ouvre directement la bonne étape) et les mesures qui s’écartent de plus de 30 % de l’année précédente. Pendant la saisie, ces écarts N-1 sont aussi signalés en rouge sous la mesure, et le bouton « Phrases types » sous chaque champ de remarque insère une phrase en un geste (vous pouvez ajouter les vôtres).'
+  },
+  {
+    icon: 'tool',
+    titre: '7. Déclarer ses appareils de mesure',
+    texte: 'Dans « Profil », enregistrez une fois vos appareils (n° d’identification, date d’étalonnage). Cochez ensuite ceux utilisés dans « Infos mission » : ils apparaissent dans le rapport, et un étalonnage dépassé est signalé.'
+  },
+  {
     icon: 'flask',
-    titre: '6. Générer le rapport',
+    titre: '8. Générer le rapport',
     texte: 'Depuis la fiche mission, « Rapport PDF » génère directement le rapport complet — aucune étape intermédiaire dans un autre logiciel.'
   }
 ];

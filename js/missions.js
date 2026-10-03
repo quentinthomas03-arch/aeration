@@ -149,6 +149,7 @@ function renderMissionForm() {
     { key: 'mailContact', label: 'Mail du contact' }
   ]);
 
+  h += renderAppareilsMissionSection(m);
   h += renderDocumentsTransmisSection(m);
   h += renderDescriptionLocauxSection(m);
 

@@ -15,6 +15,7 @@ function render() {
     case 'import-conflict': h = renderImportConflict(); break;
     case 'ed-reference': h = renderEdReference(); break;
     case 'guide-utilisation': h = renderGuideUtilisation(); break;
+    case 'verification-depart': h = renderVerificationDepart(); break;
     default: h = renderHome();
   }
   document.getElementById('app').innerHTML = h;
@@ -96,6 +97,7 @@ window.addEventListener('popstate', function (event) {
   else if (state.view === 'type-list') state.view = 'mission-detail';
   else if (state.view === 'add-installation-picker') state.view = 'mission-detail';
   else if (state.view === 'site-overview-group') state.view = 'mission-detail';
+  else if (state.view === 'verification-depart') state.view = 'mission-detail';
   else if (state.view === 'import-conflict') state.view = 'home';
   else if (state.view === 'ed-reference') state.view = 'home';
   else if (state.view === 'guide-utilisation') state.view = 'home';

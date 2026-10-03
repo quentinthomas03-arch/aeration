@@ -369,3 +369,41 @@
     @keyframes splash-pop { 0% { opacity: 0; transform: scale(0.5); } 100% { opacity: 1; transform: scale(1); } }
     @keyframes splash-fade { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: translateY(0); } }
     @keyframes splash-drift { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(30px,-20px) scale(1.1); } }
+
+/* === Aides terrain (js/terrain-assist.js) === */
+.field-hint-n1-ecart { color: var(--status-bad-fg); background: var(--status-bad-bg); border-radius: 8px; padding: 4px 8px; }
+
+.phrases-types { margin-top: 6px; }
+.phrases-toggle { display: inline-flex; align-items: center; gap: 5px; border: none; background: none; color: var(--primary-dark); font-size: 12px; font-weight: 700; padding: 6px 2px; cursor: pointer; text-align: left; }
+.phrases-toggle svg { width: 13px; height: 13px; flex-shrink: 0; }
+.phrases-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.phrase-chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border-subtle); background: var(--primary-pale); color: var(--text-dark); border-radius: 12px; padding: 7px 10px; font-size: 12px; font-weight: 500; cursor: pointer; text-align: left; line-height: 1.3; }
+.phrase-chip:active { transform: scale(0.97); }
+.phrase-chip-perso { background: var(--status-muted-bg); }
+.phrase-chip-del { border: none; background: none; color: var(--text-muted); font-size: 15px; font-weight: 700; padding: 0 2px; cursor: pointer; line-height: 1; }
+.phrase-chip-add { background: white; border-style: dashed; color: var(--primary-dark); font-weight: 700; }
+.phrase-chip-add svg { width: 12px; height: 12px; }
+
+.verif-card { padding-top: 10px; padding-bottom: 10px; }
+.verif-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; padding-bottom: 6px; }
+.verif-head svg { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
+.verif-line { font-size: 13px; padding: 8px 10px; border-top: 1px solid var(--border-subtle); cursor: pointer; color: var(--text-dark); }
+.verif-line-warn { color: var(--status-warn-fg); font-weight: 600; }
+.verif-line-bad { color: var(--status-bad-fg); font-weight: 600; cursor: default; }
+.verif-step { font-size: 11px; color: var(--text-muted); margin-left: 4px; }
+.verif-more { font-size: 12px; color: var(--text-muted); padding: 6px 10px 0; }
+.verif-ok { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--status-ok-fg); background: var(--status-ok-bg); }
+.verif-ok svg { width: 18px; height: 18px; }
+
+.appareil-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 8px; }
+.appareil-badge.status-ok { background: var(--status-ok-bg); color: var(--status-ok-fg); }
+.appareil-badge.status-warn { background: var(--status-warn-bg); color: var(--status-warn-fg); }
+.appareil-badge.status-bad { background: var(--status-bad-bg); color: var(--status-bad-fg); }
+.appareil-badge.status-muted { background: var(--status-muted-bg); color: var(--status-muted-fg); }
+.appareil-edit { border: 1px solid var(--border-subtle); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+.appareil-edit-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.appareil-choice { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border-subtle); font-size: 13px; cursor: pointer; }
+.appareil-choice:first-of-type { border-top: none; }
+.appareil-choice input { margin-top: 3px; }
+.appareil-choice > span { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.appareil-choice-nom { font-weight: 600; }

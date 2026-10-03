@@ -44,6 +44,10 @@ function renderProfilTechnicien() {
   });
   h += '</div>';
 
+  // Appareils de mesure (js/terrain-assist.js) : enregistrés immédiatement à chaque modification,
+  // indépendamment du bouton "Enregistrer" ci-dessous qui ne concerne que les champs d'identité.
+  h += renderAppareilsProfil();
+
   h += '<button class="btn btn-primary" onclick="enregistrerProfil();">' + ICONS.check + ' Enregistrer</button>';
   return h;
 }
