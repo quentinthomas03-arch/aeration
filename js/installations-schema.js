@@ -402,7 +402,8 @@ var INSTALLATION_TYPES = [
         showIf: { key: 'fiche_maintenance', equals: 'Dernière intervention de maintenance' } },
 
       { key: 'section_filtration', label: 'Filtration', type: 'section' },
-      { key: 'afficher_filtration', label: 'Afficher la filtration', type: 'select', options: ['Oui', 'Non'] }
+      { key: 'afficher_filtration', label: 'Afficher la filtration', type: 'select', options: ['Oui', 'Non'] },
+      { key: 'mesure_debit', label: 'Mesure de débit', type: 'select', options: ['Dans le conduit', 'Sur la surface de la grille'] }
     ]
       .concat(buildCtaFiltreFields('filt_pre', 'Pré-filtre', true))
       .concat(buildCtaFiltreFields('filt_filtre', 'Filtre', true))
@@ -425,6 +426,7 @@ var INSTALLATION_TYPES = [
       { key: 'reference_equipement', label: "Référence de l'équipement", type: 'text' },
 
       { key: 'section_gaine', label: 'Section', type: 'section' },
+      { key: 'mesure_debit', label: 'Mesure de débit', type: 'select', options: ['Dans le conduit', 'Sur la surface de la grille'] },
       { key: 'forme_section', label: 'Forme de la section', type: 'select', options: ['Circulaire', 'Rectangulaire'] },
       { key: 'diametre_cote1', label: 'Diamètre ou côte 1 (cm)', type: 'number' },
       { key: 'cote2', label: 'Côte 2 (cm)', type: 'number', showIf: { key: 'forme_section', equals: 'Rectangulaire' } },
@@ -582,6 +584,7 @@ var INSTALLATION_TYPES = [
       { key: 'vitesse_min_mesuree', label: 'Vitesse minimale — Valeur mesurée (m/s)', type: 'computed' },
       { key: 'vitesse_min_reference', label: 'Vitesse minimale — Valeur de référence (m/s, « / » si aucune)', type: 'text' },
       { key: 'vitesse_min_avis_reference', label: 'Vitesse minimale — Avis / valeurs de référence', type: 'computed' },
+      { key: 'vitesse_min_norme_valeur', label: 'Vitesse minimale — Valeur normative (m/s, 0,4 par défaut)', type: 'text' },
       { key: 'vitesse_min_avis_norme', label: 'Vitesse minimale — Avis / ED795 de l\u2019INRS', type: 'computed' },
       { key: 'vitesse_moy_mesuree', label: 'Vitesse moyenne — Valeur mesurée (m/s)', type: 'computed' },
       { key: 'vitesse_moy_reference', label: 'Vitesse moyenne — Valeur de référence (m/s, « / » si aucune)', type: 'text' },
@@ -869,6 +872,12 @@ var INSTALLATION_TYPES = [
 
       { key: 'section_conduit', label: 'Mesure dans le conduit', type: 'section' },
       { key: 'gaine', label: 'Gaine', type: 'text' },
+      // Conduit de la vitesse de transport : présents dans le Rapso et son rapport (débit), ajoutés le
+      // 2026-10-03 lors de l'alignement du PDF.
+      { key: 'forme_section', label: 'Forme du conduit', type: 'select', options: ['Circulaire', 'Rectangulaire'] },
+      { key: 'diametre_cote1', label: 'Diamètre ou côté 1 (cm)', type: 'number' },
+      { key: 'cote2', label: 'Côté 2 (cm)', type: 'number', showIf: { key: 'forme_section', equals: 'Rectangulaire' } },
+      { key: 'debit_vt', label: 'Débit (m³/h)', type: 'computed' },
       { key: 'temperature_conduit', label: 'Température dans le conduit (°C)', type: 'number' },
       { key: 'pression_statique', label: 'Pression statique dans le conduit (Pa)', type: 'number' },
       { key: 'masse_volumique', label: 'Masse volumique dans les conditions réelles (kg/m³)', type: 'computed' }

@@ -118,6 +118,15 @@ function normalizeMission(m) {
       if (inst && inst.data) applyCalculations('locaux_fumeurs', inst);
     });
   }
+  // Sorbonnes : seuil normatif 0,4 m/s désormais appliqué aussi après 2005 (comme le Rapso, décision
+  // du 2026-10-03) — recalcul au chargement pour que les dossiers existants affichent l'avis normatif
+  // (champs calculés uniquement ; une valeur normative déjà saisie n'est jamais écrasée).
+  if (m.installations && Array.isArray(m.installations.sorbonnes) && typeof applyCalculations === 'function') {
+    m.installations.sorbonnes.forEach(function (inst) {
+      if (inst && inst.data) applyCalculations('sorbonnes', inst);
+    });
+  }
+
   // Menuiserie (machines à bois) : jusqu'au 2026-10-03, debit_reference était un champ CALCULÉ qui
   // recevait la valeur du tableau INRS par type de machine (désormais dans debit_inrs_ed750, comme
   // le Rapso). Ce n'était jamais une saisie du technicien : on le vide une seule fois (drapeau

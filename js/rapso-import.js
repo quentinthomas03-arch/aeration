@@ -74,7 +74,7 @@ var RAPSO_FIELD_MAP = {
     ['Etat général (propreté, …)', 'etat_general'], ["Prise d'air neuf", 'prise_air_neuf'],
     ['Batterie(s) froide(s)', 'batterie_froide'], ['Batterie(s) chaude(s)', 'batterie_chaude'],
     ['Canalisations / Gaines', 'canalisations_gaines'], ['Ventilateur / Courroie', 'ventilateur_courroie'],
-    ['Fiche de Maintenance', 'fiche_maintenance'],
+    ['Fiche de Maintenance', 'fiche_maintenance'], ['Mesure de débit', 'mesure_debit'],
     // Libellé du bouton bascule, jamais vide (même piège que extracteur.afficher_taux, 2026-10-03) :
     // "Filtration affiché" = affichée, "Afficher Filtration" = masquée.
     ['Filtration Affiché ?', 'afficher_filtration', function (v) {
@@ -97,6 +97,7 @@ var RAPSO_FIELD_MAP = {
   extracteur: [
     ['Bâtiment', 'batiment'], ['Locaux extraits', 'locaux_extraits'], ['Date du contrôle', 'date_controle'],
     ['Réf. Equipement et/ou Implatation', 'reference_equipement'],
+    ['Mesure de débit', 'mesure_debit'],
     ['Forme de la section', 'forme_section'], ['Diametre ou côte 1 (cm)', 'diametre_cote1'], ['Côte 2 (cm)', 'cote2'],
     ['Valeur de référence ou recommandée (en m³/h)', 'valeur_reference_recommandee'],
     ['Valeur recommandée', 'valeur_recommandee'], ['Référentiel', 'referentiel'],
@@ -132,7 +133,9 @@ var RAPSO_FIELD_MAP = {
     ['Condition de dispersion du polluant', 'vpe_conditions_dispersion'],
     ['Valeur de référence_1', 'vpe_reference'], ["Valeur recommandée par l'INRS(ED695)_1", 'vpe_inrs'],
     ['Type de polluants_1', 'vt_type_polluant'], ['Valeur de référence_2', 'vt_reference'],
-    ["Valeur recommandée par l'INRS(ED695)_2", 'vt_inrs']
+    ["Valeur recommandée par l'INRS(ED695)_2", 'vt_inrs'],
+    ['Type de conduit_1', 'forme_section'], ['Diamètre (cm)_2', 'diametre_cote1'],
+    ['Largeur (cm)_1', 'diametre_cote1'], ['Longueur (cm)_1', 'cote2']
   ],
 
   hottes: [

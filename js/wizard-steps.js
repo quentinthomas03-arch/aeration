@@ -79,7 +79,7 @@ var WIZARD_STEPS = {
     { title: "Vitesse au point d'émission", fields: ['vpe_mesuree', 'vpe_conditions_dispersion', 'vpe_reference', 'vpe_inrs', 'avis_vpe'] },
     { title: 'Vitesse de transport', fields: ['vt_type_polluant', 'vt_inrs', 'vt_mesuree', 'vt_reference', 'avis_vt'] },
     { title: 'Constat', fields: ['avis', 'observation', 'remarque'] },
-    { title: 'Mesure dans le conduit', fields: ['gaine', 'temperature_conduit', 'pression_statique', 'masse_volumique'] }
+    { title: 'Mesure dans le conduit', fields: ['gaine', 'forme_section', 'diametre_cote1', 'cote2', 'debit_vt', 'temperature_conduit', 'pression_statique', 'masse_volumique'] }
   ],
 
   // Checklist réglementaire à 21 critères (UserForm_LOCFUMEUR) : découpée en étapes courtes par
@@ -112,7 +112,7 @@ var WIZARD_STEPS = {
   // Grille de points (vitesse_grid) non retravaillée : reste au rendu existant via gwPassthrough.
   extracteur: [
     { title: 'Identification', fields: ['batiment', 'locaux_extraits', 'date_controle', 'reference_equipement'] },
-    { title: 'Section du conduit', fields: ['forme_section', 'diametre_cote1', 'cote2', 'surface_m2'] },
+    { title: 'Section du conduit', fields: ['mesure_debit', 'forme_section', 'diametre_cote1', 'cote2', 'surface_m2'] },
     { title: 'Vitesse', fields: ['vitesse_mode', 'vitesse_nb_axes', 'vitesse_nb_points', 'vitesse_grid', 'vitesse', 'vitesse_moyenne_grille'] },
     { title: 'Débit & avis', fields: ['valeur_reference_recommandee', 'debit_annee_n1', 'debit_annee_en_cours', 'avis_constructeur', 'observation'] },
     { title: 'Taux de renouvellement (optionnel)', fields: ['afficher_taux', 'valeur_recommandee', 'referentiel', 'volume_local', 'volume_par_heure', 'conclusion_taux'] },
@@ -181,7 +181,7 @@ var WIZARD_STEPS = {
     { title: 'Ouverture de travail', fields: ['largeur_mm', 'annee_construction', 'h_mm_autre', 'h_mm', 'surface_ouverture'] },
     { title: 'Dispositif de sécurité', fields: ['verrouillage_paroi', 'parachute_paroi', 'mesure_vitesse_frontale', 'alarme_sonore', 'alarme_visuelle', 'eclairage_interieur'] },
     { title: 'Grille de points', fields: ['espace_horizontal', 'espace_vertical', 'nb_lignes', 'nb_colonnes', 'grille', 'commentaire'] },
-    { title: 'Résultats — vitesse', fields: ['vitesse_min_mesuree', 'vitesse_min_reference', 'vitesse_min_avis_reference', 'vitesse_min_avis_norme', 'vitesse_moy_mesuree', 'vitesse_moy_reference', 'vitesse_moy_avis_reference'] },
+    { title: 'Résultats — vitesse', fields: ['vitesse_min_mesuree', 'vitesse_min_reference', 'vitesse_min_avis_reference', 'vitesse_min_norme_valeur', 'vitesse_min_avis_norme', 'vitesse_moy_mesuree', 'vitesse_moy_reference', 'vitesse_moy_avis_reference'] },
     { title: 'Résultats — débit', fields: ['debit_mesure', 'debit_reference', 'debit_avis_reference'] }
   ],
 
@@ -253,7 +253,7 @@ var WIZARD_STEPS = {
     { title: 'Filtration — pré-filtre', fields: ['afficher_filtration', 'filt_pre_etat', 'filt_pre_type', 'filt_pre_nombre_dimensions', 'filt_pre_classe', 'filt_pre_perte_charge'] },
     { title: 'Filtration — filtre', fields: ['filt_filtre_etat', 'filt_filtre_type', 'filt_filtre_nombre_dimensions', 'filt_filtre_classe', 'filt_filtre_perte_charge'] },
     { title: 'Filtration — filtre absolu', fields: ['filt_absolu_etat', 'filt_absolu_type', 'filt_absolu_nombre_dimensions', 'filt_absolu_classe'] },
-    { title: 'Réseau neuf — section', fields: ['neuf_forme', 'neuf_diametre_cote1', 'neuf_cote2', 'neuf_surface'] },
+    { title: 'Réseau neuf — section', fields: ['mesure_debit', 'neuf_forme', 'neuf_diametre_cote1', 'neuf_cote2', 'neuf_surface'] },
     { title: 'Réseau neuf — mesures', fields: ['neuf_temperature_conduit', 'neuf_pression_statique', 'neuf_masse_volumique', 'neuf_vitesse', 'neuf_reference', 'neuf_debit_n1', 'neuf_debit'] },
     { title: 'Réseau soufflé — section', fields: ['souf_forme', 'souf_diametre_cote1', 'souf_cote2', 'souf_surface'] },
     { title: 'Réseau soufflé — mesures', fields: ['souf_temperature_conduit', 'souf_pression_statique', 'souf_masse_volumique', 'souf_vitesse', 'souf_reference', 'souf_debit_n1', 'souf_debit'] },

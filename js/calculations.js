@@ -739,8 +739,9 @@ var CALC_RULES = {
         return isNaN(v) ? '' : v;
       } },
     { target: 'debit', fn: function (d, x) {
+        // 2 décimales comme le Rapso (542,73) — l'arrondi à l'unité masquait l'écart au tableau INRS.
         var v = debitFromSV(exactOr(x, d, 'surface_m2'), exactOr(x, d, 'vitesse_moyenne'));
-        return isNaN(v) ? '' : Math.round(v);
+        return isNaN(v) ? '' : v;
       } },
     // Valeur recommandée par l'INRS (ED 750/ED 695) pour le transport pneumatique des poussières de bois : 20 m/s
     { target: 'vitesse_inrs_ed750', fn: function () { return 20; } },
@@ -984,6 +985,11 @@ var CALC_RULES = {
     { target: 'masse_volumique', decimals: 3, fn: function (d) {
         return masseVolumique(d.temperature_conduit, d.pression_statique);
       } },
+    { target: 'debit_vt', decimals: 0, fn: function (d) {
+        // Débit dans le conduit de transport, comme le Rapso : surface × vitesse mesurée × 3600.
+        var v = debitFromSV(surfaceSection(d.forme_section, d.diametre_cote1, d.cote2), d.vt_mesuree);
+        return isNaN(v) ? '' : v;
+      } },
     { target: 'avis', fn: function (d) {
         var mesures = Array.isArray(d.mesures_choisies) ? d.mesures_choisies : [];
         var avis = [];
@@ -1100,20 +1106,20 @@ var CALC_RULES = {
         return isNaN(v) ? '' : v;
       } },
     { target: 'vitesse_min_avis_reference', fn: function (d) { return avisSorbonneRef(d.vitesse_min_mesuree, d.vitesse_min_reference); } },
-    // Le seuil de 0,4 m/s vient de l'ancienne norme XP X15-203 (avant 2005, ouverture 400 mm) — le
-    // guide ED 795 (encadré 2) précise que les normes NF EN 14175 (après 2005) qui l'ont remplacée ne
-    // fixent plus de seuil numérique unique et renvoient à l'analyse au cas par cas / aux données du
-    // fabricant. Distinction ajoutée le 2026-09-18 : ce seuil fixe n'est donc appliqué qu'aux sorbonnes
-    // "Avant 2005" ; pour les autres, seul l'avis par rapport aux valeurs de référence (site/fabricant)
-    // reste pertinent.
+    // Seuil normatif de la vitesse minimale : 0,4 m/s pour TOUTES les sorbonnes, avant comme après
+    // 2005, modifiable par le technicien — fidèle au Rapso V29 (UserForm_SORBONNE : la case "Valeurs
+    // norme" vaut 0,4 par défaut et le choix de l'année ne change que la hauteur d'ouverture ; 4
+    // sorbonnes "après 2005" réelles sur 4 l'appliquent). Décision de Quentin le 2026-10-03, qui
+    // annule la restriction "avant 2005 uniquement" du 2026-09-18 (fondée sur le guide ED 795) :
+    // l'appli reproduit le Rapso, la DT pourra faire évoluer la règle ensuite.
     { target: 'vitesse_min_norme_valeur', fn: function (d) {
-        return (d.annee_construction === 'Avant janvier 2005 - Norme XP X15-203 (h=400mm)') ? '0,4' : '';
+        var v = String(d.vitesse_min_norme_valeur === undefined ? '' : d.vitesse_min_norme_valeur).trim();
+        return v === '' ? '0,4' : v;
       } },
     { target: 'vitesse_min_avis_norme', fn: function (d) {
-        if (d.annee_construction !== 'Avant janvier 2005 - Norme XP X15-203 (h=400mm)') return '';
-        var mes = num(d.vitesse_min_mesuree);
-        if (isNaN(mes)) return '';
-        return mes >= 0.4 ? 'Satisfaisant' : 'Non Satisfaisant';
+        var mes = num(d.vitesse_min_mesuree), seuil = num(d.vitesse_min_norme_valeur);
+        if (isNaN(mes) || isNaN(seuil)) return '';
+        return mes >= seuil ? 'Satisfaisant' : 'Non Satisfaisant';
       } },
     { target: 'vitesse_moy_avis_reference', fn: function (d) { return avisSorbonneRef(d.vitesse_moy_mesuree, d.vitesse_moy_reference); } },
     { target: 'debit_avis_reference', fn: function (d) { return avisSorbonneRef(d.debit_mesure, d.debit_reference); } }
