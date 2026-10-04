@@ -89,7 +89,8 @@ module.exports = {
       const l = parseFloat(String(d.largeur_mm).replace(',', '.'));
       const n = l <= 610 ? 2 : l <= 1010 ? 3 : l <= 1410 ? 4 : l <= 1810 ? 5 : l <= 2210 ? 6 : 7;
       const pts = []; for (let i = 1; i <= 21; i++) { try { pts.push(String(row[col('Point ' + i)] || '').trim()); } catch (e) { break; } }
-      d.grille = [0, 1, 2].map(r => pts.slice(r * n, r * n + n));
+      // Le Rapso numérote les points colonne par colonne (1-2-3 = 1re colonne, cf. schéma de la fiche).
+      d.grille = [0, 1, 2].map(r => Array.from({ length: n }, (_, c) => pts[c * 3 + r] || ''));
     },
     compare: [
       ["Surface de l'ouverture", 'surface_ouverture', 'num'],
@@ -104,7 +105,10 @@ module.exports = {
   TAB_HOTTE: {
     input: [['Mesurées choisis', 'mesures_choisies', splitList], ['Valeur recommandée', 'vt_mesuree']],
     prepare(d, row, col) {
-      d.vpe_grid = fillGrid(row[col('Valeur mesurée pour chaque points')], parseInt(d.vpe_nb_points_hauteur) || 0, parseInt(d.vpe_nb_points_largeur) || 0);
+      // Le Rapso liste les points colonne par colonne (par position en largeur), du bas vers le haut.
+      const nbH = parseInt(d.vpe_nb_points_hauteur) || 0, nbL = parseInt(d.vpe_nb_points_largeur) || 0;
+      const vals = String(row[col('Valeur mesurée pour chaque points')] || '').split(';');
+      d.vpe_grid = Array.from({ length: nbH }, (_, r) => Array.from({ length: nbL }, (_, c) => (vals[c * nbH + r] || '').trim()));
     },
     compare: [
       ['Vitesse minimale (m/s)', 'vpe_min', 'num'], ['Vitesse moyenne (m/s)', 'vpe_moyenne', 'num'],

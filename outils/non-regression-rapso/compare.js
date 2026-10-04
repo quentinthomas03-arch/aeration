@@ -2,9 +2,8 @@
 // valeurs calculées à celles calculées par le Rapso (Excel/VBA). À relancer après toute modification
 // d'une formule. Prérequis : dump.js lancé une fois.
 //   node outils/non-regression-rapso/compare.js [feuille, ex. BOA] [--verbose]
-// Bilan au 2026-10-03 : 2 098 valeurs identiques, 52 écarts tous expliqués (saisies incohérentes
-// dans un classeur source, ancienne version V27, seuil 0,4 m/s des sorbonnes après 2005 écarté
-// volontairement le 2026-09-18).
+// Bilan au 2026-10-03 : 2 106 valeurs identiques, 44 écarts tous expliqués (saisies incohérentes
+// dans un classeur source, ancienne version V27, fiches incomplètes, libellés mineurs).
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const APP = path.resolve(__dirname, '../..');
 const ctx = { console: { log() {}, warn() {} } }; ctx.window = ctx; vm.createContext(ctx);
