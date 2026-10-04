@@ -90,7 +90,10 @@ function seuilsPourChamp(typeId, f, inst) {
     if (actuel !== null && !isNaN(actuel)) {
       ok = (r.min === null || (r.minIncl ? actuel >= r.min : actuel > r.min)) && (r.max === null || (r.maxIncl ? actuel <= r.max : actuel < r.max));
     }
-    return { libelle: resultats.length > 1 ? r.libelle : '', texte: r.texte, ok: ok };
+    // Valeur saisie à moins de 5 % de la borne : à confirmer (js/mesures.js)
+    var borne = r.min !== null ? r.min : r.max, proche = false;
+    if (actuel !== null && !isNaN(actuel) && borne) proche = Math.abs(actuel - borne) / Math.abs(borne) < (typeof MESURE_ZONE_SEUIL !== 'undefined' ? MESURE_ZONE_SEUIL : 0.05);
+    return { libelle: resultats.length > 1 ? r.libelle : '', texte: r.texte, ok: ok, borne: borne, proche: proche };
   });
 }
 
@@ -152,7 +155,8 @@ function seuilObjectifHtml(typeId, f, inst) {
   var h = '<div class="seuil-objectif"><span class="seuil-cible">◎</span><div class="seuil-lignes">';
   list.slice(0, 3).forEach(function (s) {
     h += '<div class="seuil-ligne' + (s.ok === true ? ' atteint' : s.ok === false ? ' manque' : '') + '"><b>Objectif</b>' + (s.libelle ? ' · ' + escapeHtml(s.libelle) : '') + ' : <b>' + escapeHtml(s.texte) + '</b>' +
-      (s.ok === true ? ' <span class="seuil-etat">✓ atteint</span>' : s.ok === false ? ' <span class="seuil-etat">✗ non atteint</span>' : '') + '</div>';
+      (s.ok === true ? ' <span class="seuil-etat">✓ atteint</span>' : s.ok === false ? ' <span class="seuil-etat">✗ non atteint</span>' : '') +
+      (s.proche ? ' <span class="seuil-proche">≈ très proche du seuil : mesure à confirmer</span>' : '') + '</div>';
   });
   return h + '</div></div>';
 }

@@ -119,6 +119,17 @@ function renderPreparation() {
     h += '</div></div>';
   }
 
+  // Quantités prévues au devis, comparées dans « Vérifier avant de partir »
+  var typesMission = INSTALLATION_TYPES.filter(function (t) { return (m.typesSelectionnes || []).indexOf(t.id) !== -1; });
+  if (typesMission.length) {
+    var dv = m.devis || {};
+    h += '<div class="card"><div class="section-title">Quantités prévues au devis</div><p class="subtitle">Facultatif. Un écart avec les installations de la mission est signalé avant de partir.</p><div class="devis-liste">';
+    typesMission.forEach(function (t) {
+      h += '<label class="devis-ligne" for="devis-' + t.id + '"><span>' + escapeHtml(t.label) + '</span><input type="text" inputmode="numeric" class="input" id="devis-' + t.id + '" value="' + (dv[t.id] || '') + '" placeholder="—" onchange="majDevis(\'' + t.id + '\',this.value);"></label>';
+    });
+    h += '</div></div>';
+  }
+
   var mat = materielMission(m), coche = m._materiel || {};
   h += '<div class="card"><div class="section-title">Matériel à emporter</div><p class="subtitle">D’après les mesures prévues dans les fiches des installations de la mission.</p>';
   if (!mat.length) h += '<p class="subtitle">Aucune installation sélectionnée.</p>';
@@ -142,6 +153,27 @@ function renderPreparation() {
     h += '<button class="btn btn-gray" onclick="imprimerEtiquettesQr();">' + ICONS.tag + ' Imprimer les étiquettes QR</button>';
   }
   return h;
+}
+
+function majDevis(typeId, v) {
+  var m = getCurrentMission();
+  if (!m) return;
+  var n = parseInt(String(v || '').trim(), 10);
+  m.devis = m.devis || {};
+  if (n > 0) m.devis[typeId] = n; else delete m.devis[typeId];
+  persistMissions();
+}
+
+// Écarts entre le devis et la mission (« Vérifier avant de partir »)
+function devisEcarts(m) {
+  var dv = m.devis || {}, out = [];
+  if (!Object.keys(dv).length) return out;
+  INSTALLATION_TYPES.forEach(function (t) {
+    var prevu = dv[t.id] || 0, n = (m.installations[t.id] || []).length;
+    if (prevu && n !== prevu) out.push('Devis : ' + prevu + ' × ' + t.label + ', ' + n + ' dans la mission.');
+    else if (!prevu && n) out.push(t.label + ' : ' + n + ' dans la mission, non prévu(s) au devis.');
+  });
+  return out;
 }
 
 function cocherMateriel(k, on) {

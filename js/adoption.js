@@ -4,10 +4,23 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.55';
+var APP_VERSION = '1.58';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.58', date: '04/10/2026', items: [
+    'Créer les installations par quantités (menu ⋯ ou sélection des installations) : tapez le nombre par type dans le tableau, ou collez / importez un tableau Excel (type, nombre, bâtiment, nom). Tout est créé d’un coup, avec les quantités prévues au devis. Modèle Excel téléchargeable.'
+  ] },
+  { version: '1.57', date: '04/10/2026', items: [
+    'Mesure très proche du seuil (à moins de 5 %) : signalée « à confirmer » sous l’objectif et dans « Vérifier avant de partir ».',
+    'Point aberrant dans une grille (très différent des autres points) : signalé sous la grille, à revérifier avant de quitter le poste.',
+    'Quantités prévues au devis (« Préparer la visite ») : l’écart avec les installations de la mission est signalé avant de partir.'
+  ] },
+  { version: '1.56', date: '04/10/2026', items: [
+    'Bilan d’air neuf des CTA : dans la fiche d’une CTA, cochez les locaux qu’elle alimente ; l’air neuf mesuré est comparé au besoin réglementaire cumulé de ces locaux (R4222-6). Repris dans le rapport (4.4).',
+    'Historique : la mesure principale de chaque installation est gardée de visite en visite et affichée en petite courbe dans la fiche.',
+    'Calculette de terrain (bouton en haut des fiches et menu ⋯) : débit d’après la vitesse et la section, vitesse au tube de Pitot, renouvellement d’air, air neuf par occupant.'
+  ] },
   { version: '1.55', date: '04/10/2026', items: [
     'Préparer la visite (menu ⋯) : notes pratiques du site et des installations, reprises l’an prochain et hors rapport ; matériel à emporter selon les installations ; étalonnage des appareils.',
     'Photo de l’an dernier affichée à côté du bouton photo, pour reprendre le même cadrage.',

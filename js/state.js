@@ -519,6 +519,9 @@ function createMissionFromPreviousSite(source) {
       if (inst.data && inst.data._plaque) data._plaque = inst.data._plaque;
       if (inst.data && inst.data._note) data._note = inst.data._note; // note pratique (js/visite.js)
       if (inst.data && inst.data._photoN1) data._photoN1 = inst.data._photoN1; // photo de la visite précédente
+      // Historique des mesures et locaux alimentés par une CTA (js/bilans.js)
+      if (typeof histoPourVisiteSuivante === 'function' && inst.data) { var histo = histoPourVisiteSuivante(typeId, inst.data, source); if (histo.length) data._histo = histo; }
+      if (inst.data && Array.isArray(inst.data._alimente)) data._alimente = inst.data._alimente.slice();
       var nid = generateId();
       if (inst.id) idMap[inst.id] = nid;
       return { id: nid, data: data };

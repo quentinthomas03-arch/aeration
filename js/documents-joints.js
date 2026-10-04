@@ -221,9 +221,17 @@ function docsNormaliser(m) {
       ['_plaque', '_photoN1'].forEach(function (k) { if (inst.data[k] !== undefined && !ok(inst.data[k])) delete inst.data[k]; });
       if (inst.data._note !== undefined) inst.data._note = String(inst.data._note).slice(0, 500);
       if (inst.data._temps !== undefined) inst.data._temps = Math.max(0, parseInt(inst.data._temps, 10) || 0);
+      if (inst.data._alimente !== undefined) inst.data._alimente = (Array.isArray(inst.data._alimente) ? inst.data._alimente : []).filter(instIdOk);
+      if (inst.data._histo !== undefined) inst.data._histo = (Array.isArray(inst.data._histo) ? inst.data._histo : []).map(function (p) { return { a: parseInt(p && p.a, 10), v: Number(p && p.v) }; })
+        .filter(function (p) { return p.a > 1990 && p.a < 2200 && isFinite(p.v); }).slice(-8);
     });
   });
   if (m.notesSite !== undefined) m.notesSite = String(m.notesSite || '').slice(0, 2000);
+  if (m.devis !== undefined) {
+    var dv = {};
+    if (m.devis && typeof m.devis === 'object') Object.keys(m.devis).forEach(function (k) { var n = parseInt(m.devis[k], 10); if (/^[a-z0-9_]{1,40}$/.test(k) && n > 0 && n < 10000) dv[k] = n; });
+    m.devis = dv;
+  }
   if (m.documentsJoints !== undefined) {
     m.documentsJoints = (Array.isArray(m.documentsJoints) ? m.documentsJoints : []).filter(function (d) { return d && ok(d.id) && Array.isArray(d.pages); });
     m.documentsJoints.forEach(function (d) {
@@ -304,6 +312,12 @@ function docsReprendrePourVisiteSuivante(m, source, idMap) {
   m.documentsJoints = JSON.parse(JSON.stringify(source.documentsJoints || [])).map(function (d) {
     d.instIds = (d.instIds || []).map(remap).filter(Boolean);
     return d;
+  });
+  // Locaux alimentés par une CTA (js/bilans.js)
+  Object.keys(m.installations || {}).forEach(function (t) {
+    (m.installations[t] || []).forEach(function (inst) {
+      if (inst.data && Array.isArray(inst.data._alimente)) inst.data._alimente = inst.data._alimente.map(remap).filter(function (x) { return x !== undefined && x !== null; });
+    });
   });
   m.schemas = JSON.parse(JSON.stringify(source.schemas || [])).map(function (s) {
     (s.elements || []).forEach(function (e) { if (e.inst) e.inst = remap(e.inst) || null; });

@@ -88,6 +88,7 @@ function renderSanitairesWizard(m, t, inst) {
   h += '</div>';
   if (step === SANITAIRES_STEP_LABELS.length - 1) h += nextInstallationButtonHtml('sanitaires');
   h += liveVerdictBarHtml('sanitaires', inst);
+  if (typeof histoCarteHtml === 'function') h += histoCarteHtml('sanitaires', inst); // historique (js/bilans.js)
   if (typeof noteInstallationChampHtml === 'function') h += noteInstallationChampHtml('sanitaires', inst); // note pour la prochaine visite
 
   return h;

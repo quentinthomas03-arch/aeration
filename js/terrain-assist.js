@@ -221,6 +221,7 @@ function computeVerification(m) {
   }
   if (!items.length) missionIssues.push('Aucune installation saisie.');
   missionIssues = missionIssues.concat(missionCoherenceIssues(m));
+  if (typeof devisEcarts === 'function') missionIssues = missionIssues.concat(devisEcarts(m)); // quantités du devis (js/visite.js)
   return { items: items, missionIssues: missionIssues };
 }
 

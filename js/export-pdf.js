@@ -1396,6 +1396,7 @@ function pdfBuildRapportDocDefinition(m) {
   content = content.concat(pdfBuildSyntheseControle(m));
   if (typeof pdfBuildPlansSite === 'function') content = content.concat(pdfBuildPlansSite(m)); // 4.2 Plan du site (js/plans.js)
   if (typeof pdfBuildSchemas === 'function') content = content.concat(pdfBuildSchemas(m)); // 4.3 Schémas des réseaux (js/schemas.js)
+  if (typeof pdfBuildBilansCta === 'function') content = content.concat(pdfBuildBilansCta(m)); // 4.4 Bilan d'air neuf des CTA (js/bilans.js)
 
   // Page de titre "ANNEXES" à part entière (grand mot centré verticalement, comme le PDF de
   // référence) plutôt qu'un simple titre en haut de page — corrigé lors de la comparaison avec un

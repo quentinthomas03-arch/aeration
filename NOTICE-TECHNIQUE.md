@@ -26,7 +26,7 @@ puis ouvrir `http://localhost:8129`.
 node outils/tests/run.js
 ```
 
-40 tests, environ 10 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
+43 tests, environ 10 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
 d'`index.html`, sans navigateur, et vérifient la mission de démonstration, le rapport PDF, le compte rendu,
 l'export Excel, le relevé de valeurs de référence, les contrôles, la fusion, le plan du site, les schémas
 de réseau, les documents joints, les étiquettes QR, les objectifs avant mesure, et les calculs face au Rapso.
@@ -107,6 +107,10 @@ d'un tiers ne peut pas exécuter de code, et la conversion ne dépend pas de l'a
 | `plaque.js` | Photo de la plaque signalétique d'un équipement |
 | `visite.js` | « Préparer la visite » : notes pratiques (site et installations), matériel déduit des champs de mesure, étalonnage |
 | `temps.js` | Temps passé par installation (chronomètre discret appelé à chaque rendu), récapitulatif interne du Bilan |
+| `bilans.js` | Bilan d'air neuf des CTA (locaux alimentés, R4222-6, page 4.4) et historique de la mesure principale |
+| `calculette.js` | Calculette de terrain (débit, Pitot, renouvellement, air neuf par occupant) |
+| `mesures.js` | Points aberrants des grilles, mesures à moins de 5 % du seuil (remontés dans « Vérifier avant de partir ») |
+| `import-liste.js` | Créer les installations par quantités (tableau) ou depuis un tableau Excel collé / importé, modèle Excel |
 
 ## Données
 
@@ -120,6 +124,8 @@ d'un tiers ne peut pas exécuter de code, et la conversion ne dépend pas de l'a
   `_temps` (secondes passées sur la fiche). `_plan`, `_qr`, `_plaque`, `_note` et `_photoN1` sont repris à la visite suivante ;
   « Dupliquer » ne recopie jamais les clés `_`.
 - Une photo annotée garde l'original sous `photo[i].orig` et les tracés sous `photo[i].annot`.
+- Installation : `_histo` = [{ a: année, v: valeur }] (mesure principale des visites précédentes, prolongé à chaque « Charger un site précédent ») ; sur une CTA, `_alimente` = identifiants des locaux qu'elle alimente.
+- Mission : `devis` = { typeId: quantité prévue } (comparé dans « Vérifier avant de partir », non repris l'année suivante).
 - Mission : `notesSite` (reprise), `tempsN1` (temps de la visite précédente), `_materiel` (cases cochées, propres à la visite).
 - Schéma : un élément `ventilateur` peut porter `inst` (son installation contrôlée) pour le bilan du réseau (`schemaBilanReseau`).
 - Au niveau de la mission : `plans`, `documentsJoints`, `schemas` (identifiants d'installation dans

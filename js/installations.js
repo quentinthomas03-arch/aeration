@@ -37,8 +37,10 @@ function renderMissionDetail() {
     h += '<div class="mission-menu">' +
       item('state.view=\'mission-form\';render();', ICONS.edit, 'Infos mission') +
       item('state.view=\'select-installations\';render();', ICONS.list, 'Sélection des installations') +
+      (typeof renderImportListe === 'function' ? item('state.importListe=null;state.view=\'import-liste\';render();', ICONS.upload, 'Créer les installations par quantités (ou Excel)') : '') +
       item('state.view=\'preparation\';render();', ICONS.clipboard, 'Préparer la visite (notes, matériel)') +
       item('state.view=\'verification-depart\';render();', ICONS.check, 'Vérifier avant de partir') +
+      (typeof calculetteOuvrir === 'function' ? item('render();calculetteOuvrir();', ICONS.calc, 'Calculette') : '') +
       item('render();shareRapportPdf();', ICONS.upload, 'Envoyer le rapport (mail, Teams…)') +
       item('state.view=\'compte-rendu\';render();', ICONS.edit, 'Compte rendu de fin de visite') +
       item('render();exportSyntheseExcel();', ICONS.list, 'Exporter la synthèse (Excel)') +
@@ -146,8 +148,9 @@ function renderUndoToastRoot() {
 // ligne de la vue d'ensemble (js/site-overview.js), partagée par les 3 rendus d'écran de saisie
 // (wizard générique, wizard sanitaires dédié, rendu à plat de repli).
 function duplicateButtonHtml(typeId, idx) {
-  return '<button type="button" class="btn btn-gray btn-small" title="Dupliquer cette installation" ' +
-    'onclick="duplicateInstallation(\'' + typeId + '\',' + idx + ');">' + ICONS.copy + ' Dupliquer</button>';
+  return '<span class="wizard-actions">' + (typeof calculetteBoutonHtml === 'function' ? calculetteBoutonHtml() : '') + // calculette (js/calculette.js)
+    '<button type="button" class="btn btn-gray btn-small" title="Dupliquer cette installation" ' +
+    'onclick="duplicateInstallation(\'' + typeId + '\',' + idx + ');">' + ICONS.copy + ' Dupliquer</button></span>';
 }
 
 // Duplication rapide (chantier "forte volumétrie") : reprend les champs de configuration de la

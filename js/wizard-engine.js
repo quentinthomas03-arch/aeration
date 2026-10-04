@@ -160,7 +160,8 @@ function gwRenderField(typeId, f, inst) {
     case 'toggle':
       return (f.options && f.options.length <= 4) ? gwChoiceButtons(typeId, f, inst) : gwNativeSelect(typeId, f, inst);
     case 'grid':
-      return seuilAvant(typeId, f, inst) + (f.pointEntry ? gwGridPointEntry(typeId, f, inst) : gwPassthrough(typeId, f, inst));
+      return seuilAvant(typeId, f, inst) + (f.pointEntry ? gwGridPointEntry(typeId, f, inst) : gwPassthrough(typeId, f, inst)) +
+        (typeof grilleAberrantsHtml === 'function' ? grilleAberrantsHtml(typeId, f, inst) : ''); // point aberrant (js/mesures.js)
     case 'charger-list':
     case 'photo':
       return gwPassthrough(typeId, f, inst);
@@ -302,6 +303,8 @@ function renderGenericWizard(m, t, inst) {
   h += '</div>';
   if (posInVisible === visibleIdx.length - 1) h += nextInstallationButtonHtml(t.id);
   h += liveVerdictBarHtml(t.id, inst);
+  if (typeof histoCarteHtml === 'function') h += histoCarteHtml(t.id, inst); // historique (js/bilans.js)
+  if (typeof bilanCtaCarteHtml === 'function') h += bilanCtaCarteHtml(t.id, inst); // bilan d'air neuf de la CTA
   if (typeof plaqueHtml === 'function') h += plaqueHtml(t.id, inst); // photo de la plaque (js/plaque.js)
   if (typeof noteInstallationChampHtml === 'function') h += noteInstallationChampHtml(t.id, inst); // note pour la prochaine visite
 

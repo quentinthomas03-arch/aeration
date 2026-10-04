@@ -34,6 +34,8 @@ function renderSelectInstallations() {
   h += '</div></div>';
 
   h += '<button class="btn btn-primary" style="margin-top:10px;" onclick="confirmerSelectionInstallations();">' + ICONS.check + ' Valider</button>';
+  // Raccourci : créer toutes les installations depuis un tableau Excel (js/import-liste.js)
+  if (typeof renderImportListe === 'function') h += '<button class="btn btn-gray" style="margin-top:8px;" onclick="state.importListe=null;state.view=\'import-liste\';render();">' + ICONS.upload + ' Créer par quantités (ou depuis Excel)</button>';
   if (!isNew) {
     h += '<button class="btn btn-gray" onclick="state.view=\'mission-detail\';render();">Annuler</button>';
   } else {

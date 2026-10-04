@@ -884,3 +884,58 @@ textarea.input { font-family: inherit; line-height: 1.4; }
 .schema-bilan { margin-top: 10px; font-size: 14px; }
 .schema-bilan.ok { border-left: 4px solid #16a34a; }
 .schema-bilan.ecart { border-left: 4px solid #d97706; }
+
+/* === Calculette, historique, bilan de CTA (js/calculette.js, js/bilans.js) === */
+.wizard-actions { display: inline-flex; gap: 6px; align-items: center; }
+.calc-bouton { width: auto; padding-inline: 10px; }
+.calc-bouton svg { width: 18px; height: 18px; }
+.calc-fond { position: fixed; inset: 0; z-index: 1000; background: rgba(10, 20, 30, 0.55); display: flex; align-items: flex-end; justify-content: center; }
+.calc-boite { width: 100%; max-width: 480px; background: var(--card-bg, #fff); border-radius: 18px 18px 0 0; padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; max-height: 92vh; overflow-y: auto; }
+.calc-tete { display: flex; justify-content: space-between; align-items: center; font-size: 17px; color: var(--text-dark); }
+.calc-tete .btn { width: auto; }
+.calc-onglets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.calc-onglet { padding: 9px 4px; border-radius: 10px; border: 1px solid var(--border-subtle); background: var(--card-bg, #fff); color: var(--text-dark); font-weight: 700; font-size: 13px; cursor: pointer; }
+.calc-onglet.active { background: #0082DE; border-color: #0082DE; color: #fff; }
+.calc-corps { display: flex; flex-direction: column; gap: 10px; }
+.calc-champ { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--text-dark); }
+.calc-saisie { display: flex; align-items: center; gap: 8px; }
+.calc-saisie .input { margin: 0; flex: 1; font-size: 18px; }
+.calc-saisie em { font-style: normal; color: var(--text-muted, #6b7785); min-width: 44px; }
+.calc-choix, .calc-cats { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--text-dark); }
+.calc-choix { flex-direction: row; gap: 16px; }
+.calc-resultat { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; background: var(--primary-pale); }
+.calc-ligne { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; color: var(--text-dark); font-variant-numeric: tabular-nums; }
+.calc-ligne.fort { font-size: 18px; }
+.calc-ligne.fort b { color: #005499; }
+.histo-carte { margin-top: 12px; }
+.histo-svg { width: 100%; max-width: 360px; display: block; color: var(--text-dark); }
+.bilan-cta { margin-top: 12px; }
+.bilan-cta-texte { font-size: 14px; margin: 0 0 8px; }
+.bilan-cta-liste { max-height: 260px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 4px 10px; }
+.bilan-cta .btn { width: auto; }
+.bilan-cta .btn svg { width: 14px; height: 14px; }
+
+/* === Fiabilité des mesures et devis (js/mesures.js, js/visite.js) === */
+.seuil-proche { display: inline-block; margin-top: 2px; color: #b45309; font-weight: 700; }
+.mesure-alerte { margin: 6px 0 10px; padding: 9px 12px; border-radius: 12px; background: #FFF4E5; border: 1px solid #F5C98B; color: #7c3d06; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+:root[data-theme="dark"] .mesure-alerte { background: #3a2a14; border-color: #6b4a1e; color: #f5c98b; }
+.devis-liste { display: flex; flex-direction: column; gap: 6px; }
+.devis-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; color: var(--text-dark); }
+.devis-ligne .input { width: 80px; margin: 0; text-align: center; }
+
+/* === Import d'une liste d'installations (js/import-liste.js) === */
+.import-liste-actions { flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.import-liste-actions .btn { width: auto; cursor: pointer; }
+.import-liste-actions .btn svg { width: 14px; height: 14px; }
+.liste-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 10px; }
+.liste-table th, .liste-table td { text-align: left; padding: 6px 4px; border-top: 1px solid var(--border-subtle); vertical-align: top; }
+.liste-table td:nth-child(2) { text-align: center; font-variant-numeric: tabular-nums; }
+.liste-ko td { color: #b42318; }
+.quantites-table { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 10px; }
+.quantites-tete, .quantites-ligne { display: grid; grid-template-columns: minmax(0, 1fr) 64px minmax(0, 0.8fr); gap: 6px; align-items: center; }
+.quantites-tete { font-size: 12px; font-weight: 700; color: var(--text-muted, #6b7785); padding: 0 2px; }
+.quantites-ligne { padding: 4px 0; border-top: 1px solid var(--border-subtle); font-size: 14px; color: var(--text-dark); }
+.quantites-ligne .input { margin: 0; padding: 8px; font-size: 15px; }
+.quantites-ligne input[inputmode="numeric"] { text-align: center; }
+.quantites-ligne label { min-width: 0; overflow-wrap: anywhere; }
+.quantites-actions { position: sticky; bottom: 0; margin: 0 -4px -4px; padding: 10px 4px 4px; background: linear-gradient(to bottom, transparent, var(--card-bg, #fff) 14px); display: flex; flex-direction: column; gap: 6px; }
