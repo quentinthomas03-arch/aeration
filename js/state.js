@@ -211,6 +211,7 @@ function normalizeMission(m) {
     }
     m._migMenuiserieRef = true;
   }
+  if (typeof docsNormaliser === 'function') docsNormaliser(m); // plans, documents joints, schémas
   return m;
 }
 
@@ -496,7 +497,9 @@ function createMissionFromPreviousSite(source) {
   m.clientSite = source.clientSite || m.infosClient.nomEntreprise || '';
   m.typeMission = source.typeMission || '';
   m.typesSelectionnes = (source.typesSelectionnes || []).slice();
+  m.plans = JSON.parse(JSON.stringify(source.plans || []));
 
+  var idMap = {}; // ancien id d'installation -> nouveau (rattachements des documents et schémas)
   Object.keys(source.installations || {}).forEach(function (typeId) {
     if (!m.installations.hasOwnProperty(typeId)) return;
     m.installations[typeId] = (source.installations[typeId] || []).map(function (inst) {
@@ -505,9 +508,15 @@ function createMissionFromPreviousSite(source) {
       // ses valeurs deviennent les références de cette visite, sans écraser une référence existante.
       var refs = (typeof dvrReferencesFor === 'function') ? dvrReferencesFor(source, inst) : null;
       if (refs) Object.keys(refs).forEach(function (k) { if (data[k] === undefined || data[k] === '' || data[k] === '/') data[k] = refs[k]; });
-      return { id: generateId(), data: data };
+      // Emplacement sur le plan du site (js/plans.js) : l'installation n'a pas bougé d'une année sur l'autre
+      if (inst.data && inst.data._plan) data._plan = JSON.parse(JSON.stringify(inst.data._plan));
+      var nid = generateId();
+      if (inst.id) idMap[inst.id] = nid;
+      return { id: nid, data: data };
     });
   });
+  // Documents joints et schémas de réseau (js/documents-joints.js) : repris, comme le plan du site
+  if (typeof docsReprendrePourVisiteSuivante === 'function') docsReprendrePourVisiteSuivante(m, source, idMap);
   normalizeMission(m);
   return m;
 }

@@ -19,6 +19,8 @@ function render() {
     case 'bilan': h = renderBilan(); break;
     case 'compte-rendu': h = renderCompteRendu(); break;
     case 'dvr': h = renderDvr(); break;
+    case 'a-propos': h = renderAPropos(); break;
+    case 'schema-editor': h = renderSchemaEditor(); break;
     default: h = renderHome();
   }
   document.getElementById('app').innerHTML = h;
@@ -132,6 +134,8 @@ window.addEventListener('popstate', function (event) {
   else if (state.view === 'bilan') state.view = 'mission-detail';
   else if (state.view === 'compte-rendu') state.view = 'bilan';
   else if (state.view === 'dvr') state.view = 'mission-detail';
+  else if (state.view === 'a-propos') state.view = 'home';
+  else if (state.view === 'schema-editor') state.view = 'mission-form';
   else if (state.view === 'import-conflict') state.view = 'home';
   else if (state.view === 'ed-reference') state.view = 'home';
   else if (state.view === 'guide-utilisation') state.view = 'home';
@@ -160,12 +164,17 @@ if (typeof loadAutoBackupDirName === 'function') {
   loadAutoBackupDirName().then(function () { if (state._autoBackupDirName) render(); });
 }
 
-// Splash screen
-setTimeout(function () {
-  var splash = document.getElementById('splash');
-  if (splash) {
-    splash.classList.add('fade-out');
-    setTimeout(function () { splash.remove(); }, 600);
-  }
-}, 1400);
+// Splash screen : animation complète au tout premier lancement, à peine visible ensuite (il imposait
+// 1,4 s d'attente à chaque ouverture alors que l'appli est prête bien avant — ergonomie du 2026-10-04).
+(function () {
+  var SPLASH_KEY = 'aeration_splash_vu_v1', dejaVu = false;
+  try { dejaVu = !!localStorage.getItem(SPLASH_KEY); localStorage.setItem(SPLASH_KEY, '1'); } catch (e) {}
+  setTimeout(function () {
+    var splash = document.getElementById('splash');
+    if (splash) {
+      splash.classList.add('fade-out');
+      setTimeout(function () { splash.remove(); }, dejaVu ? 250 : 600);
+    }
+  }, dejaVu ? 150 : 1400);
+})();
 console.log('✓ App Contrôle Aération chargée');

@@ -60,19 +60,22 @@ function shareOrExportMission(id) {
 
     var file = null;
     try { file = new File([built.blob], built.filename, { type: 'application/json' }); } catch (e) { file = null; }
+    // Mail prêt (objet, texte, pièce jointe) : le technicien choisit Outlook puis le destinataire
+    var draft = (typeof missionTransfertMailDraft === 'function') ? missionTransfertMailDraft(m, built.filename)
+      : { to: '', subject: 'Mission ' + (m.clientSite || 'Aération'), body: 'Export mission Contrôle Aération' };
+    var pending = { blob: built.blob, filename: built.filename, mime: 'application/json', draft: draft };
 
     if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({
-        files: [file],
-        title: 'Mission ' + (m.clientSite || 'Aération'),
-        text: 'Export mission Contrôle Aération'
-      }).catch(function (err) {
+      navigator.share({ files: [file], title: draft.subject, text: draft.body }).catch(function (err) {
         if (err && err.name === 'AbortError') return; // annulé par l'utilisateur, rien à faire
-        downloadBlob(built.blob, built.filename);
+        // Préparation trop longue (photos) : le navigateur exige un nouveau toucher -> bandeau « Envoyer »
+        if (err && err.name === 'NotAllowedError' && typeof offerFileShare === 'function') { offerFileShare(built.blob, built.filename, 'application/json', draft); return; }
+        if (typeof fallbackMailWithDownload === 'function') fallbackMailWithDownload(pending); else downloadBlob(built.blob, built.filename);
       });
       return;
     }
-    downloadBlob(built.blob, built.filename);
+    // Ordinateur : fichier téléchargé + brouillon de mail (Outlook) à compléter avec la pièce jointe
+    if (typeof fallbackMailWithDownload === 'function') fallbackMailWithDownload(pending); else downloadBlob(built.blob, built.filename);
   }).catch(function (err) {
     alert('Erreur lors de la préparation de l’export :\n\n' + err.message);
   });
@@ -249,8 +252,20 @@ function importPreviousSiteFromText(text) {
     // Pas de restoreMissionPhotosFromImport ici (contrairement à importMissionFromText) :
     // createMissionFromPreviousSite exclut déjà les champs photo de la reprise de structure (une
     // photo est propre à une visite précise, jamais une référence à reconduire d'un site à
-    // l'autre) — les éventuelles données base64 embarquées dans `source` ne seraient jamais lues,
-    // inutile d'écrire ces blobs dans IndexedDB pour rien.
+    // l'autre). Seules les images des plans du site sont reprises : le plan, lui, ne change pas.
+    var restorePlans = Promise.all([
+      (typeof planImagesFromImport === 'function') ? planImagesFromImport(source) : null,
+      (typeof docsImagesFromImport === 'function') ? docsImagesFromImport(source) : null // documents joints, schémas
+    ]);
+    restorePlans.then(function () { finishImportPreviousSite(source); })
+      .catch(function (err) { alert('Erreur lors du chargement :\n\n' + err.message); });
+  } catch (err) {
+    alert('Erreur lors du chargement :\n\n' + err.message);
+  }
+}
+
+function finishImportPreviousSite(source) {
+  try {
     var m = createMissionFromPreviousSite(source);
     state.missions.push(m);
     persistMissions();
@@ -279,7 +294,7 @@ function importPreviousSiteFromText(text) {
 // ————————————————————————————————————————————
 
 function triggerImportRapso() {
-  if (typeof XLSX === 'undefined') { alert('Bibliothèque de lecture Excel non chargée. Rechargez l’application.'); return; }
+  ensureLib('xlsx').catch(function () {}); // préchargement pendant que le technicien choisit son fichier
   var input = document.getElementById('import-rapso-input');
   if (!input) {
     input = document.createElement('input');
@@ -304,6 +319,11 @@ function handleImportRapso(event) {
 }
 
 function importRapsoFromArrayBuffer(buf, fileName) {
+  ensureLib('xlsx').then(function () { importRapsoLoaded(buf, fileName); })
+    .catch(function (err) { alert('Erreur lors de la lecture du fichier Rapso :\n\n' + err.message); });
+}
+
+function importRapsoLoaded(buf, fileName) {
   try {
     var workbook = XLSX.read(buf, { type: 'array' });
     var result = rapsoWorkbookToSourceMission(workbook, { clientSite: fileName.replace(/\.(xlsb|xlsx|xls)$/i, '') });
@@ -356,10 +376,13 @@ function loadDemoMission() {
     if (!m) throw new Error('format non reconnu');
     m.id = generateId();
     m.createdAt = new Date().toISOString();
+    var idMap = {};
     INSTALLATION_TYPES.forEach(function (t) {
       if (!m.installations[t.id]) m.installations[t.id] = [];
-      m.installations[t.id].forEach(function (inst) { inst.id = generateId(); });
+      m.installations[t.id].forEach(function (inst) { var nid = generateId(); idMap[inst.id] = nid; inst.id = nid; });
     });
+    // Rattachements du schéma de réseau de la démo remis sur les nouveaux identifiants
+    if (typeof docsReprendrePourVisiteSuivante === 'function') docsReprendrePourVisiteSuivante(m, JSON.parse(JSON.stringify(m)), idMap);
     normalizeMission(m);
     return addDemoPhotos(m).then(function () {
       state.missions.push(m);

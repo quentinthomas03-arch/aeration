@@ -4,10 +4,34 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.37';
+var APP_VERSION = '1.44';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.44', date: '04/10/2026', items: [
+    'Envoyer par mail : le rapport PDF et le fichier de la mission (pour modifier sur ordinateur) partent dans un mail prêt (objet, texte, signature) ; choisissez Outlook puis le destinataire.'
+  ] },
+  { version: '1.43', date: '04/10/2026', items: [
+    'Documents joints : dans les données de la mission, joignez photos, images ou PDF remis par le client (plan du réseau d’aspiration, schéma de l’installateur…). Ils sont annexés au rapport et repris à la visite suivante.',
+    'Schéma de réseau : sans plan du client, dessinez le réseau sur site en quelques touchers (postes, captages, registres, filtre, ventilateur, rejet), reliez par des gaines fléchées et rattachez chaque poste à son installation.'
+  ] },
+  { version: '1.42', date: '04/10/2026', items: [
+    'Plan du site : photographiez le plan d’évacuation, placez chaque installation d’un toucher. Les épingles prennent la couleur de l’avis, le plan apparaît dans le rapport et revient à la visite suivante.'
+  ] },
+  { version: '1.41', date: '04/10/2026', items: [
+    'Couleurs de l’appli alignées sur le bleu SOCOTEC du rapport PDF.',
+    'Nouvel en-tête de mission : client, site, date, technicien et anneau d’avancement.',
+    'Listes : bande de couleur selon l’avis et barre d’avancement sous chaque bâtiment.'
+  ] },
+  { version: '1.40', date: '04/10/2026', items: [
+    'Vue « Par type » : chaque ligne affiche le nom de l’installation, le bâtiment au-dessus.',
+    'Bouton « Dupliquer » des listes plus grand et séparé de la flèche d’ouverture.',
+    'Ouverture de l’appli sans attente : l’écran d’accueil animé ne s’affiche en entier qu’au premier lancement.'
+  ] },
+  { version: '1.39', date: '04/10/2026', items: [
+    'Ouverture plus rapide : les modules PDF et Excel ne se chargent plus qu’au moment de s’en servir.',
+    'Nouvel écran « À propos » (accueil) : version, réglementation, normes et guides INRS appliqués.'
+  ] },
   { version: '1.37', date: '03/10/2026', items: [
     'Trois nouveaux types d’après les guides INRS : décapage / grenaillage au jet libre (ED 768), machines-outils à fluide de coupe (ED 972), postes manuels aux solvants (ED 6049).',
     'Grilles de points : pavé numérique intégré, « Valider » passe au point suivant.',

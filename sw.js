@@ -4,7 +4,7 @@
 // des correctifs export-pdf.js n'étaient pas pris en compte malgré un rechargement normal de la
 // page, car fetch() sans option "cache" consulte le cache HTTP heuristique du navigateur avant même
 // d'atteindre ce fetch handler "network-first" — un simple F5 ne suffisait pas).
-const CACHE_NAME = 'aeration-v1.37';
+const CACHE_NAME = 'aeration-v1.44';
 const urlsToCache = [
   './',
   './index.html',
@@ -18,6 +18,7 @@ const urlsToCache = [
   './assets/logo-socotec.jpg',
   './assets/demo/mission-demo.json',
   './js/icons.js',
+  './js/lazy-libs.js',
   './js/state.js',
   './js/installations-schema.js',
   './js/calculations.js',
@@ -39,12 +40,18 @@ const urlsToCache = [
   './js/ergonomie.js',
   './js/controles.js',
   './js/adoption.js',
+  './js/a-propos.js',
   './js/sorties.js',
   './js/fusion.js',
   './js/dvr.js',
   './js/locaux-specifiques.js',
   './js/captages-inrs.js',
   './js/pictos.js',
+  './js/plans.js',
+  './js/documents-joints.js',
+  './js/schemas.js',
+  './js/pdf.min.js',
+  './js/pdf.worker.min.js',
   './js/app.js',
   './js/main.css'
 ];

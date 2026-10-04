@@ -863,6 +863,7 @@ function pdfBuildDocumentsTransmis(m) {
   content.push(pdfDocsTable(dt.documents));
   content.push(Object.assign(pdfHeading2('3.2 NOTICE D\'INSTRUCTION ET CONSIGNES D\'UTILISATION'), { margin: [0, 34, 0, 14] }));
   content.push(pdfNoticeTable(dt.notice, dt.observations));
+  if (typeof pdfBuildDocsJointsListe === 'function') content = content.concat(pdfBuildDocsJointsListe(m)); // 3.3 (js/documents-joints.js)
   return content;
 }
 
@@ -1393,6 +1394,8 @@ function pdfBuildRapportDocDefinition(m) {
   content = content.concat(pdfBuildDescriptionLocaux(m));
   content = content.concat(pdfBuildDocumentsTransmis(m));
   content = content.concat(pdfBuildSyntheseControle(m));
+  if (typeof pdfBuildPlansSite === 'function') content = content.concat(pdfBuildPlansSite(m)); // 4.2 Plan du site (js/plans.js)
+  if (typeof pdfBuildSchemas === 'function') content = content.concat(pdfBuildSchemas(m)); // 4.3 Schémas des réseaux (js/schemas.js)
 
   // Page de titre "ANNEXES" à part entière (grand mot centré verticalement, comme le PDF de
   // référence) plutôt qu'un simple titre en haut de page — corrigé lors de la comparaison avec un
@@ -1417,6 +1420,8 @@ function pdfBuildRapportDocDefinition(m) {
     content.push({ text: '', pageBreak: 'before' });
     content = content.concat(pdfBuildAnnexeForType(t, list));
   });
+  // Dernière annexe : documents joints (js/documents-joints.js)
+  if (typeof pdfBuildDocsJointsAnnexe === 'function') content = content.concat(pdfBuildDocsJointsAnnexe(m, '5.' + (nbSections + 1) + ' DOCUMENTS JOINTS'));
 
   // Images répétées (logo sur chaque page, schémas, photos d'intercalaires) : déclarées une seule fois
   // dans "images" et référencées par clé — pdfmake intégrerait sinon une copie par occurrence (+500 Ko
@@ -1474,7 +1479,19 @@ function exportRapportPdf() {
 // Construit le rapport (images chargées, mise en page pdfmake) sans le télécharger : utilisé par
 // l'export (download) et par l'envoi (getBlob + partage natif, js/sorties.js).
 function buildRapportPdf(m) {
-  if (typeof pdfMake === 'undefined') return Promise.reject(new Error('Bibliothèque PDF non chargée. Rechargez l’application.'));
+  return ensureLib('pdf')
+    .then(function () { return (typeof buildPlanComposites === 'function') ? buildPlanComposites(m) : {}; })
+    .then(function (plans) {
+      PDF_ASSETS.plans = plans;
+      return Promise.all([
+        (typeof buildDocsJointsAssets === 'function') ? buildDocsJointsAssets(m) : {},
+        (typeof buildSchemaComposites === 'function') ? buildSchemaComposites(m) : {}
+      ]);
+    })
+    .then(function (r) { PDF_ASSETS.docs = r[0]; PDF_ASSETS.schemas = r[1]; return buildRapportPdfLoaded(m); });
+}
+
+function buildRapportPdfLoaded(m) {
 
   var sectionImagePaths = [];
   var sectionImageCounts = SECTION_GROUPS.map(function (g) { return g.images.length; });

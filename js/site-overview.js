@@ -205,11 +205,14 @@ function renderOverviewToggle() {
       '" onclick="setOverviewMode(\'batiment\');">Par bâtiment</button>' +
     '<button type="button" class="choice-btn' + (mode === 'type' ? ' selected' : '') +
       '" onclick="setOverviewMode(\'type\');">Par type</button>' +
+    '<button type="button" class="choice-btn' + (mode === 'plan' ? ' selected' : '') +
+      '" onclick="setOverviewMode(\'plan\');">Plan</button>' +
     '</div>';
 }
 
 function setOverviewMode(mode) {
   state.overviewMode = mode;
+  state.planPlacement = null;
   render();
 }
 
@@ -238,13 +241,11 @@ function openOverviewInstallation(typeId, idx) {
 // type-list existant). En mode "Par bâtiment" ce serait redondant avec l'en-tête du groupe : on
 // affiche plutôt le type (en kicker, cf. renderOverviewRow) + un 2e champ texte pour distinguer les
 // installations entre elles.
-function overviewRowTitle(it, mode) {
+// Dans les deux modes, le titre est ce qui identifie l'installation (référence, repère…). En vue
+// « Par type », il affichait auparavant le premier champ texte, c'est-à-dire le bâtiment : cinq bureaux
+// d'affilée s'appelaient « Bâtiment A » (ergonomie du 2026-10-04) ; le bâtiment passe en sur-titre.
+function overviewRowTitle(it) {
   var type = it.type, inst = it.inst;
-  if (mode === 'type') {
-    var f = type.fields.find(function (f) { return f.type === 'text'; });
-    var v = f ? inst.data[f.key] : '';
-    return v || ('#' + (it.idx + 1));
-  }
   // Champ qui identifie l'équipement en priorité (référence, repère...) : « le premier champ texte
   // hors bâtiment » tombait selon le type sur la marque, la localisation ou même la date de contrôle.
   for (var i = 0; i < OVERVIEW_TITLE_KEYS.length; i++) {
@@ -263,16 +264,35 @@ var OVERVIEW_TITLE_KEYS = ['reference_equipement', 'reference_local', 'repere', 
 // (retour utilisateur du 19/09/2026).
 function renderOverviewRow(it, mode) {
   var title = overviewRowTitle(it, mode);
-  var kicker = mode === 'batiment' ? '<div class="overview-row-kicker">' + escapeHtml(it.type.label) + '</div>' : '';
-  return '<div class="overview-row" onclick="openOverviewInstallation(\'' + it.type.id + '\',' + it.idx + ');">' +
+  var bat = it.inst.data && it.inst.data.batiment;
+  var kicker = mode === 'batiment' ? '<div class="overview-row-kicker">' + escapeHtml(it.type.label) + '</div>'
+    : (bat ? '<div class="overview-row-kicker">' + escapeHtml(bat) + '</div>' : '');
+  return '<div class="overview-row ' + it.status.cls + '" onclick="openOverviewInstallation(\'' + it.type.id + '\',' + it.idx + ');">' +
     '<span class="status-dot ' + it.status.cls + '"></span>' +
     '<div class="overview-row-body">' + kicker + '<div class="overview-row-title">' + escapeHtml(title) + '</div>' +
     '<div class="overview-row-status ' + it.status.cls + '">' + escapeHtml(it.status.text) + '</div></div>' +
-    '<button type="button" class="overview-row-duplicate" title="Dupliquer cette installation" ' +
+    '<button type="button" class="overview-row-duplicate" title="Dupliquer cette installation" aria-label="Dupliquer cette installation" ' +
       'onclick="event.stopPropagation();duplicateInstallation(\'' + it.type.id + '\',' + it.idx + ');">' +
       ICONS.copy + '</button>' +
     ICONS.chevronRight +
     '</div>';
+}
+
+// Mini barre sous l'en-tête d'un groupe : part des installations satisfaisantes, non satisfaisantes,
+// à compléter et sans objet ; le reste (à faire) apparaît en fond.
+function overviewGroupProgressHtml(items) {
+  if (!items.length) return '';
+  var c = { ok: 0, bad: 0, warn: 0, na: 0 };
+  items.forEach(function (it) {
+    if (it.status.state === 'todo') return;
+    if (it.status.cls === 'status-ok') c.ok++;
+    else if (it.status.cls === 'status-bad') c.bad++;
+    else if (it.status.cls === 'status-warn') c.warn++;
+    else c.na++;
+  });
+  var pct = function (n) { return (100 * n / items.length).toFixed(1) + '%'; };
+  return '<div class="overview-group-progress" aria-hidden="true">' +
+    ['ok', 'bad', 'warn', 'na'].map(function (k) { return c[k] ? '<span class="p-' + k + '" style="width:' + pct(c[k]) + ';"></span>' : ''; }).join('') + '</div>';
 }
 
 function renderOverviewGroup(g, mode) {
@@ -299,6 +319,7 @@ function renderOverviewGroup(g, mode) {
   }
   if (!isBig) h += '<span class="overview-chevron' + (expanded ? ' expanded' : '') + '">' + ICONS.chevronRight + '</span>';
   h += '</div>';
+  h += overviewGroupProgressHtml(g.items);
 
   if (isBig) {
     h += '<div class="overview-voir-tout"><button class="btn btn-gray btn-small" onclick="openOverviewGroupFull(\'' +
@@ -333,6 +354,7 @@ function renderSiteOverview(m) {
   var h = renderOverviewCounters(items);
   h += renderOverviewSearch();
   h += renderOverviewToggle();
+  if (mode === 'plan' && typeof renderPlanView === 'function') return h + renderPlanView(m, items);
   if (search.trim() && groups.length === 0) {
     h += '<div class="empty-state"><div class="empty-state-icon">' + ICONS.search + '</div>' +
       '<p>Aucune installation ne correspond à « ' + escapeHtml(search) + ' ».</p></div>';

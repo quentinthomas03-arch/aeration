@@ -36,7 +36,9 @@ function loadApp() {
   ctx.document = Object.assign(el(), { documentElement: el(), body: el(), createElement: el, getElementById: () => null, querySelectorAll: () => [] });
   vm.createContext(ctx);
   const html = fs.readFileSync(path.join(APP, 'index.html'), 'utf8');
-  const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m => m[1]).filter(s => s !== 'js/app.js');
+  // Bibliothèques chargées à la demande dans l'appli (js/lazy-libs.js) : chargées d'emblée ici
+  const lazy = ['js/pdfmake.min.js', 'js/vfs_fonts.js', 'js/fonts-arial.js', 'js/xlsx.full.min.js'];
+  const scripts = lazy.concat([...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m => m[1]).filter(s => s !== 'js/app.js'));
   for (const s of scripts) vm.runInContext(fs.readFileSync(path.join(APP, s), 'utf8'), ctx, { filename: s });
   ctx.render = () => {};
   ctx.__alerts = alerts;
@@ -143,7 +145,7 @@ test('démo : export Excel', ctx => {
   ctx.state.missions = [m]; ctx.state.currentMissionId = m.id;
   let wb = null, name = null;
   ctx.XLSX.writeFile = (w, n) => { wb = w; name = n; };
-  ctx.exportSyntheseExcel();
+  ctx.exportSyntheseExcelLoaded(); // cœur synchrone (exportSyntheseExcel attend d'abord le chargement de SheetJS)
   assert(wb, 'classeur non produit');
   assert(/_synthese_aeration\.xlsx$/.test(name), 'nom de fichier : ' + name);
   eq(wb.SheetNames.slice(0, 2), ['Synthèse', 'Mission']);
@@ -413,6 +415,77 @@ test('nouveaux types : fiches PDF et pictogrammes', async ctx => {
   await pdfBuffer(ctx.pdfMake.createPdf(dd));
   const sansPicto = ctx.INSTALLATION_TYPES.filter(t => !/^picto_/.test(t.icon)).map(t => t.id);
   eq(sansPicto, [], 'types sans pictogramme');
+});
+
+test('plan du site : épingles, visite suivante, fusion, page du rapport', async ctx => {
+  const m = loadDemo(ctx);
+  ctx.state.missions = [m]; ctx.state.currentMissionId = m.id;
+  eq(m.plans.length, 1, 'plan de la démo');
+  const placed = ctx.planPlacedItems(m, m.plans[0].id);
+  eq(placed.length, 27, 'installations épinglées');
+  eq(placed.map(p => p.n), placed.map((_, i) => i + 1), 'numérotation continue');
+  assert(placed.every(p => p.x > 0 && p.x < 1 && p.y > 0 && p.y < 1), 'coordonnées relatives');
+  // Visite suivante : le plan et les emplacements reviennent
+  const suivante = ctx.createMissionFromPreviousSite(m);
+  eq(suivante.plans.length, 1, 'plan repris');
+  eq(ctx.planPlacedItems(suivante, m.plans[0].id).length, 27, 'emplacements repris');
+  // Fusion : le plan d'un collègue est ajouté une seule fois
+  const A = ctx.createEmptyMission(); ctx.mergeMissionInto(A, clone(m)); ctx.mergeMissionInto(A, clone(m));
+  eq(A.plans.length, 1, 'plan ajouté par la fusion');
+  // Page « 4.2 Plan du site » (image composée remplacée ici par une image de test)
+  initPdfAssets(ctx);
+  ctx.PDF_ASSETS.plans = { [m.plans[0].id]: dataUrl('favicon-96x96.png') };
+  const page = ctx.pdfBuildPlansSite(m);
+  const txt = JSON.stringify(page);
+  assert(txt.includes('4.2 PLAN DU SITE') && txt.includes('Sorbonne SO-01'), 'page du plan');
+  eq(page.find(n => n.table).table.body.length, 28, 'légende : en-tête + 27');
+  eq(badStrings(page), [], 'valeurs mal formées');
+  // Sans image composée (pas de navigateur), pas de page vide
+  ctx.PDF_ASSETS.plans = {};
+  eq(ctx.pdfBuildPlansSite(m).length, 0);
+});
+
+test('documents joints et schéma de réseau : rattachements, visite suivante, fusion, rapport, fichier piégé', async ctx => {
+  const m = loadDemo(ctx);
+  ctx.state.missions = [m]; ctx.state.currentMissionId = m.id;
+  const sc = m.schemas[0];
+  eq(sc.elements.filter(e => e.inst).length, 3, 'postes de la démo rattachés');
+  m.documentsJoints = [{ id: 'dj_1', nom: 'Plan réseau client', source: 'pdf', pages: ['ph_a', 'ph_b'], instIds: [1022], rapport: true }];
+  // Visite suivante : nouveaux identifiants d'installation, rattachements suivis
+  const suivante = ctx.createMissionFromPreviousSite(m);
+  const scieId = suivante.installations.menuiserie_bis[0].id;
+  assert(scieId !== 1022, 'nouvel identifiant');
+  eq(suivante.documentsJoints[0].instIds, [scieId], 'document rattaché à la nouvelle installation');
+  eq(suivante.schemas[0].elements.find(e => e.id === 'e_scie').inst, scieId, 'poste du schéma rattaché');
+  eq(suivante.schemas[0].liens.length, sc.liens.length, 'gaines reprises');
+  // Fusion : ajoutés une seule fois
+  const A = ctx.createEmptyMission(); ctx.mergeMissionInto(A, clone(m)); ctx.mergeMissionInto(A, clone(m));
+  eq([A.documentsJoints.length, A.schemas.length], [1, 1], 'fusion');
+  // Fichier .json piégé : identifiants et symboles assainis
+  const piege = clone(m);
+  piege.documentsJoints.push({ id: "x');alert(1);//", nom: 'x', pages: ['ph_c'] });
+  piege.schemas[0].elements.push({ id: 'e"><script>', k: 'poste', x: 9, y: 'a' }, { id: 'e_ok', k: '<img>', x: 2, y: -1, t: '<b>' });
+  ctx.normalizeMission(piege);
+  eq(piege.documentsJoints.length, 1, 'document à identifiant piégé écarté');
+  const ok = piege.schemas[0].elements.find(e => e.id === 'e_ok');
+  eq([ok.x, ok.y], [1, 0], 'coordonnées bornées');
+  const svg = ctx.schemaSvg(piege, piege.schemas[0], { legende: true });
+  assert(!svg.includes('<script') && !svg.includes('<b>') && !svg.includes('<img'), 'SVG sans balise injectée');
+  // Rapport : 3.3, 4.3 et annexe (images de test à la place des rendus du navigateur)
+  initPdfAssets(ctx);
+  const img = dataUrl('favicon-96x96.png');
+  ctx.PDF_ASSETS.docs = { ph_a: { url: img, w: 100, h: 140 }, ph_b: { url: img, w: 140, h: 100 } };
+  ctx.PDF_ASSETS.schemas = { [sc.id]: { url: img, w: 1800, h: 1300 } };
+  const dd = ctx.pdfBuildRapportDocDefinition(m);
+  const txt = JSON.stringify(dd.content);
+  assert(txt.includes('3.3    DOCUMENTS JOINTS') && txt.includes('4.3 SCHEMAS DES RESEAUX') && /5\.\d+ DOCUMENTS JOINTS — Document n° 1 : Plan réseau client \(page 2\/2\)/.test(txt), 'sections du rapport');
+  assert(txt.includes('sans valeur de plan d’exécution'), 'mention de schéma de principe');
+  eq(badStrings(dd.content), [], 'valeurs mal formées');
+  const buf = await pdfBuffer(ctx.pdfMake.createPdf(dd));
+  assert(pageCount(buf) > 10, 'PDF produit');
+  // Hors rapport : rien n'est ajouté
+  m.documentsJoints[0].rapport = false; sc.rapport = false;
+  eq([ctx.pdfBuildDocsJointsListe(m).length, ctx.pdfBuildSchemas(m).length, ctx.pdfBuildDocsJointsAnnexe(m, 'x').length], [0, 0, 0], 'hors rapport');
 });
 
 test('valeurs de référence : sanitaires classés en pollution spécifique (R4222-3)', ctx => {

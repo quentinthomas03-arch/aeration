@@ -184,6 +184,8 @@ function resolveMissionPhotosForExport(m) {
       );
     });
   });
+  if (typeof planImagesForExport === 'function') jobs.push(planImagesForExport(clone)); // plans du site (js/plans.js)
+  if (typeof docsImagesForExport === 'function') jobs.push(docsImagesForExport(clone)); // documents joints et schémas (js/documents-joints.js)
   return Promise.all(jobs).then(function () { return clone; });
 }
 
@@ -209,6 +211,8 @@ function restoreMissionPhotosFromImport(mission) {
       return ref;
     }).filter(Boolean);
   });
+  if (typeof planImagesFromImport === 'function') jobs.push(planImagesFromImport(mission)); // plans du site (js/plans.js)
+  if (typeof docsImagesFromImport === 'function') jobs.push(docsImagesFromImport(mission)); // documents joints et schémas
   return Promise.all(jobs).then(function () { return mission; });
 }
 
@@ -222,6 +226,8 @@ function referencedPhotoIds(extraMissions) {
         if (p && p.id) ids[p.id] = true;
       });
     });
+    (Array.isArray(m.plans) ? m.plans : []).forEach(function (p) { if (p && p.photoId) ids[p.photoId] = true; });
+    if (typeof docsPhotoIds === 'function') docsPhotoIds(m).forEach(function (id) { ids[id] = true; });
   });
   return ids;
 }
@@ -239,6 +245,8 @@ function deleteMissionPhotoBlobs(mission, keepMissions) {
       if (p && p.id && !keep[p.id]) ids.push(p.id);
     });
   });
+  (Array.isArray(mission.plans) ? mission.plans : []).forEach(function (p) { if (p && p.photoId && !keep[p.photoId]) ids.push(p.photoId); });
+  if (typeof docsPhotoIds === 'function') docsPhotoIds(mission).forEach(function (id) { if (!keep[id] && ids.indexOf(id) === -1) ids.push(id); });
   return Promise.all(ids.map(function (id) { return deletePhotoBlob(id).catch(function () {}); }));
 }
 

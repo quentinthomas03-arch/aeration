@@ -25,18 +25,32 @@ function missionMailDraft(m, objet) {
 }
 
 function offerPdfShare(pdf, filename, draft) {
-  pdf.getBlob(function (blob) {
-    _pendingShare = { blob: blob, filename: filename, draft: draft };
-    var old = document.getElementById('share-ready-banner');
-    if (old) old.remove();
-    var banner = document.createElement('div');
-    banner.id = 'share-ready-banner';
-    banner.className = 'sw-update-banner';
-    banner.innerHTML = '<span>' + escapeHtml(filename) + ' prêt (' + Math.max(1, Math.round(blob.size / 1024)) + ' Ko)</span>' +
-      '<span style="display:flex;gap:4px;"><button type="button" class="sw-update-btn" onclick="sharePendingPdf();">Envoyer</button>' +
-      '<button type="button" class="sw-update-btn" style="color:#94a0b8;" onclick="this.closest(\'#share-ready-banner\').remove();">Fermer</button></span>';
-    document.body.appendChild(banner);
-  });
+  pdf.getBlob(function (blob) { offerFileShare(blob, filename, 'application/pdf', draft); });
+}
+
+// Bandeau « Envoyer » pour un fichier déjà prêt (PDF, mission .json…)
+function offerFileShare(blob, filename, mime, draft) {
+  offerFilesShare([{ blob: blob, filename: filename, mime: mime }], draft);
+}
+
+// Bandeau « Envoyer » pour un ou plusieurs fichiers prêts (ex. rapport PDF + mission .json)
+function offerFilesShare(files, draft) {
+  _pendingShare = { files: files, draft: draft };
+  var old = document.getElementById('share-ready-banner');
+  if (old) old.remove();
+  var total = files.reduce(function (s, f) { return s + f.blob.size; }, 0);
+  var label = files.length === 1 ? escapeHtml(files[0].filename) + ' prêt' : files.length + ' fichiers prêts (PDF + mission)';
+  var banner = document.createElement('div');
+  banner.id = 'share-ready-banner';
+  banner.className = 'sw-update-banner';
+  banner.innerHTML = '<span>' + label + ' (' + Math.max(1, Math.round(total / 1024)) + ' Ko)</span>' +
+    '<span style="display:flex;gap:4px;"><button type="button" class="sw-update-btn" onclick="sharePendingPdf();">Envoyer</button>' +
+    '<button type="button" class="sw-update-btn" style="color:#94a0b8;" onclick="this.closest(\'#share-ready-banner\').remove();">Fermer</button></span>';
+  document.body.appendChild(banner);
+}
+
+function pendingShareFiles(p) {
+  return p.files || [{ blob: p.blob, filename: p.filename, mime: p.mime }];
 }
 
 function sharePendingPdf() {
@@ -44,10 +58,12 @@ function sharePendingPdf() {
   var banner = document.getElementById('share-ready-banner');
   if (banner) banner.remove();
   if (!p) return;
-  var file = null;
-  try { file = new File([p.blob], p.filename, { type: 'application/pdf' }); } catch (e) { file = null; }
-  if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], title: p.draft.subject, text: p.draft.body }).catch(function (err) {
+  var files = null;
+  try {
+    files = pendingShareFiles(p).map(function (f) { return new File([f.blob], f.filename, { type: f.mime || 'application/pdf' }); });
+  } catch (e) { files = null; }
+  if (files && navigator.canShare && navigator.canShare({ files: files })) {
+    navigator.share({ files: files, title: p.draft.subject, text: p.draft.body }).catch(function (err) {
       if (err && err.name === 'AbortError') return;
       fallbackMailWithDownload(p);
     });
@@ -56,13 +72,55 @@ function sharePendingPdf() {
   fallbackMailWithDownload(p);
 }
 
-// Ordinateur (pas de partage de fichier) : le PDF est téléchargé et un brouillon de mail s'ouvre,
-// adressé au contact du site ; il ne reste qu'à joindre le fichier.
+// Ordinateur (pas de partage de fichier) : les fichiers sont téléchargés et un brouillon de mail
+// s'ouvre (Outlook) ; il ne reste qu'à y glisser les pièces jointes.
 function fallbackMailWithDownload(p) {
-  downloadBlob(p.blob, p.filename);
+  var files = pendingShareFiles(p);
+  files.forEach(function (f, i) { setTimeout(function () { downloadBlob(f.blob, f.filename); }, i * 400); });
   var href = 'mailto:' + encodeURIComponent(p.draft.to) + '?subject=' + encodeURIComponent(p.draft.subject) +
-    '&body=' + encodeURIComponent(p.draft.body + '\n\n(Pièce jointe : ' + p.filename + ')');
-  window.location.href = href;
+    '&body=' + encodeURIComponent(p.draft.body + '\n\n(Pièce' + (files.length > 1 ? 's' : '') + ' jointe' + (files.length > 1 ? 's' : '') + ' : ' +
+      files.map(function (f) { return f.filename; }).join(', ') + ')');
+  setTimeout(function () { window.location.href = href; }, files.length * 400);
+}
+
+// Mail de la mission : objet, texte et signature prêts, destinataire choisi dans Outlook
+function missionTransfertMailDraft(m, jsonFilename, pdfFilename) {
+  var di = m.donneesInternes || {}, site = m.clientSite || (m.infosSiteIntervention && m.infosSiteIntervention.siteIntervention) || '';
+  var p = (typeof getProfilTechnicien === 'function' && getProfilTechnicien()) || {};
+  var date = new Date().toLocaleDateString('fr-FR');
+  var signature = [p.nom || di.auteurRapport || m.controleur || '', p.agence ? 'SOCOTEC – ' + p.agence : 'SOCOTEC', p.tel || ''].filter(Boolean).join('\n');
+  var lignes = pdfFilename
+    ? 'Ci-joint, pour le contrôle de l’aération' + (site ? ' du site ' + site : '') + ' :\n' +
+      '- le rapport : ' + pdfFilename + '\n' +
+      '- le fichier de la mission : ' + jsonFilename + ' (pour reprendre ou modifier la mission, sur ordinateur ou sur un autre téléphone : appli Contrôle Aération, « Importer une mission »)'
+    : 'Ci-joint le fichier de la mission de contrôle de l’aération' + (site ? ' du site ' + site : '') + ' (' + jsonFilename + ').\n' +
+      'Pour l’ouvrir : appli Contrôle Aération, « Importer une mission » (ou « Fusionner le travail d’un collègue » pour ajouter ce travail à une mission existante).';
+  return {
+    to: '',
+    subject: (pdfFilename ? 'Rapport aération' : 'Mission aération') + (site ? ' – ' + site : '') + (di.numeroAffaire ? ' – affaire ' + di.numeroAffaire : '') + ' – ' + date,
+    body: 'Bonjour,\n\n' + lignes + '\n\nCordialement,\n' + signature
+  };
+}
+
+// Menu de la mission : un mail avec le rapport PDF ET la mission .json (pour modifier sur PC si besoin)
+function envoyerRapportEtMission() {
+  var m = getCurrentMission();
+  if (!m) return;
+  Promise.all([
+    buildRapportPdf(m).then(function (r) {
+      return new Promise(function (res) { r.pdf.getBlob(function (b) { res({ blob: b, filename: r.filename, mime: 'application/pdf' }); }); });
+    }),
+    buildMissionExportBlob(m).then(function (b) { return { blob: b.blob, filename: b.filename, mime: 'application/json' }; })
+  ]).then(function (files) {
+    var total = files[0].blob.size + files[1].blob.size;
+    if (total > SHARE_SIZE_WARN_THRESHOLD) {
+      alert('Les deux fichiers font ' + Math.round(total / 1024 / 1024) + ' Mo (photos incluses) : trop lourd pour un mail depuis le téléphone.\n\n' +
+        'Ils vont être téléchargés : transférez-les ensuite manuellement (câble, OneDrive…).');
+      files.forEach(function (f, i) { setTimeout(function () { downloadBlob(f.blob, f.filename); }, i * 400); });
+      return;
+    }
+    offerFilesShare(files, missionTransfertMailDraft(m, files[1].filename, files[0].filename));
+  }).catch(function (err) { alert('Erreur lors de la préparation du mail.\n' + err.message); });
 }
 
 function shareRapportPdf() {
@@ -91,9 +149,13 @@ function excelSheetName(label, used) {
 }
 
 function exportSyntheseExcel() {
+  if (!getCurrentMission()) return;
+  ensureLib('xlsx').then(exportSyntheseExcelLoaded).catch(function (err) { alert(err.message); });
+}
+
+function exportSyntheseExcelLoaded() {
   var m = getCurrentMission();
   if (!m) return;
-  if (typeof XLSX === 'undefined') { alert('Bibliothèque Excel non chargée. Rechargez l’application.'); return; }
   var items = overviewOrderedItems(m);
   var wb = XLSX.utils.book_new(), used = {};
 
@@ -325,8 +387,8 @@ function compteRenduDocDefinition(m, logo) {
 
 function exportCompteRenduPdf(share) {
   var m = getCurrentMission();
-  if (!m || typeof pdfMake === 'undefined') return;
-  pdfFetchAsDataUrl(LOGO_PATH).then(function (logo) {
+  if (!m) return;
+  ensureLib('pdf').then(function () { return pdfFetchAsDataUrl(LOGO_PATH); }).then(function (logo) {
     var pdf = pdfMake.createPdf(compteRenduDocDefinition(m, logo));
     var name = (m.clientSite || 'Mission').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç\s-]/g, '').trim() + '_compte_rendu_visite.pdf';
     if (share) offerPdfShare(pdf, name, missionMailDraft(m, 'Compte rendu de fin de visite'));

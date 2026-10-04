@@ -37,6 +37,7 @@ function renderHome() {
   h += '<button type="button" class="home-tab-btn" onclick="state.view=\'guide-utilisation\';render();">' + ICONS.play + '<span>Guide</span></button>';
   h += '<button type="button" class="home-tab-btn" onclick="state.view=\'ed-reference\';render();">' + ICONS.clipboard + '<span>Aide-mémoire</span></button>';
   h += '<button type="button" class="home-tab-btn" onclick="cycleTheme();">' + THEME_ICON + '<span>' + themeLabel() + '</span></button>';
+  h += '<button type="button" class="home-tab-btn" onclick="state.view=\'a-propos\';render();">' + APROPOS_ICON + '<span>À propos</span></button>';
   if (typeof isFsaSupported === 'function' && isFsaSupported()) {
     h += '<button type="button" class="home-tab-btn" onclick="chooseAutoBackupFolder();">' + ICONS.folder + '<span>Sauvegarde</span></button>';
   }
@@ -252,6 +253,7 @@ function renderMissionForm() {
   h += renderAppareilsMissionSection(m);
   if (typeof renderDvrMissionOption === 'function') h += renderDvrMissionOption(m);
   h += renderDocumentsTransmisSection(m);
+  if (typeof renderDocumentsJointsSection === 'function') h += renderDocumentsJointsSection(m);
   h += renderDescriptionLocauxSection(m);
 
   if (isNew) {

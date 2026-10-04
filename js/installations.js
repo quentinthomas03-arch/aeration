@@ -5,8 +5,20 @@ function renderMissionDetail() {
   var m = getCurrentMission();
   if (!m) { state.view = 'home'; render(); return ''; }
   var h = '<button class="back-btn" onclick="state.missionMenuOpen=false;state.view=\'home\';render();">' + ICONS.arrowLeft + ' Accueil</button>';
-  h += '<div class="card mission-head"><h1>' + ICONS.building + ' ' + escapeHtml(m.clientSite || 'Mission') + '</h1>';
-  h += '<p class="subtitle">' + escapeHtml(m.controleur || '') + (m.dateControle ? ' • ' + escapeHtml(m.dateControle) : '') + '</p>';
+  // En-tête « tableau de bord » (esthétique du 2026-10-04) : client, site, date, technicien et anneau
+  // d'avancement, dans le bleu du rapport.
+  var di = m.donneesInternes || {}, si = m.infosSiteIntervention || {};
+  var heroItems = (typeof overviewOrderedItems === 'function') ? overviewOrderedItems(m) : [];
+  var heroDone = heroItems.filter(function (it) { return it.status.state === 'done'; }).length;
+  var lieu = [si.siteIntervention, si.ville].filter(Boolean).join(' · ');
+  var dates = di.datesIntervention || m.dateControle || '';
+  var meta = [dates ? '<span>' + ICONS.clock + escapeHtml(dates) + '</span>' : '', m.controleur ? '<span>' + ICONS.user + escapeHtml(m.controleur) + '</span>' : ''].join('');
+  h += '<div class="card mission-head"><div class="mission-hero"><div class="mission-hero-text">' +
+    '<div class="mission-hero-kicker">' + (di.numeroAffaire ? 'Affaire ' + escapeHtml(di.numeroAffaire) : 'Mission') + '</div>' +
+    '<h1>' + escapeHtml(m.clientSite || 'Mission') + '</h1>' +
+    (lieu && lieu !== m.clientSite ? '<div class="mission-hero-sub">' + escapeHtml(lieu) + '</div>' : '') +
+    (meta ? '<div class="mission-hero-meta">' + meta + '</div>' : '') + '</div>' +
+    (heroItems.length ? missionRingSvg(heroDone, heroItems.length) : '') + '</div><div class="mission-head-body">';
 
   // Écran allégé (ergonomie du 2026-10-03) : la liste des installations, essentielle sur site, passe
   // avant les actions secondaires. Restent visibles le rapport PDF (export direct pdfmake, cf.
@@ -30,11 +42,12 @@ function renderMissionDetail() {
       item('state.view=\'compte-rendu\';render();', ICONS.edit, 'Compte rendu de fin de visite') +
       item('render();exportSyntheseExcel();', ICONS.list, 'Exporter la synthèse (Excel)') +
       (m.dvr && m.dvr.actif ? item('state.view=\'dvr\';render();', ICONS.clipboard, 'Relevé des valeurs de référence') : '') +
-      item('render();shareOrExportMission(' + m.id + ');', ICONS.download, 'Transférer la mission (fichier .json)') +
+      item('render();envoyerRapportEtMission();', ICONS.upload, 'Envoyer par mail : rapport PDF + mission (Outlook)') +
+      item('render();shareOrExportMission(' + m.id + ');', ICONS.download, 'Transférer la mission seule (fichier .json)') +
       item('render();triggerMergeMission();', ICONS.merge, 'Fusionner le travail d’un collègue (.json)') +
       '</div>';
   }
-  h += '</div>';
+  h += '</div></div>';
 
   // Chantier "ergonomie de saisie terrain" (2026-08) : la liste à plat "un type = une ligne avec
   // compteur" est remplacée par l'écran de vue d'ensemble (compteurs, groupage bâtiment/type,

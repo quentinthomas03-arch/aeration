@@ -88,6 +88,12 @@ function mergeMissionInto(target, incoming) {
     if (!target.documentsTransmis.observations) target.documentsTransmis.observations = incoming.documentsTransmis.observations || '';
   }
   if (incoming.compteRendu && !(target.compteRendu && target.compteRendu.signature)) target.compteRendu = incoming.compteRendu;
+  // Plans du site (js/plans.js) : ceux du collègue absents de la mission locale sont ajoutés
+  (incoming.plans || []).forEach(function (p) {
+    if (!Array.isArray(target.plans)) target.plans = [];
+    if (!target.plans.some(function (x) { return x.id === p.id; })) target.plans.push(JSON.parse(JSON.stringify(p)));
+  });
+  if (typeof docsFusionner === 'function') docsFusionner(target, incoming); // documents joints, schémas
   return report;
 }
 

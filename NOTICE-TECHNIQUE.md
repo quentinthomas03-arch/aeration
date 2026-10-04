@@ -36,6 +36,7 @@ Puis, pour publier une nouvelle version aux techniciens :
 2. Ajouter tout nouveau fichier à la liste de pré-cache de `sw.js` et à `index.html`.
 3. Incrémenter `APP_VERSION` et ajouter une entrée en tête de `NOUVEAUTES` dans `js/adoption.js` :
    les techniciens la verront sur l'accueil après la mise à jour.
+4. Si un critère ou un texte a changé, mettre à jour la liste et la date de relecture dans `js/a-propos.js`.
 
 Si un changement modifie volontairement la mission de démonstration ou un résultat de calcul, mettre à
 jour les valeurs attendues dans `outils/tests/run.js` dans le même commit, en expliquant pourquoi.
@@ -61,6 +62,8 @@ ancienne version V27, fiches incomplètes). Le test automatique échoue s'il y e
 ## Organisation du code
 
 Ordre de chargement : celui des balises `<script>` d'`index.html`. Les fonctions sont globales.
+Les bibliothèques lourdes (pdfmake, polices, SheetJS) ne sont pas dans `index.html` : toute fonction qui
+les utilise passe d'abord par `ensureLib()` (`js/lazy-libs.js`). Elles restent dans le pré-cache de `sw.js`.
 
 | Fichier | Rôle |
 |---|---|
@@ -86,6 +89,8 @@ Ordre de chargement : celui des balises `<script>` d'`index.html`. Les fonctions
 | `import-export.js`, `rapso-import.js` | Transfert JSON, mission de démonstration, import de classeurs Rapso |
 | `photos.js`, `auto-backup.js`, `storage-indicator.js` | Photos (IndexedDB), sauvegarde automatique, espace utilisé |
 | `adoption.js`, `guide-utilisation.js`, `ed-reference.js` | Nouveautés, visite guidée, guide, aide-mémoire des guides INRS |
+| `a-propos.js` | Écran « À propos » : version et liste des textes, normes et guides appliqués (à tenir à jour) |
+| `lazy-libs.js` | Chargement à la demande de pdfmake, des polices et de SheetJS (`ensureLib('pdf')`, `ensureLib('xlsx')`) |
 
 ## Données
 

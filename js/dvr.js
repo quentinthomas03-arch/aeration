@@ -390,8 +390,8 @@ function dvrDocDefinition(m, logo) {
 
 function exportDvrPdf(share) {
   var m = getCurrentMission();
-  if (!m || typeof pdfMake === 'undefined') return;
-  pdfFetchAsDataUrl(LOGO_PATH).then(function (logo) {
+  if (!m) return;
+  ensureLib('pdf').then(function () { return pdfFetchAsDataUrl(LOGO_PATH); }).then(function (logo) {
     var pdf = pdfMake.createPdf(dvrDocDefinition(m, logo));
     var name = (m.clientSite || 'Mission').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç\s-]/g, '').trim() + '_releve_valeurs_reference.pdf';
     if (share) offerPdfShare(pdf, name, missionMailDraft(m, 'Relevé des valeurs de référence'));

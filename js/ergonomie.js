@@ -160,6 +160,17 @@ function nextInstallationButtonHtml(typeId) {
     escapeHtml(nextInstallationLabel(next)) + '</span></span>' + ICONS.arrowRight + '</button>';
 }
 
+// Anneau d'avancement de l'en-tête de mission (installations terminées / total)
+function missionRingSvg(done, total) {
+  var r = 30, c = 2 * Math.PI * r, len = total ? c * done / total : 0;
+  return '<svg class="mission-ring" viewBox="0 0 76 76" role="img" aria-label="' + done + ' installations terminées sur ' + total + '">' +
+    '<circle cx="38" cy="38" r="' + r + '" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="7"/>' +
+    '<circle cx="38" cy="38" r="' + r + '" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" ' +
+    'stroke-dasharray="' + len.toFixed(1) + ' ' + (c - len).toFixed(1) + '" transform="rotate(-90 38 38)"/>' +
+    '<text x="38" y="40" text-anchor="middle" class="mission-ring-value">' + done + '/' + total + '</text>' +
+    '<text x="38" y="53" text-anchor="middle" class="mission-ring-label">terminées</text></svg>';
+}
+
 // === Bilan de mission ===
 
 var BILAN_CATEGORIES = [
@@ -241,7 +252,7 @@ function renderBilan() {
     h += '<div class="card overview-group">';
     bad.forEach(function (it) {
       var detail = typeof badPointDetail === 'function' ? badPointDetail(it) : '';
-      h += '<div class="overview-row" onclick="openOverviewInstallation(\'' + it.type.id + '\',' + it.idx + ');">' +
+      h += '<div class="overview-row status-bad" onclick="openOverviewInstallation(\'' + it.type.id + '\',' + it.idx + ');">' +
         '<span class="status-dot status-bad"></span><div class="overview-row-body">' +
         '<div class="overview-row-kicker">' + escapeHtml(it.type.label) + (it.inst.data.batiment ? ' · ' + escapeHtml(it.inst.data.batiment) : '') + '</div>' +
         '<div class="overview-row-title">' + escapeHtml(overviewRowTitle(it, 'batiment')) + '</div>' +
