@@ -185,6 +185,7 @@ function renderSanStep2(inst) {
 
 function renderSanStep3(inst) {
   var h = '';
+  if (typeof seuilAvant === 'function') h += seuilAvant('sanitaires', sanitairesFieldDef('debit_mesure'), inst); // objectif (js/seuils.js)
   h += sanBigNumber(sanitairesFieldDef('debit_mesure'), inst);
   if (inst.data.type_ventilation) {
     h += sanComputedBadge('Type de ventilation (constat)', inst.data.type_ventilation);

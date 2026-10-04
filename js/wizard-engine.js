@@ -143,19 +143,24 @@ function gwPassthrough(typeId, f, inst) {
     renderFieldInput(typeId, f, inst) + '</div>';
 }
 
+// Objectif à atteindre, affiché au-dessus du champ de mesure (js/seuils.js)
+function seuilAvant(typeId, f, inst) {
+  return (typeof seuilObjectifHtml === 'function') ? seuilObjectifHtml(typeId, f, inst) : '';
+}
+
 function gwRenderField(typeId, f, inst) {
   if (f.showIf && !evalShowIf(f.showIf, inst.data)) return '';
   switch (f.type) {
     case 'computed': return gwComputedBadge(typeId, f, inst);
     case 'text': return gwBigText(typeId, f, inst);
-    case 'number': return gwBigNumber(typeId, f, inst);
+    case 'number': return seuilAvant(typeId, f, inst) + gwBigNumber(typeId, f, inst);
     case 'textarea': return gwTextarea(typeId, f, inst);
     case 'checkbox-group': return gwChoiceButtonsMulti(typeId, f, inst);
     case 'select':
     case 'toggle':
       return (f.options && f.options.length <= 4) ? gwChoiceButtons(typeId, f, inst) : gwNativeSelect(typeId, f, inst);
     case 'grid':
-      return f.pointEntry ? gwGridPointEntry(typeId, f, inst) : gwPassthrough(typeId, f, inst);
+      return seuilAvant(typeId, f, inst) + (f.pointEntry ? gwGridPointEntry(typeId, f, inst) : gwPassthrough(typeId, f, inst));
     case 'charger-list':
     case 'photo':
       return gwPassthrough(typeId, f, inst);

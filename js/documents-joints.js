@@ -229,10 +229,17 @@ function docsNormaliser(m) {
       s.nom = String(s.nom || 'Schéma').slice(0, 80);
       s.ratio = Math.min(2, Math.max(0.3, Number(s.ratio) || 0.7));
       if (s.fondPhotoId && !ok(s.fondPhotoId)) s.fondPhotoId = null;
+      // Types d'installations regroupés : null = à choisir, absent ou [] = tous
+      if (s.types !== undefined && s.types !== null) s.types = (Array.isArray(s.types) ? s.types : []).filter(function (t) { return typeof t === 'string' && /^[a-z0-9_]{1,40}$/.test(t); });
       var num = function (v) { v = Number(v); return isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5; };
       s.elements = (Array.isArray(s.elements) ? s.elements : []).filter(function (e) { return e && ok(e.id) && typeof e.k === 'string'; })
-        .map(function (e) { return { id: e.id, k: e.k, x: num(e.x), y: num(e.y), t: String(e.t || '').slice(0, 40), inst: instIdOk(e.inst) ? e.inst : null }; });
-      s.liens = (Array.isArray(s.liens) ? s.liens : []).filter(function (l) { return l && ok(l.id) && typeof l.a === 'string' && typeof l.b === 'string'; });
+        .map(function (e) {
+          return { id: e.id, k: e.k, x: num(e.x), y: num(e.y), n: String(e.n || '').slice(0, 8), t: String(e.t || '').slice(0, 40),
+            c: (typeof SCHEMA_COULEURS !== 'undefined' && SCHEMA_COULEURS.hasOwnProperty(e.c)) ? e.c : '', inst: instIdOk(e.inst) ? e.inst : null };
+        });
+      var GAINES = ['aspiration', 'rejet', 'recyclage', 'air_neuf'];
+      s.liens = (Array.isArray(s.liens) ? s.liens : []).filter(function (l) { return l && ok(l.id) && typeof l.a === 'string' && typeof l.b === 'string'; })
+        .map(function (l) { return { id: l.id, a: l.a, b: l.b, g: GAINES.indexOf(l.g) !== -1 ? l.g : 'aspiration', t: String(l.t || '').slice(0, 20) }; });
     });
   }
 }

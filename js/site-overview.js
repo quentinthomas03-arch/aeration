@@ -351,7 +351,8 @@ function renderSiteOverview(m) {
 
   // Les compteurs restent sur le total du site (repère fixe), seule la liste de groupes ci-dessous
   // est filtrée par la recherche.
-  var h = renderOverviewCounters(items);
+  var h = (typeof renderQrScanBouton === 'function') ? renderQrScanBouton(m) : ''; // étiquettes QR (js/qr.js)
+  h += renderOverviewCounters(items);
   h += renderOverviewSearch();
   h += renderOverviewToggle();
   if (mode === 'plan' && typeof renderPlanView === 'function') return h + renderPlanView(m, items);

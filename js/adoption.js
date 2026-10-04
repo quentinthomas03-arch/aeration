@@ -4,10 +4,23 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.46';
+var APP_VERSION = '1.50';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.50', date: '04/10/2026', items: [
+    'Annoter une photo : bouton crayon sur chaque photo pour entourer, flécher ou écrire sur le défaut (3 couleurs). La photo annotée part dans le rapport ; l’original est conservé pour reprendre l’annotation.'
+  ] },
+  { version: '1.49', date: '04/10/2026', items: [
+    'Étiquettes QR : avant la visite, imprimez depuis la mission (menu ⋯) une planche d’étiquettes, une par installation, avec son nom dessous. Collez-les sur site ; l’an prochain, « Scanner l’étiquette » (ou l’appareil photo du téléphone) ouvre directement la bonne fiche.'
+  ] },
+  { version: '1.48', date: '04/10/2026', items: [
+    'Objectif avant la mesure : au-dessus de chaque champ de mesure, la valeur à atteindre pour un avis satisfaisant (déduite du calcul de l’appli), avec « atteint / non atteint » dès la saisie.'
+  ] },
+  { version: '1.47', date: '04/10/2026', items: [
+    'Schéma de réseau refait : on choisit d’abord les types d’installations du réseau, puis on place les vraies installations d’un toucher (nom, numéro et couleur de l’avis repris).',
+    'Numéros et noms sur chaque élément, couleurs au choix, gaines colorées selon leur rôle (aspiration, rejet, recyclage, air neuf), légende et nomenclature à l’écran et dans le rapport.'
+  ] },
   { version: '1.46', date: '04/10/2026', items: [
     'Schémas de réseau : bouton « Dessiner un schéma de réseau » ajouté aussi dans l’onglet Plan de la mission.'
   ] },

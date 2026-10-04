@@ -212,6 +212,7 @@ function normalizeMission(m) {
     m._migMenuiserieRef = true;
   }
   if (typeof docsNormaliser === 'function') docsNormaliser(m); // plans, documents joints, schémas
+  if (typeof qrNormaliser === 'function') qrNormaliser(m); // codes des étiquettes QR (js/qr.js)
   return m;
 }
 
@@ -510,6 +511,8 @@ function createMissionFromPreviousSite(source) {
       if (refs) Object.keys(refs).forEach(function (k) { if (data[k] === undefined || data[k] === '' || data[k] === '/') data[k] = refs[k]; });
       // Emplacement sur le plan du site (js/plans.js) : l'installation n'a pas bougé d'une année sur l'autre
       if (inst.data && inst.data._plan) data._plan = JSON.parse(JSON.stringify(inst.data._plan));
+      // Étiquette QR collée sur l'installation (js/qr.js) : même code d'une année sur l'autre
+      if (inst.data && inst.data._qr) data._qr = inst.data._qr;
       var nid = generateId();
       if (inst.id) idMap[inst.id] = nid;
       return { id: nid, data: data };

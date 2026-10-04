@@ -44,6 +44,7 @@ function renderMissionDetail() {
       (m.dvr && m.dvr.actif ? item('state.view=\'dvr\';render();', ICONS.clipboard, 'Relevé des valeurs de référence') : '') +
       item('render();envoyerRapportEtMission();', ICONS.upload, 'Envoyer par mail : rapport PDF + mission (Outlook)') +
       item('render();shareOrExportMission(' + m.id + ');', ICONS.download, 'Transférer la mission seule (fichier .json)') +
+      (typeof imprimerEtiquettesQr === 'function' ? item('render();imprimerEtiquettesQr();', QR_ICON, 'Imprimer les étiquettes QR (avant la visite)') : '') +
       item('render();triggerMergeMission();', ICONS.merge, 'Fusionner le travail d’un collègue (.json)') +
       '</div>';
   }
@@ -420,8 +421,10 @@ function renderFieldInput(typeId, f, inst) {
     var photos = Array.isArray(val) ? val : [];
     var h = '<div class="photo-gallery">';
     photos.forEach(function (p) {
-      h += '<div class="photo-thumb">' +
+      h += '<div class="photo-thumb' + (p.annot && p.annot.length ? ' annotee' : '') + '">' +
         '<img data-photo-src="' + escapeHtml(p.id) + '" alt="Photo" onclick="openPhotoViewer(\'' + escapeHtml(p.id) + '\');">' +
+        (typeof annoterPhoto === 'function' ? '<button type="button" class="photo-annoter" title="Annoter la photo (entourer, flécher)" ' +
+          'onclick="event.stopPropagation();annoterPhoto(\'' + typeId + '\',\'' + f.key + '\',\'' + escapeHtml(p.id) + '\');">' + ICONS.edit + '</button>' : '') +
         '<button type="button" class="agent-delete" title="Supprimer cette photo" ' +
           'onclick="event.stopPropagation();removeInstallationPhoto(\'' + typeId + '\',\'' + f.key + '\',\'' + escapeHtml(p.id) + '\');">' +
           ICONS.trash + '</button></div>';
@@ -542,6 +545,8 @@ function removeInstallationPhoto(typeId, key, photoId) {
   var m = getCurrentMission();
   var inst = m.installations[typeId][state.currentInstIndex];
   var photos = Array.isArray(inst.data[key]) ? inst.data[key] : [];
+  var origine = photos.filter(function (p) { return p.id === photoId && p.orig; })[0]; // photo annotée : original conservé (js/annotation.js)
+  if (origine) deletePhotoBlob(origine.orig);
   inst.data[key] = photos.filter(function (p) { return p.id !== photoId; });
   touchInstallation(inst);
   persistMissions();

@@ -224,6 +224,7 @@ function referencedPhotoIds(extraMissions) {
     forEachInstallationPhotoField(m, function (inst) {
       (inst && inst.data && Array.isArray(inst.data.photo) ? inst.data.photo : []).forEach(function (p) {
         if (p && p.id) ids[p.id] = true;
+        if (p && p.orig) ids[p.orig] = true; // original d'une photo annotée (js/annotation.js)
       });
     });
     (Array.isArray(m.plans) ? m.plans : []).forEach(function (p) { if (p && p.photoId) ids[p.photoId] = true; });
@@ -243,6 +244,7 @@ function deleteMissionPhotoBlobs(mission, keepMissions) {
   forEachInstallationPhotoField(mission, function (inst) {
     (Array.isArray(inst.data.photo) ? inst.data.photo : []).forEach(function (p) {
       if (p && p.id && !keep[p.id]) ids.push(p.id);
+      if (p && p.orig && !keep[p.orig]) ids.push(p.orig);
     });
   });
   (Array.isArray(mission.plans) ? mission.plans : []).forEach(function (p) { if (p && p.photoId && !keep[p.photoId]) ids.push(p.photoId); });
@@ -256,6 +258,7 @@ function deleteInstallationPhotoBlobs(inst) {
   var keep = referencedPhotoIds();
   var photos = (inst && inst.data && Array.isArray(inst.data.photo)) ? inst.data.photo : [];
   return Promise.all(photos.map(function (p) {
+    if (p && p.orig && !keep[p.orig]) deletePhotoBlob(p.orig).catch(function () {});
     return (p && p.id && !keep[p.id]) ? deletePhotoBlob(p.id).catch(function () {}) : Promise.resolve();
   }));
 }
