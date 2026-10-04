@@ -29,6 +29,7 @@ function render() {
   }
   document.getElementById('app').innerHTML = h;
   if (typeof hydratePhotoThumbnails === 'function') hydratePhotoThumbnails();
+  if (state.view === 'profil-technicien' && typeof initVisaPad === 'function') initVisaPad(); // visa (js/finitions.js)
   if (typeof hydrateStorageIndicator === 'function') hydrateStorageIndicator();
 }
 

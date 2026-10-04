@@ -15,7 +15,7 @@ var GUIDE_UTILISATION_ETAPES = [
   {
     icon: 'clipboard',
     titre: '3. Préparer la visite',
-    texte: 'Menu ⋯ › « Préparer la visite » : notes pratiques du site (accès, clés, nacelle, horaires, contact ; hors rapport, reprises l’an prochain), quantités prévues au devis, matériel à emporter déduit des mesures prévues dans les fiches, étalonnage des appareils. Au bureau (pas d’imprimante sur site), « Imprimer les étiquettes QR » : une planche A4 de 3 × 7 étiquettes (type Avery L7160), une par installation, avec son nom pour savoir où la coller.'
+    texte: 'Menu ⋯ › « Préparer la visite » : notes pratiques du site (accès, clés, nacelle, horaires, contact ; hors rapport, reprises l’an prochain), quantités prévues au devis, matériel à emporter déduit des mesures prévues dans les fiches, étalonnage des appareils. Au bureau (pas d’imprimante sur site), « Imprimer les étiquettes QR » : une planche A4 de 3 × 7 étiquettes (type Avery L7160), une par installation, avec son nom pour savoir où la coller ; on peut commencer à n’importe quelle case d’une planche entamée, et réimprimer l’étiquette d’une seule installation depuis sa fiche.'
   },
   {
     icon: 'search',
@@ -25,7 +25,7 @@ var GUIDE_UTILISATION_ETAPES = [
   {
     icon: 'edit',
     titre: '5. Remplir une fiche',
-    texte: 'La saisie se fait écran par écran ; le menu en haut permet de sauter à une étape. Au-dessus de chaque mesure, l’objectif à atteindre (« ≥ 20 m/s »…), avec « atteint / non atteint » dès la saisie. L’avis se met à jour en bas de la fiche avec le critère en cause. Pavé numérique intégré pour les grilles, « Aujourd’hui » pour la date, « Phrases types » pour les observations, « Dupliquer » pour une installation semblable, calculette (débit, Pitot, renouvellement, air neuf par occupant) en haut de la fiche. « Terminé, installation suivante » enchaîne.'
+    texte: 'La saisie se fait écran par écran ; le menu en haut permet de sauter à une étape. Au-dessus de chaque mesure, l’objectif à atteindre (« ≥ 20 m/s »…), avec « atteint / non atteint » dès la saisie. L’avis se met à jour en bas de la fiche avec le critère en cause. Pavé numérique intégré pour les grilles, « Aujourd’hui » pour la date, « Phrases types » pour les observations, « Dupliquer » pour une installation semblable, calculette (débit, Pitot, renouvellement, air neuf par occupant) en haut de la fiche ; sous une grille, « Positions des points de mesure » donne où placer la sonde. « Terminé, installation suivante » enchaîne.'
   },
   {
     icon: 'check',
@@ -80,7 +80,7 @@ var GUIDE_UTILISATION_ETAPES = [
   {
     icon: 'flask',
     titre: '16. Rapport et envoi',
-    texte: '« Rapport PDF » produit le rapport complet. Menu ⋯ › « Envoyer par mail : rapport PDF + mission » prépare un mail (objet, texte, signature, deux fichiers joints) ; choisissez Outlook puis le destinataire. Le fichier .json permet de reprendre la mission sur ordinateur (« Importer une mission »). Synthèse Excel depuis le Bilan.'
+    texte: '« Rapport PDF » produit le rapport complet ; votre visa, dessiné une fois dans le profil, figure sur la page de garde et le compte rendu. Menu ⋯ › « Envoyer par mail : rapport PDF + mission » prépare un mail (objet, texte, signature, deux fichiers joints) ; choisissez Outlook puis le destinataire. Le fichier .json permet de reprendre la mission sur ordinateur (« Importer une mission »). Synthèse Excel depuis le Bilan.'
   },
   {
     icon: 'check',

@@ -161,7 +161,8 @@ function gwRenderField(typeId, f, inst) {
       return (f.options && f.options.length <= 4) ? gwChoiceButtons(typeId, f, inst) : gwNativeSelect(typeId, f, inst);
     case 'grid':
       return seuilAvant(typeId, f, inst) + (f.pointEntry ? gwGridPointEntry(typeId, f, inst) : gwPassthrough(typeId, f, inst)) +
-        (typeof grilleAberrantsHtml === 'function' ? grilleAberrantsHtml(typeId, f, inst) : ''); // point aberrant (js/mesures.js)
+        (typeof grilleAberrantsHtml === 'function' ? grilleAberrantsHtml(typeId, f, inst) : '') + // point aberrant (js/mesures.js)
+        (typeof positionsPointsHtml === 'function' ? positionsPointsHtml(typeId, f, inst) : ''); // positions des points (js/finitions.js)
     case 'charger-list':
     case 'photo':
       return gwPassthrough(typeId, f, inst);
@@ -308,6 +309,7 @@ function renderGenericWizard(m, t, inst) {
   if (typeof bilanCtaCarteHtml === 'function') h += bilanCtaCarteHtml(t.id, inst); // bilan d'air neuf de la CTA
   if (typeof plaqueHtml === 'function') h += plaqueHtml(t.id, inst); // photo de la plaque (js/plaque.js)
   if (typeof ncChampHtml === 'function') h += ncChampHtml(t.id, inst); // installation non contrôlée (js/qualite.js)
+  if (typeof etiquetteFicheHtml === 'function') h += etiquetteFicheHtml(t.id, inst); // étiquette QR à l'unité (js/finitions.js)
   if (typeof noteInstallationChampHtml === 'function') h += noteInstallationChampHtml(t.id, inst); // note pour la prochaine visite
 
   return h;

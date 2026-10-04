@@ -683,7 +683,10 @@ var PDF_COVER_X = 56, PDF_COVER_W = 482;
 function pdfThreeColBlock(labels, values, y) {
   var W = [176, 130, 176];
   function headCell(text) { return { text: text, bold: true, fontSize: 8.6, color: '#FFFFFF', fillColor: PDF_ACCENT, alignment: 'center', margin: [0, 11, 0, 11] }; }
-  function valCell(text) { return { text: text, fontSize: 9.6, alignment: 'center', margin: [0, 17, 0, 17] }; }
+  function valCell(text) {
+    if (text && typeof text === 'object') return text; // cellule déjà construite (visa du technicien)
+    return { text: text, fontSize: 9.6, alignment: 'center', margin: [0, 17, 0, 17] };
+  }
   var t = pdfTable(W, [
     [headCell(labels[0]), headCell(labels[1]), headCell(labels[2])],
     [valCell(values[0]), valCell(values[1]), valCell(values[2])]
@@ -711,7 +714,11 @@ function pdfBuildPageDeGarde(m, di, ic, is, isi, logoDataUrl, bannerDataUrl) {
     alignment: 'center', width: PDF_COVER_W, lineHeight: 1.1 }, PDF_COVER_X, 242));
 
   var nomAuteur = di.auteurRapport || is.intervenant || '—';
-  content.push(pdfThreeColBlock(['Intervention sur site réalisée par', 'Rédigé par', 'Validé par'], [nomAuteur, nomAuteur, nomAuteur], 333));
+  // Visa du technicien (js/finitions.js) et relecteur (js/qualite.js) quand ils existent
+  var visa = (typeof getVisa === 'function') ? getVisa() : '';
+  var redige = visa ? { stack: [{ text: nomAuteur, fontSize: 9.6, alignment: 'center' }, { image: visa, fit: [110, 24], alignment: 'center', margin: [0, 2, 0, 0] }], margin: [0, 6, 0, 4] } : nomAuteur;
+  var valide = (m.relecture && m.relecture.statut === 'validee' && m.relecture.par) ? m.relecture.par : nomAuteur;
+  content.push(pdfThreeColBlock(['Intervention sur site réalisée par', 'Rédigé par', 'Validé par'], [nomAuteur, redige, valide], 333));
   content.push(pdfThreeColBlock(['Date d\'édition du rapport', 'Référence du rapport (chrono)', 'Nature de la révision'],
     [di.dateRapport || '—', di.numeroChrono || '—', di.natureRevision || 'Version initiale'], 446));
 

@@ -368,7 +368,8 @@ function compteRenduDocDefinition(m, logo) {
   var sigClient = cr.signature ? { image: cr.signature, fit: [180, 46] } : { text: '', margin: [0, 22, 0, 22] };
   fin.push({ table: { widths: ['*', '*'], body: [
     [head('Le technicien SOCOTEC'), head('Le représentant du client')],
-    [cell((di.auteurRapport || m.controleur || '') + '\nLe ' + todayFr(), { margin: [4, 6, 4, 6] }),
+    [(typeof getVisa === 'function' && getVisa()) ? { stack: [cell((di.auteurRapport || m.controleur || '') + '\nLe ' + todayFr(), { margin: [4, 6, 4, 2] }), { image: getVisa(), fit: [160, 40], margin: [4, 2, 4, 6] }] }
+      : cell((di.auteurRapport || m.controleur || '') + '\nLe ' + todayFr(), { margin: [4, 6, 4, 6] }),
       { stack: [cell([cr.signataire, cr.fonction].filter(Boolean).join(' – ') || ' ', { margin: [4, 6, 4, 2] }), Object.assign(sigClient, { margin: [4, 2, 4, 6] })] }]
   ] }, layout: layout });
   content.push({ stack: fin, unbreakable: true });

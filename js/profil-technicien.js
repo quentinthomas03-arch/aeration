@@ -47,6 +47,7 @@ function renderProfilTechnicien() {
   // Appareils de mesure (js/terrain-assist.js) : enregistrés immédiatement à chaque modification,
   // indépendamment du bouton "Enregistrer" ci-dessous qui ne concerne que les champs d'identité.
   h += renderAppareilsProfil();
+  if (typeof visaProfilHtml === 'function') h += visaProfilHtml(); // visa du technicien (js/finitions.js)
 
   h += '<button class="btn btn-primary" onclick="enregistrerProfil();">' + ICONS.check + ' Enregistrer</button>';
   return h;

@@ -26,7 +26,7 @@ puis ouvrir `http://localhost:8129`.
 node outils/tests/run.js
 ```
 
-44 tests, environ 10 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
+45 tests, environ 12 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
 d'`index.html`, sans navigateur, et vérifient la mission de démonstration, le rapport PDF, le compte rendu,
 l'export Excel, le relevé de valeurs de référence, les contrôles, la fusion, le plan du site, les schémas
 de réseau, les documents joints, les étiquettes QR, les objectifs avant mesure, et les calculs face au Rapso.
@@ -112,6 +112,7 @@ d'un tiers ne peut pas exécuter de code, et la conversion ne dépend pas de l'a
 | `mesures.js` | Points aberrants des grilles, mesures à moins de 5 % du seuil (remontés dans « Vérifier avant de partir ») |
 | `import-liste.js` | Créer les installations par quantités (tableau) ou depuis un tableau Excel collé / importé, modèle Excel |
 | `qualite.js` | Installation non contrôlée (motif), contre-visite, harmonisation des noms de bâtiments, relecture (validation, commentaires, « Rapport vérifié par ») |
+| `finitions.js` | Positions des points de mesure sous les grilles (aires égales en conduit rond, rectangles égaux sinon), étiquette QR à l'unité et case de départ, visa du technicien (profil, page de garde, compte rendu) |
 
 ## Données
 

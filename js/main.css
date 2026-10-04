@@ -908,7 +908,7 @@ textarea.input { font-family: inherit; line-height: 1.4; }
 .calc-ligne.fort { font-size: 18px; }
 .calc-ligne.fort b { color: #005499; }
 .histo-carte { margin-top: 12px; }
-.histo-svg { width: 100%; max-width: 360px; display: block; color: var(--text-dark); }
+.histo-svg { width: 100%; height: auto; max-width: 360px; display: block; color: var(--text-dark); }
 .bilan-cta { margin-top: 12px; }
 .bilan-cta-texte { font-size: 14px; margin: 0 0 8px; }
 .bilan-cta-liste { max-height: 260px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 4px 10px; }
@@ -968,3 +968,14 @@ textarea.input { font-family: inherit; line-height: 1.4; }
 .harmo-groupe .row { gap: 8px; }
 .harmo-groupe .input { margin: 0; flex: 1; }
 .harmo-groupe .btn { width: auto; }
+
+/* === Finitions (js/finitions.js) === */
+.positions-points { margin: 6px 0 10px; border: 1px solid var(--border-subtle); border-radius: 12px; padding: 8px 12px; background: var(--card-bg, #fff); }
+.positions-points summary { cursor: pointer; font-weight: 700; font-size: 14px; color: #005499; }
+.positions-corps { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; margin-top: 8px; }
+.positions-corps > div { flex: 1; min-width: 160px; }
+.positions-svg { width: 150px; height: auto; max-width: 45%; color: var(--text-dark); flex: 0 0 auto; }
+.positions-table { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.positions-table td { padding: 3px 10px 3px 0; border-top: 1px solid var(--border-subtle); }
+.etiquette-btn { margin-top: 12px; width: auto; }
+.etiquette-btn svg { width: 14px; height: 14px; }

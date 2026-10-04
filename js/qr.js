@@ -80,15 +80,16 @@ function qrMissionALesEtiquettes(m) {
 
 var QR_PLANCHE = { cols: 3, rows: 7, w: 180, h: 108, left: 20.4, top: 43, gapX: 7.1, gapY: 0 };
 
-function qrEtiquettesDocDefinition(m, items) {
+function qrEtiquettesDocDefinition(m, items, depart) {
+  var decalage = Math.max(0, Math.min(20, (parseInt(depart, 10) || 1) - 1)); // case de départ sur une planche entamée
   var P = QR_PLANCHE, parPage = P.cols * P.rows, content = [];
   var site = m.clientSite || (m.infosSiteIntervention && m.infosSiteIntervention.siteIntervention) || '';
   items.forEach(function (it, i) {
-    var pos = i % parPage, col = pos % P.cols, row = Math.floor(pos / P.cols);
+    var pos = (i + decalage) % parPage, col = pos % P.cols, row = Math.floor(pos / P.cols);
     var x = P.left + col * (P.w + P.gapX), y = P.top + row * (P.h + P.gapY);
     var code = it.inst.data._qr, nom = overviewRowTitle(it), bat = it.inst.data.batiment || '';
     var bloc = { stack: [], absolutePosition: { x: x, y: y } };
-    if (pos === 0 && i > 0) bloc.pageBreak = 'before';
+    if (pos === 0 && i + decalage > 0) bloc.pageBreak = 'before';
     // Largeurs fixes : sinon un libellé long déborde sur l'étiquette voisine
     var lw = P.w - 16, qrw = 70, tw = lw - qrw - 6;
     var typeLib = it.type.label.replace(/\s*\(.*\)\s*$/, '');
@@ -116,10 +117,15 @@ function qrEtiquettesDocDefinition(m, items) {
   };
 }
 
-function imprimerEtiquettesQr() {
+// opts.items : seulement ces installations (étiquette à l'unité, js/finitions.js)
+function imprimerEtiquettesQr(opts) {
+  opts = opts || {};
   var m = getCurrentMission();
   if (!m) return;
-  var items = overviewOrderedItems(m);
+  var items = opts.items || overviewOrderedItems(m);
+  var rep = prompt('Planche déjà entamée ? Commencer à quelle case (1 à 21, de gauche à droite puis de haut en bas) :', '1');
+  if (rep === null) return;
+  var depart = Math.max(1, Math.min(21, parseInt(rep, 10) || 1));
   if (!items.length) { alert('Aucune installation dans cette mission : ajoutez-les d’abord (ou chargez le site précédent).'); return; }
   var nouveaux = items.filter(function (it) { return !it.inst.data._qr; }).length;
   var used = qrCodesUtilises();
@@ -127,8 +133,8 @@ function imprimerEtiquettesQr() {
   if (nouveaux) persistMissions();
   ensureLib('pdf').then(function () {
     var site = (m.clientSite || 'site').replace(/[^a-zA-Z0-9à-ÿ _-]/g, '').replace(/\s+/g, '_').slice(0, 40);
-    pdfMake.createPdf(qrEtiquettesDocDefinition(m, items)).download('Etiquettes_QR_' + site + '.pdf');
-    alert(items.length + ' étiquette(s) sur ' + Math.ceil(items.length / (QR_PLANCHE.cols * QR_PLANCHE.rows)) + ' planche(s) A4.\n\n' +
+    pdfMake.createPdf(qrEtiquettesDocDefinition(m, items, depart)).download('Etiquettes_QR_' + site + '.pdf');
+    alert(items.length + ' étiquette(s) sur ' + Math.ceil((items.length + depart - 1) / (QR_PLANCHE.cols * QR_PLANCHE.rows)) + ' planche(s) A4' + (depart > 1 ? ', à partir de la case ' + depart : '') + '.\n\n' +
       'À imprimer à 100 % (sans ajustement) sur des étiquettes 63,5 × 38,1 mm (3 × 7 par page, type Avery L7160), ou sur papier puis découper.\n\n' +
       'Sur site, collez chaque étiquette sur l’installation dont le nom figure dessous. L’an prochain, scannez-la pour ouvrir directement sa fiche.');
   }).catch(function (err) { alert(err.message); });
