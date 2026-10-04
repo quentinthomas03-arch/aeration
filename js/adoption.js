@@ -4,10 +4,13 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.50';
+var APP_VERSION = '1.51';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.51', date: '04/10/2026', items: [
+    'Schéma de réseau simplifié : installations, ventilateur, filtre, rejet et retour d’air. Les gaines se tracent en touchant le départ puis l’arrivée ; toucher une gaine crée un piquage (division vers plusieurs installations). Le sens de l’air et la couleur des gaines sont automatiques.'
+  ] },
   { version: '1.50', date: '04/10/2026', items: [
     'Annoter une photo : bouton crayon sur chaque photo pour entourer, flécher ou écrire sur le défaut (3 couleurs). La photo annotée part dans le rapport ; l’original est conservé pour reprendre l’annotation.'
   ] },

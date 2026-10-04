@@ -825,3 +825,8 @@ textarea.input { font-family: inherit; line-height: 1.4; }
 .annot-outil.active { background: #0082DE; border-color: #0082DE; }
 .annot-couleur { width: 40px; height: 40px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.25); cursor: pointer; }
 .annot-couleur.active { border-color: #fff; box-shadow: 0 0 0 3px #0082DE; }
+
+/* === Schéma de réseau v3 (js/schemas.js) === */
+.schema-consigne { margin-top: 8px; font-size: 14px; color: var(--text-dark); line-height: 1.45; }
+.schema-consigne-seule { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--primary-pale); border: 1px solid rgba(0,130,222,0.25); }
+.schema-consigne .btn { width: auto; margin-left: 6px; vertical-align: middle; }
