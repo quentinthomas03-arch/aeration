@@ -373,22 +373,51 @@ function loadDemoMission() {
   });
 }
 
-// Photos de démonstration : les photos d'équipement des intercalaires du rapport (gabarit Rapso),
-// une par type, enregistrées en IndexedDB comme une vraie prise de vue (une copie par installation).
-// En cas d'échec (hors ligne, quota), la démo se charge simplement sans photo.
+// Photos de démonstration : une image neutre, clairement marquée « Photo de démonstration », avec le
+// pictogramme du type et le nom de l'installation. Les images des pages intercalaires restent réservées
+// à la présentation du rapport (retour de Quentin du 2026-10-04 : les réutiliser comme photos
+// d'installation brouillait les deux). En cas d'échec (hors ligne, quota), la démo se charge sans photo.
+var DEMO_PHOTO_W = 1200, DEMO_PHOTO_H = 900;
+
+function demoPhotoBlob(type, inst) {
+  return new Promise(function (resolve, reject) {
+    var canvas = document.createElement('canvas');
+    canvas.width = DEMO_PHOTO_W; canvas.height = DEMO_PHOTO_H;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) { reject(new Error('canvas indisponible')); return; }
+    ctx.fillStyle = '#e9eef3'; ctx.fillRect(0, 0, DEMO_PHOTO_W, DEMO_PHOTO_H);
+    ctx.strokeStyle = '#b8c4d0'; ctx.lineWidth = 6; ctx.setLineDash([24, 16]);
+    ctx.strokeRect(30, 30, DEMO_PHOTO_W - 60, DEMO_PHOTO_H - 60);
+    var title = overviewRowTitle({ type: type, inst: inst, idx: 0 }, 'batiment');
+    var finish = function () {
+      ctx.fillStyle = '#3d4a58'; ctx.textAlign = 'center';
+      ctx.font = 'bold 56px Arial, sans-serif';
+      ctx.fillText('Photo de démonstration', DEMO_PHOTO_W / 2, 600);
+      ctx.font = '40px Arial, sans-serif'; ctx.fillStyle = '#5a6878';
+      ctx.fillText(String(type.label).slice(0, 48), DEMO_PHOTO_W / 2, 670);
+      ctx.fillText(String(title).slice(0, 48), DEMO_PHOTO_W / 2, 730);
+      canvas.toBlob(function (b) { if (b) resolve(b); else reject(new Error('image non générée')); }, 'image/jpeg', 0.8);
+    };
+    // Pictogramme du type (js/pictos.js), dessiné en grand au-dessus du texte
+    var svg = (typeof getIcon === 'function') ? getIcon(type.icon) : '';
+    if (!svg) { finish(); return; }
+    var img = new Image();
+    img.onload = function () { ctx.drawImage(img, DEMO_PHOTO_W / 2 - 150, 170, 300, 300); finish(); };
+    img.onerror = finish;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.replace('stroke="currentColor"', 'stroke="#7a8796"').replace('<svg ', '<svg width="300" height="300" '));
+  });
+}
+
 function addDemoPhotos(m) {
   var jobs = [];
   forEachInstallationPhotoField(m, function (inst, typeId) {
     if (!hasRealInstallationData(inst.data) || (Array.isArray(inst.data.photo) && inst.data.photo.length)) return;
-    var g = SECTION_GROUPS.filter(function (x) { return x.types.indexOf(typeId) !== -1; })[0];
-    if (!g || !g.images.length) return;
-    var path = g.images[g.images.length - 1];
-    jobs.push(fetch(path).then(function (r) { if (!r.ok) throw new Error(path); return r.blob(); })
-      .then(function (blob) { return compressImageFile(blob); })
-      .then(function (blob) {
-        var id = generatePhotoId();
-        return savePhotoBlob(id, blob).then(function () { inst.data.photo = [{ id: id }]; });
-      }).catch(function () {}));
+    var type = getInstallationType(typeId);
+    if (!type) return;
+    jobs.push(demoPhotoBlob(type, inst).then(function (blob) {
+      var id = generatePhotoId();
+      return savePhotoBlob(id, blob).then(function () { inst.data.photo = [{ id: id }]; });
+    }).catch(function () {}));
   });
   return Promise.all(jobs);
 }
