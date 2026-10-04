@@ -351,7 +351,8 @@ function renderSiteOverview(m) {
 
   // Les compteurs restent sur le total du site (repère fixe), seule la liste de groupes ci-dessous
   // est filtrée par la recherche.
-  var h = (typeof renderQrScanBouton === 'function') ? renderQrScanBouton(m) : ''; // étiquettes QR (js/qr.js)
+  var h = (typeof notesSiteCarteHtml === 'function') ? notesSiteCarteHtml(m) : ''; // notes de visite (js/visite.js)
+  h += (typeof renderQrScanBouton === 'function') ? renderQrScanBouton(m) : ''; // étiquettes QR (js/qr.js)
   h += renderOverviewCounters(items);
   h += renderOverviewSearch();
   h += renderOverviewToggle();

@@ -2,6 +2,7 @@
 
 function render() {
   var h = '';
+  if (typeof chronoTick === 'function') chronoTick(); // temps passé par installation (js/temps.js)
   switch (state.view) {
     case 'home': h = renderHome(); break;
     case 'mission-form': h = renderMissionForm(); break;
@@ -20,6 +21,7 @@ function render() {
     case 'compte-rendu': h = renderCompteRendu(); break;
     case 'dvr': h = renderDvr(); break;
     case 'a-propos': h = renderAPropos(); break;
+    case 'preparation': h = renderPreparation(); break;
     case 'schema-editor': h = renderSchemaEditor(); break;
     default: h = renderHome();
   }
@@ -135,6 +137,7 @@ window.addEventListener('popstate', function (event) {
   else if (state.view === 'compte-rendu') state.view = 'bilan';
   else if (state.view === 'dvr') state.view = 'mission-detail';
   else if (state.view === 'a-propos') state.view = 'home';
+  else if (state.view === 'preparation') state.view = 'mission-detail';
   else if (state.view === 'schema-editor') state.view = 'mission-form';
   else if (state.view === 'import-conflict') state.view = 'home';
   else if (state.view === 'ed-reference') state.view = 'home';

@@ -94,6 +94,7 @@ function mergeMissionInto(target, incoming) {
     if (!target.plans.some(function (x) { return x.id === p.id; })) target.plans.push(JSON.parse(JSON.stringify(p)));
   });
   if (typeof docsFusionner === 'function') docsFusionner(target, incoming); // documents joints, schémas
+  if (!target.notesSite && incoming.notesSite) target.notesSite = incoming.notesSite;
   return report;
 }
 

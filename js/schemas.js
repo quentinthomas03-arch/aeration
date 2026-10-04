@@ -247,6 +247,68 @@ function schemaNomenclature(m, s) {
 }
 
 // ————————————————————————————————————————————
+// Bilan du réseau : débit au ventilateur / somme des débits mesurés aux captages
+// ————————————————————————————————————————————
+
+// Champ du débit mesuré (m³/h) de chaque type, dans l'ordre de préférence
+var SCHEMA_DEBIT_CHAMPS = {
+  extracteur: ['debit_annee_en_cours'], cta: ['rep_debit', 'souf_debit'], menuiserie: ['debit_annee_en_cours'],
+  menuiserie_bis: ['debit'], hottes: ['vpe_debit'], sorbonnes: ['debit_mesure'], bras_aspiration: ['debit_calcule'],
+  cabines_peinture: ['debit_mesure'], box_peinture: ['debit_extraction_box'], gaz_echappement: ['debit_mesure'],
+  installations_diverses: ['debit_vt'], fluide_coupe: ['debit_mesure'], poste_solvant: ['debit_mesure'],
+  decapage: ['debit_extrait'], recyclage: ['debit_recycle'], local_specifique: ['debit_global_extrait']
+};
+
+function schemaDebit(it) {
+  if (!it) return null;
+  var champs = SCHEMA_DEBIT_CHAMPS[it.type.id] || [];
+  for (var i = 0; i < champs.length; i++) {
+    var v = num(it.inst.data[champs[i]]);
+    if (!isNaN(v) && v > 0) return v;
+  }
+  return null;
+}
+
+// Pour chaque ventilateur relié à une installation mesurée : { fan, it, qv, qc, n, sansDebit, ecart }
+function schemaBilanReseau(m, s) {
+  var items = schemaItemsParId(m), par = schemaParId(s), adj = schemaVoisins(s), orient = schemaOrientation(s), out = [];
+  (s.elements || []).filter(function (e) { return e.k === 'ventilateur' && e.inst !== null && e.inst !== undefined && items[e.inst]; }).forEach(function (f) {
+    var it = items[f.inst], qv = schemaDebit(it);
+    if (qv === null) return;
+    // Installations du côté aspiration de ce ventilateur (sans traverser un autre ventilateur)
+    var vus = {}, file = [f.id], qc = 0, n = 0, sansDebit = [];
+    vus[f.id] = true;
+    while (file.length) {
+      var id = file.shift();
+      (adj[id] || []).forEach(function (v) {
+        if (vus[v.o] || !orient[v.l.id] || orient[v.l.id].genre !== 'aspiration') return;
+        vus[v.o] = true;
+        var e = par[v.o];
+        if (!e || e.k === 'ventilateur') return;
+        if (e.k === 'inst' && e.inst !== f.inst) {
+          var q = schemaDebit(items[e.inst]);
+          if (q === null) sansDebit.push(schemaNomInst(e, items[e.inst] || null)); else { qc += q; n++; }
+        }
+        file.push(v.o);
+      });
+    }
+    if (!n) return;
+    out.push({ fan: f, it: it, qv: qv, qc: qc, n: n, sansDebit: sansDebit, ecart: (qv - qc) / qv });
+  });
+  return out;
+}
+
+function schemaBilanTexte(b) {
+  var fr = function (v) { return Math.round(v).toLocaleString('fr-FR'); };
+  var pct = Math.round(Math.abs(b.ecart) * 100);
+  var t = 'Ventilateur (' + overviewRowTitle(b.it) + ') : ' + fr(b.qv) + ' m³/h. Somme des débits mesurés aux ' + b.n + ' installation(s) raccordée(s) : ' + fr(b.qc) + ' m³/h';
+  t += pct < 10 ? ', cohérente (écart de ' + pct + ' %).' : ' (' + (b.ecart > 0 ? 'inférieure' : 'supérieure') + ' de ' + pct + ' %).';
+  if (b.sansDebit.length) t += ' Sans débit mesuré : ' + b.sansDebit.join(', ') + '.';
+  if (pct >= 10) t += ' Écart à examiner : captages ou ouvertures non relevés, fuites, mesures faites à des moments différents.';
+  return t;
+}
+
+// ————————————————————————————————————————————
 // Dessin
 // ————————————————————————————————————————————
 
@@ -357,6 +419,8 @@ function schemaSvg(m, s, opts) {
       if (opts.edition) h += '<circle r="' + (SCHEMA_S + 10) + '" fill="transparent"/>';
       h += schemaSymboleSvg(e.k);
       h += '<text y="' + (SCHEMA_S + 32) + '" text-anchor="middle" font-size="25" font-weight="700" fill="' + SCHEMA_ENCRE + '" stroke="#ffffff" stroke-width="7" paint-order="stroke">' + escapeHtml(schemaElement(e.k).court) + '</text>';
+      var ventInst = e.k === 'ventilateur' && e.inst !== null && e.inst !== undefined ? items[e.inst] : null;
+      if (ventInst) h += '<text y="' + (SCHEMA_S + 58) + '" text-anchor="middle" font-size="19" fill="#4b5a6a" stroke="#ffffff" stroke-width="6" paint-order="stroke">' + escapeHtml(schemaTronquer(overviewRowTitle(ventInst), 20)) + '</text>';
     }
     h += '</g>';
   });
@@ -651,6 +715,14 @@ function renderSchemaSelection(m, s) {
     } else h += '<p class="subtitle">Poste d’un ancien schéma, non relié à une installation de la mission.</p>';
   } else {
     h += '<div class="schema-panneau-titre">' + (e.k === 'noeud' ? '' : schemaIconeOutil(e.k)) + '<b>' + escapeHtml(e.k === 'noeud' ? 'Piquage / angle de gaine' : schemaElement(e.k).nom) + '</b></div>';
+    if (e.k === 'ventilateur') {
+      var avecDebit = schemaInstallations(m).filter(function (x) { return SCHEMA_DEBIT_CHAMPS[x.type.id]; });
+      h += '<div class="field"><label class="label" for="vent-inst">Installation contrôlée de ce ventilateur (pour le bilan du réseau)</label><select class="input" id="vent-inst" onchange="schemaLierVentilateur(this.value);"><option value="">— aucune —</option>';
+      avecDebit.forEach(function (x) {
+        h += '<option value="' + x.type.id + ':' + x.idx + '"' + (e.inst === x.inst.id ? ' selected' : '') + '>' + escapeHtml(docInstallationLabel(x)) + (schemaDebit(x) !== null ? ' · ' + Math.round(schemaDebit(x)).toLocaleString('fr-FR') + ' m³/h' : '') + '</option>';
+      });
+      h += '</select><div class="subtitle">Le débit mesuré au ventilateur est comparé à la somme des débits des installations qu’il aspire.</div></div>';
+    }
   }
   h += '<div class="row" style="margin-top:8px;">';
   h += '<button class="btn btn-gray btn-small" onclick="state.schemaOutil=\'gaine\';state.schemaTraceDepuis=state.schemaSel.id;state.schemaSel=null;render();">Tirer une gaine d’ici</button>';
@@ -662,7 +734,12 @@ function renderSchemaSelection(m, s) {
 function renderSchemaLegende(m, s) {
   var leg = schemaLegendeContenu(m, s), nom = schemaNomenclature(m, s);
   if (!leg.kinds.length && !leg.gaines.length && !nom.length) return '';
-  var h = '<div class="card schema-legende"><div class="section-title">Légende</div><div class="schema-legende-items">';
+  var h = '';
+  schemaBilanReseau(m, s).forEach(function (b) {
+    var pct = Math.round(Math.abs(b.ecart) * 100);
+    h += '<div class="card schema-bilan ' + (pct < 10 ? 'ok' : 'ecart') + '"><div class="section-title">Bilan du réseau</div><p>' + escapeHtml(schemaBilanTexte(b)) + '</p></div>';
+  });
+  h += '<div class="card schema-legende"><div class="section-title">Légende</div><div class="schema-legende-items">';
   leg.gaines.forEach(function (g) { h += '<span class="schema-legende-item">' + schemaIconeGaine(g, 34) + escapeHtml(SCHEMA_GAINES[g].nom) + '</span>'; });
   leg.kinds.forEach(function (k) { h += '<span class="schema-legende-item">' + schemaIconeOutil(k) + escapeHtml(schemaElement(k).nom) + '</span>'; });
   h += '</div>';
@@ -677,6 +754,11 @@ function renderSchemaLegende(m, s) {
     h += '</div>';
   }
   return h + '</div>';
+}
+
+function schemaLierVentilateur(key) {
+  var m = getCurrentMission(), it = key ? schemaItemDeCle(m, key) : null, sel = state.schemaSel;
+  schemaMaj(function (s) { var e = sel && schemaParId(s)[sel.id]; if (e && e.k === 'ventilateur') e.inst = it ? it.inst.id : null; });
 }
 
 function schemaOuvrirFiche(typeId, idx) {
@@ -965,6 +1047,9 @@ function pdfBuildSchemas(m) {
     page.stack.push({ text: s.nom, bold: true, fontSize: 10.5, margin: [0, 0, 0, 2] });
     page.stack.push({ text: 'Schéma de principe établi sur site par le technicien SOCOTEC à partir des constatations visuelles, sans valeur de plan d’exécution ni de plan de récolement.', fontSize: 8, italics: true, margin: [0, 0, 0, 8] });
     page.stack.push({ image: a.url, fit: landscape ? [770, 330] : [520, 470], alignment: 'center', margin: [0, 0, 0, 10] });
+    schemaBilanReseau(m, s).forEach(function (b) {
+      page.stack.push({ text: [{ text: 'Bilan du réseau : ', bold: true }, schemaBilanTexte(b)], fontSize: 8.5, margin: [0, 0, 0, 8] });
+    });
     var nom = schemaNomenclature(m, s);
     if (nom.length) {
       var head = function (t) { return pdfDocsCell(t, { bold: true, color: 'white', fillColor: '#0082DE' }); };

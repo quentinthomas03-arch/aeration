@@ -216,8 +216,14 @@ function docsNormaliser(m) {
   var instIdOk = function (id) { return (typeof id === 'number' && isFinite(id)) || (typeof id === 'string' && id.length < 80); };
   if (Array.isArray(m.plans)) m.plans = m.plans.filter(function (p) { return p && ok(p.id) && (!p.photoId || ok(p.photoId)); });
   Object.keys(m.installations || {}).forEach(function (t) {
-    (m.installations[t] || []).forEach(function (inst) { if (inst && inst.data && inst.data._plaque !== undefined && !ok(inst.data._plaque)) delete inst.data._plaque; });
+    (m.installations[t] || []).forEach(function (inst) {
+      if (!inst || !inst.data) return;
+      ['_plaque', '_photoN1'].forEach(function (k) { if (inst.data[k] !== undefined && !ok(inst.data[k])) delete inst.data[k]; });
+      if (inst.data._note !== undefined) inst.data._note = String(inst.data._note).slice(0, 500);
+      if (inst.data._temps !== undefined) inst.data._temps = Math.max(0, parseInt(inst.data._temps, 10) || 0);
+    });
   });
+  if (m.notesSite !== undefined) m.notesSite = String(m.notesSite || '').slice(0, 2000);
   if (m.documentsJoints !== undefined) {
     m.documentsJoints = (Array.isArray(m.documentsJoints) ? m.documentsJoints : []).filter(function (d) { return d && ok(d.id) && Array.isArray(d.pages); });
     m.documentsJoints.forEach(function (d) {
@@ -285,7 +291,9 @@ function docsImagesFromImport(mission) {
     missionDocsJoints(mission).forEach(function (d) { d.pages = (d.pages || []).map(function (p) { return map[p] || p; }); });
     if (Array.isArray(mission.schemas)) mission.schemas.forEach(function (s) { if (s.fondPhotoId && map[s.fondPhotoId]) s.fondPhotoId = map[s.fondPhotoId]; });
     Object.keys(mission.installations || {}).forEach(function (t) {
-      (mission.installations[t] || []).forEach(function (inst) { if (inst && inst.data && inst.data._plaque && map[inst.data._plaque]) inst.data._plaque = map[inst.data._plaque]; });
+      (mission.installations[t] || []).forEach(function (inst) {
+        ['_plaque', '_photoN1'].forEach(function (k) { if (inst && inst.data && inst.data[k] && map[inst.data[k]]) inst.data[k] = map[inst.data[k]]; });
+      });
     });
   });
 }

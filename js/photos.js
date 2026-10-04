@@ -257,7 +257,7 @@ function deleteMissionPhotoBlobs(mission, keepMissions) {
 function deleteInstallationPhotoBlobs(inst) {
   var keep = referencedPhotoIds();
   var photos = (inst && inst.data && Array.isArray(inst.data.photo)) ? inst.data.photo : [];
-  if (inst && inst.data && inst.data._plaque && !keep[inst.data._plaque]) deletePhotoBlob(inst.data._plaque).catch(function () {});
+  ['_plaque', '_photoN1'].forEach(function (k) { if (inst && inst.data && inst.data[k] && !keep[inst.data[k]]) deletePhotoBlob(inst.data[k]).catch(function () {}); });
   return Promise.all(photos.map(function (p) {
     if (p && p.orig && !keep[p.orig]) deletePhotoBlob(p.orig).catch(function () {});
     return (p && p.id && !keep[p.id]) ? deletePhotoBlob(p.id).catch(function () {}) : Promise.resolve();

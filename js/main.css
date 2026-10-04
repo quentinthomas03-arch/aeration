@@ -852,3 +852,35 @@ textarea.input { font-family: inherit; line-height: 1.4; }
 .plaque-ajout { display: flex; align-items: center; gap: 10px; cursor: pointer; width: 100%; color: var(--text-dark); }
 .plaque-ajout > svg { width: 22px; height: 22px; color: #0082DE; flex: 0 0 22px; }
 .plaque-ajout > span { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+
+/* === Notes de visite, préparation, temps passé, photo N-1, bilan du réseau === */
+.notes-carte { background: #FFF8DC; border: 1px solid #F0D98A; margin-bottom: 12px; }
+:root[data-theme="dark"] .notes-carte { background: #3a3218; border-color: #6b5a22; }
+.notes-titre { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.notes-titre svg { width: 18px; height: 18px; color: #9a7a10; }
+.notes-titre b { flex: 1; }
+.notes-titre .btn { width: auto; }
+.notes-texte { white-space: pre-wrap; font-size: 15px; }
+.note-bandeau { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 10px; padding: 9px 12px; border-radius: 12px; background: #FFF8DC; border: 1px solid #F0D98A; font-size: 14px; color: #3d3410; }
+.note-bandeau svg { width: 16px; height: 16px; flex: 0 0 16px; margin-top: 2px; }
+.note-champ { margin-top: 12px; }
+.note-ajout { margin-top: 12px; width: auto; }
+.note-ajout svg { width: 14px; height: 14px; }
+.prep-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--border-subtle); cursor: pointer; }
+.prep-item input { width: 20px; height: 20px; margin-top: 3px; flex: 0 0 20px; }
+.prep-item > span { display: flex; flex-direction: column; gap: 2px; }
+.prep-item .subtitle, .prep-note .subtitle { margin: 0; font-size: 13px; }
+.prep-notes { display: flex; flex-direction: column; gap: 6px; }
+.prep-note { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border-subtle); background: var(--card-bg, #fff); color: var(--text-dark); cursor: pointer; }
+.prep-appareil { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--border-subtle); font-size: 14px; }
+.temps-interne { font-size: 11px; font-weight: 600; color: var(--text-muted, #6b7785); text-transform: none; letter-spacing: 0; margin-left: 6px; }
+.temps-total { font-size: 15px; margin-bottom: 8px; }
+.temps-total b { font-size: 20px; }
+.temps-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.temps-table th, .temps-table td { text-align: left; padding: 5px 4px; border-top: 1px solid var(--border-subtle); }
+.temps-table th:not(:first-child), .temps-table td:not(:first-child) { text-align: right; white-space: nowrap; }
+.photo-thumb.photo-n1 { border: 2px dashed #8a94a3; opacity: 0.85; }
+.photo-n1-tag { position: absolute; left: 4px; top: 4px; background: rgba(0,0,0,0.65); color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; }
+.schema-bilan { margin-top: 10px; font-size: 14px; }
+.schema-bilan.ok { border-left: 4px solid #16a34a; }
+.schema-bilan.ecart { border-left: 4px solid #d97706; }

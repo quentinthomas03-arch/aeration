@@ -260,6 +260,7 @@ function renderGenericWizard(m, t, inst) {
 
   var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
     ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
+  if (typeof noteInstallationBandeauHtml === 'function') h += noteInstallationBandeauHtml(inst); // note de la visite (js/visite.js)
 
   h += '<div class="wizard-progress">';
   visibleIdx.forEach(function (_, i) {
@@ -302,6 +303,7 @@ function renderGenericWizard(m, t, inst) {
   if (posInVisible === visibleIdx.length - 1) h += nextInstallationButtonHtml(t.id);
   h += liveVerdictBarHtml(t.id, inst);
   if (typeof plaqueHtml === 'function') h += plaqueHtml(t.id, inst); // photo de la plaque (js/plaque.js)
+  if (typeof noteInstallationChampHtml === 'function') h += noteInstallationChampHtml(t.id, inst); // note pour la prochaine visite
 
   return h;
 }

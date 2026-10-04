@@ -4,10 +4,16 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.54';
+var APP_VERSION = '1.55';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.55', date: '04/10/2026', items: [
+    'Préparer la visite (menu ⋯) : notes pratiques du site et des installations, reprises l’an prochain et hors rapport ; matériel à emporter selon les installations ; étalonnage des appareils.',
+    'Photo de l’an dernier affichée à côté du bouton photo, pour reprendre le même cadrage.',
+    'Temps passé sur les fiches, par type, dans le Bilan (interne) : pour chiffrer la prochaine visite.',
+    'Bilan du réseau sur le schéma : débit au ventilateur comparé à la somme des débits mesurés aux installations raccordées.'
+  ] },
   { version: '1.54', date: '04/10/2026', items: [
     'Guide d’utilisation et visite guidée mis à jour : étiquettes QR, objectif avant la mesure, photos annotées et plaque, plan du site, schéma du réseau, documents du client, envoi par mail.'
   ] },

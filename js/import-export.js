@@ -256,7 +256,7 @@ function importPreviousSiteFromText(text) {
     var restorePlans = Promise.all([
       (typeof planImagesFromImport === 'function') ? planImagesFromImport(source) : null,
       (typeof docsImagesFromImport === 'function') ? docsImagesFromImport(source) : null // documents joints, schémas
-    ]);
+    ]).then(function () { return (typeof photosN1FromImport === 'function') ? photosN1FromImport(source) : null; });
     restorePlans.then(function () { finishImportPreviousSite(source); })
       .catch(function (err) { alert('Erreur lors du chargement :\n\n' + err.message); });
   } catch (err) {

@@ -58,6 +58,7 @@ function renderSanitairesWizard(m, t, inst) {
 
   var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
     ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
+  if (typeof noteInstallationBandeauHtml === 'function') h += noteInstallationBandeauHtml(inst); // note de la visite (js/visite.js)
 
   h += '<div class="wizard-progress">';
   SANITAIRES_STEP_LABELS.forEach(function (_, i) {
@@ -87,6 +88,7 @@ function renderSanitairesWizard(m, t, inst) {
   h += '</div>';
   if (step === SANITAIRES_STEP_LABELS.length - 1) h += nextInstallationButtonHtml('sanitaires');
   h += liveVerdictBarHtml('sanitaires', inst);
+  if (typeof noteInstallationChampHtml === 'function') h += noteInstallationChampHtml('sanitaires', inst); // note pour la prochaine visite
 
   return h;
 }

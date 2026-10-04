@@ -26,7 +26,7 @@ puis ouvrir `http://localhost:8129`.
 node outils/tests/run.js
 ```
 
-37 tests, environ 10 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
+40 tests, environ 10 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
 d'`index.html`, sans navigateur, et vérifient la mission de démonstration, le rapport PDF, le compte rendu,
 l'export Excel, le relevé de valeurs de référence, les contrôles, la fusion, le plan du site, les schémas
 de réseau, les documents joints, les étiquettes QR, les objectifs avant mesure, et les calculs face au Rapso.
@@ -105,6 +105,8 @@ d'un tiers ne peut pas exécuter de code, et la conversion ne dépend pas de l'a
 | `qr.js` | Étiquettes QR (planche PDF), scanner intégré, ouverture par l'adresse `?qr=CODE` |
 | `annotation.js` | Annotation des photos (original conservé) |
 | `plaque.js` | Photo de la plaque signalétique d'un équipement |
+| `visite.js` | « Préparer la visite » : notes pratiques (site et installations), matériel déduit des champs de mesure, étalonnage |
+| `temps.js` | Temps passé par installation (chronomètre discret appelé à chaque rendu), récapitulatif interne du Bilan |
 
 ## Données
 
@@ -114,9 +116,12 @@ d'un tiers ne peut pas exécuter de code, et la conversion ne dépend pas de l'a
   Les photos sont intégrées en base64 seulement dans les fichiers exportés.
 - Les clés de `data` qui commencent par `_` sont des méta-données, jamais des champs de rapport :
   `_step`, `_mod` (écran, fusion), `_plan` (épingle sur le plan), `_qr` (code de l'étiquette),
-  `_plaque` (photo de la plaque). `_plan`, `_qr` et `_plaque` sont repris à la visite suivante ;
+  `_plaque` (photo de la plaque), `_photoN1` (première photo de l'an dernier), `_note` (note pratique),
+  `_temps` (secondes passées sur la fiche). `_plan`, `_qr`, `_plaque`, `_note` et `_photoN1` sont repris à la visite suivante ;
   « Dupliquer » ne recopie jamais les clés `_`.
 - Une photo annotée garde l'original sous `photo[i].orig` et les tracés sous `photo[i].annot`.
+- Mission : `notesSite` (reprise), `tempsN1` (temps de la visite précédente), `_materiel` (cases cochées, propres à la visite).
+- Schéma : un élément `ventilateur` peut porter `inst` (son installation contrôlée) pour le bilan du réseau (`schemaBilanReseau`).
 - Au niveau de la mission : `plans`, `documentsJoints`, `schemas` (identifiants d'installation dans
   `instIds` / `elements[].inst`, remis à jour à la visite suivante). Dans un fichier exporté, les images
   des documents, des fonds de schéma et des plaques sont dans `imagesJointes` (identifiant -> base64).

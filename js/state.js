@@ -499,6 +499,8 @@ function createMissionFromPreviousSite(source) {
   m.typeMission = source.typeMission || '';
   m.typesSelectionnes = (source.typesSelectionnes || []).slice();
   m.plans = JSON.parse(JSON.stringify(source.plans || []));
+  if (source.notesSite) m.notesSite = source.notesSite; // notes pratiques (js/visite.js)
+  if (typeof tempsMission === 'function' && tempsMission(source)) m.tempsN1 = tempsMission(source); // temps passé l'an dernier (js/temps.js)
 
   var idMap = {}; // ancien id d'installation -> nouveau (rattachements des documents et schémas)
   Object.keys(source.installations || {}).forEach(function (typeId) {
@@ -515,6 +517,8 @@ function createMissionFromPreviousSite(source) {
       if (inst.data && inst.data._qr) data._qr = inst.data._qr;
       // Photo de la plaque signalétique (js/plaque.js) : l'équipement est le même
       if (inst.data && inst.data._plaque) data._plaque = inst.data._plaque;
+      if (inst.data && inst.data._note) data._note = inst.data._note; // note pratique (js/visite.js)
+      if (inst.data && inst.data._photoN1) data._photoN1 = inst.data._photoN1; // photo de la visite précédente
       var nid = generateId();
       if (inst.id) idMap[inst.id] = nid;
       return { id: nid, data: data };

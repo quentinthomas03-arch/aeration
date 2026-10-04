@@ -267,6 +267,7 @@ function renderBilan() {
   h += '<button class="btn btn-primary mt-8" onclick="state.view=\'compte-rendu\';render();">' + ICONS.edit + ' Compte rendu de fin de visite (signature client)</button>';
   h += '<div class="row"><button class="btn btn-gray" onclick="exportRapportPdf();">' + ICONS.download + ' Rapport PDF</button>' +
     '<button class="btn btn-gray" onclick="exportSyntheseExcel();">' + ICONS.list + ' Synthèse Excel</button></div>';
+  if (typeof tempsBilanHtml === 'function') h += tempsBilanHtml(m); // temps passé (js/temps.js), interne
   return h;
 }
 

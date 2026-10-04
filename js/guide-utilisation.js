@@ -14,8 +14,8 @@ var GUIDE_UTILISATION_ETAPES = [
   },
   {
     icon: 'tag',
-    titre: '3. Avant la visite : étiquettes QR',
-    texte: 'Au bureau (pas d’imprimante sur site), menu « ⋯ » > « Imprimer les étiquettes QR » : une planche A4 de 3 × 7 étiquettes (type Avery L7160), une par installation, avec son nom en gros pour savoir où la coller. L’année suivante, « Scanner l’étiquette d’une installation » en haut de la mission (ou l’appareil photo du téléphone) ouvre directement la bonne fiche ; la référence imprimée sous le QR peut aussi être tapée.'
+    titre: '3. Avant la visite : préparer, imprimer les étiquettes',
+    texte: 'Menu « ⋯ » > « Préparer la visite » : notes pratiques du site (accès, clés, nacelle, horaires, contact ; hors rapport, reprises l’an prochain), matériel à emporter déduit des mesures prévues dans les fiches, étalonnage des appareils. Au bureau (pas d’imprimante sur site), « Imprimer les étiquettes QR » : une planche A4 de 3 × 7 étiquettes (type Avery L7160), une par installation, avec son nom en gros pour savoir où la coller. L’année suivante, « Scanner l’étiquette d’une installation » en haut de la mission (ou l’appareil photo du téléphone) ouvre directement la bonne fiche ; la référence imprimée sous le QR peut aussi être tapée.'
   },
   {
     icon: 'edit',
@@ -25,12 +25,12 @@ var GUIDE_UTILISATION_ETAPES = [
   {
     icon: 'camera',
     titre: '5. Photos et plaque signalétique',
-    texte: 'Le crayon sur une photo permet de l’annoter au doigt : entourer, flécher ou écrire sur le défaut (3 couleurs). La photo annotée part dans le rapport, l’original est conservé pour reprendre l’annotation. En bas de la fiche d’un équipement, « Photographier la plaque signalétique » garde la marque, le modèle et le débit nominal : la photo est reprise l’an prochain, hors rapport.'
+    texte: 'Le crayon sur une photo permet de l’annoter au doigt : entourer, flécher ou écrire sur le défaut (3 couleurs). La photo annotée part dans le rapport, l’original est conservé pour reprendre l’annotation. À la visite suivante, la photo de l’an dernier s’affiche (repère « N-1 ») pour reprendre le même cadrage. En bas de chaque fiche, « Note pour la prochaine visite » garde une info pratique, rappelée en tête de fiche l’année suivante. En bas de la fiche d’un équipement, « Photographier la plaque signalétique » garde la marque, le modèle et le débit nominal : la photo est reprise l’an prochain, hors rapport.'
   },
   {
     icon: 'building',
     titre: '6. Suivre l’avancement',
-    texte: 'La fiche mission liste toutes les installations par bâtiment ou par type, avec leur statut et une recherche. Le « Bilan » résume les avis (part satisfaisante, répartition par type, points non satisfaisants).'
+    texte: 'La fiche mission liste toutes les installations par bâtiment ou par type, avec leur statut et une recherche. Le « Bilan » résume les avis (part satisfaisante, répartition par type, points non satisfaisants) et, pour un usage interne, le temps passé sur les fiches par type d’installation, avec celui de la visite précédente : utile pour chiffrer la prochaine visite.'
   },
   {
     icon: 'map',
@@ -40,7 +40,7 @@ var GUIDE_UTILISATION_ETAPES = [
   {
     icon: 'share',
     titre: '8. Schéma du réseau',
-    texte: 'Dans l’onglet « Plan » ou les infos de la mission : « Dessiner un schéma de réseau ». Choisissez les types d’installations desservies, placez-les (outil « Installation »), ajoutez le ventilateur, le filtre, le rejet ou le retour d’air, puis tracez les gaines : touchez le départ puis l’arrivée ; toucher une gaine crée un piquage pour une division. Le sens de l’air et la couleur des gaines (aspiration, refoulement, recyclage) sont automatiques. Le schéma figure dans le rapport (4.3) comme schéma de principe.'
+    texte: 'Dans l’onglet « Plan » ou les infos de la mission : « Dessiner un schéma de réseau ». Choisissez les types d’installations desservies, placez-les (outil « Installation »), ajoutez le ventilateur, le filtre, le rejet ou le retour d’air, puis tracez les gaines : touchez le départ puis l’arrivée ; toucher une gaine crée un piquage pour une division. Le sens de l’air et la couleur des gaines (aspiration, refoulement, recyclage) sont automatiques. En reliant le ventilateur à son installation contrôlée, l’appli compare le débit au ventilateur à la somme des débits mesurés aux installations raccordées (bilan du réseau). Le schéma figure dans le rapport (4.3) comme schéma de principe.'
   },
   {
     icon: 'paperclip',

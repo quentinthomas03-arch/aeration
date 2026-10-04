@@ -37,6 +37,7 @@ function renderMissionDetail() {
     h += '<div class="mission-menu">' +
       item('state.view=\'mission-form\';render();', ICONS.edit, 'Infos mission') +
       item('state.view=\'select-installations\';render();', ICONS.list, 'Sélection des installations') +
+      item('state.view=\'preparation\';render();', ICONS.clipboard, 'Préparer la visite (notes, matériel)') +
       item('state.view=\'verification-depart\';render();', ICONS.check, 'Vérifier avant de partir') +
       item('render();shareRapportPdf();', ICONS.upload, 'Envoyer le rapport (mail, Teams…)') +
       item('state.view=\'compte-rendu\';render();', ICONS.edit, 'Compte rendu de fin de visite') +
@@ -420,6 +421,10 @@ function renderFieldInput(typeId, f, inst) {
   if (f.type === 'photo') {
     var photos = Array.isArray(val) ? val : [];
     var h = '<div class="photo-gallery">';
+    // Photo de la visite précédente (js/plaque.js) : pour reprendre le même cadrage, hors rapport
+    if (inst && inst.data && inst.data._photoN1) {
+      h += '<div class="photo-thumb photo-n1"><img data-photo-src="' + escapeHtml(inst.data._photoN1) + '" alt="Photo de la visite précédente" onclick="openPhotoViewer(\'' + escapeHtml(inst.data._photoN1) + '\');"><span class="photo-n1-tag">N-1</span></div>';
+    }
     photos.forEach(function (p) {
       h += '<div class="photo-thumb' + (p.annot && p.annot.length ? ' annotee' : '') + '">' +
         '<img data-photo-src="' + escapeHtml(p.id) + '" alt="Photo" onclick="openPhotoViewer(\'' + escapeHtml(p.id) + '\');">' +

@@ -56,12 +56,32 @@ function plaqueSupprimer(typeId) {
 }
 
 // Identifiants des photos de plaque d'une mission (export, suppression : js/documents-joints.js)
+// (aussi la photo de la visite précédente, _photoN1)
+var PHOTOS_META = ['_plaque', '_photoN1'];
 function plaquePhotoIds(m) {
   var ids = [];
   Object.keys(m.installations || {}).forEach(function (t) {
-    (m.installations[t] || []).forEach(function (inst) { if (inst && inst.data && inst.data._plaque) ids.push(inst.data._plaque); });
+    (m.installations[t] || []).forEach(function (inst) {
+      PHOTOS_META.forEach(function (k) { if (inst && inst.data && inst.data[k]) ids.push(inst.data[k]); });
+    });
   });
   return ids;
+}
+
+// « Charger un site précédent » : la première photo de chaque installation de l'an dernier devient sa
+// photo N-1 (pour reprendre le même cadrage) ; les autres photos ne sont pas reprises
+function photosN1FromImport(source) {
+  var jobs = [];
+  Object.keys(source.installations || {}).forEach(function (t) {
+    (source.installations[t] || []).forEach(function (inst) {
+      var p = inst && inst.data && Array.isArray(inst.data.photo) ? inst.data.photo[0] : null;
+      if (!p || typeof p.dataUrl !== 'string' || p.dataUrl.indexOf('data:image/') !== 0) return;
+      var id = generatePhotoId();
+      jobs.push(fetch(p.dataUrl).then(function (r) { return r.blob(); }).then(function (b) { return savePhotoBlob(id, b); })
+        .then(function () { inst.data._photoN1 = id; }).catch(function () {}));
+    });
+  });
+  return Promise.all(jobs);
 }
 
 console.log('✓ Photo de plaque signalétique chargée');
