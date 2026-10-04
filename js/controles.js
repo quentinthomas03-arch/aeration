@@ -123,6 +123,7 @@ function installationAnomalies(t, inst, mission) {
     if (reasons.length) push(avisField, 'Avis « Satisfaisant » alors que non satisfaisant : ' + reasons.join(', '));
   }
   if (typeof mesuresAnomalies === 'function') out = out.concat(mesuresAnomalies(t, inst)); // points aberrants, mesures proches du seuil (js/mesures.js)
+  if (typeof relectureAnomalies === 'function') out = out.concat(relectureAnomalies(t, inst)); // commentaires de relecture (js/qualite.js)
   return out;
 }
 

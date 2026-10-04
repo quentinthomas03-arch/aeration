@@ -200,13 +200,13 @@ function verifEcarts(t, inst) {
 function computeVerification(m) {
   var typesAffiches = INSTALLATION_TYPES.filter(function (t) { return (m.typesSelectionnes || []).indexOf(t.id) !== -1; });
   var items = listAllInstallations(m, typesAffiches).map(function (it) {
-    var notStarted = it.status.state === 'todo';
+    var notStarted = it.status.state === 'todo', nc = !!it.status.nc; // non contrôlée (js/qualite.js) : rien à compléter
     return {
       it: it,
       notStarted: notStarted,
-      missing: notStarted ? [] : verifMissingFields(it.type, it.inst),
-      ecarts: notStarted ? [] : verifEcarts(it.type, it.inst),
-      anomalies: notStarted ? [] : installationAnomalies(it.type, it.inst, m)
+      missing: notStarted || nc ? [] : verifMissingFields(it.type, it.inst),
+      ecarts: notStarted || nc ? [] : verifEcarts(it.type, it.inst),
+      anomalies: notStarted || nc ? [] : installationAnomalies(it.type, it.inst, m)
     };
   });
 
@@ -260,6 +260,8 @@ function renderVerificationDepart() {
     });
     h += '</div>';
   }
+
+  if (typeof harmonisationHtml === 'function') h += harmonisationHtml(m); // noms de bâtiments (js/qualite.js)
 
   if (!aCompleter.length && !avecEcart.length && !v.missionIssues.length) {
     h += '<div class="card verif-ok">' + ICONS.check + ' Tout est complet. Vous pouvez quitter le site.</div>';

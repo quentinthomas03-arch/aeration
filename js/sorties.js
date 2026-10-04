@@ -165,7 +165,7 @@ function exportSyntheseExcelLoaded() {
     var key = resolveAvisFieldKey(it.type);
     var cfg = (typeof SYNTHESE_CONFIG !== 'undefined' && SYNTHESE_CONFIG[it.type.id]) || {};
     rows.push([it.type.label, it.inst.data.batiment || '', overviewRowTitle(it, 'batiment'),
-      it.status.state === 'todo' ? 'À faire' : (it.inst.data[key] || 'À compléter'),
+      it.status.nc ? 'Non contrôlée : ' + it.inst.data._nonControle.motif : it.status.state === 'todo' ? 'À faire' : (it.inst.data[key] || 'À compléter'),
       verdictReasons(it.type, it.inst, key, 'Non Satisfaisant').join(', '),
       cfg.commentaire ? (it.inst.data[cfg.commentaire] || '') : '']);
   });

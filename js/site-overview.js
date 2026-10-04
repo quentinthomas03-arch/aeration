@@ -46,6 +46,8 @@ function resolveAvisFieldKey(type) {
 
 function installationStatus(type, inst) {
   var data = inst.data || {};
+  // Installation non contrôlée (js/qualite.js) : terminée, avec son motif
+  if (data._nonControle) return { state: 'done', cls: 'status-nc', text: 'Non contrôlée · ' + (data._nonControle.motif || ''), nc: true };
   if (!hasRealInstallationData(data)) return { state: 'todo', cls: 'status-muted', text: 'À faire' };
 
   var avisKey = resolveAvisFieldKey(type);

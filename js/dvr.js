@@ -175,7 +175,7 @@ function dvrPolluant(m, t, inst) {
 // Toutes les installations relevables de la mission, groupées par catégorie
 function dvrItems(m) {
   return overviewOrderedItems(m).filter(function (it) {
-    return DVR_CONFIG[it.type.id] && it.status.state === 'done';
+    return DVR_CONFIG[it.type.id] && it.status.state === 'done' && !it.status.nc;
   }).map(function (it) {
     var cfg = DVR_CONFIG[it.type.id];
     var lignes = cfg.lignes.map(function (l) { return { def: l, val: dvrLigne(it.type, it.inst, l) }; })

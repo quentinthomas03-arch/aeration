@@ -4,10 +4,16 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.58';
+var APP_VERSION = '1.59';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.59', date: '04/10/2026', items: [
+    'Installation non contrôlée : choisissez le motif (accès impossible, à l’arrêt…) ; elle apparaît comme telle dans le rapport au lieu d’une fiche vide.',
+    'Contre-visite (Bilan ou menu ⋯) : nouvelle mission avec seulement les installations non satisfaisantes, mesure initiale en N-1, rapport d’origine rappelé.',
+    'Noms de bâtiments à harmoniser (« Bât B » / « Bâtiment B - Production ») proposés dans « Vérifier avant de partir ».',
+    'Relecture (menu ⋯) : validation et commentaires par installation, puis « Rapport vérifié par … le … » dans le rapport.'
+  ] },
   { version: '1.58', date: '04/10/2026', items: [
     'Créer les installations par quantités (menu ⋯ ou sélection des installations) : tapez le nombre par type dans le tableau, ou collez / importez un tableau Excel (type, nombre, bâtiment, nom). Tout est créé d’un coup, avec les quantités prévues au devis. Modèle Excel téléchargeable.'
   ] },

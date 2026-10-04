@@ -265,6 +265,7 @@ function renderBilan() {
     h += '<p class="subtitle" style="margin:4px 4px 12px;">' + counts.open + ' installation(s) encore à compléter : voir « Vérifier avant de partir ».</p>';
   }
   h += '<button class="btn btn-primary mt-8" onclick="state.view=\'compte-rendu\';render();">' + ICONS.edit + ' Compte rendu de fin de visite (signature client)</button>';
+  if (counts.bad && typeof creerContreVisite === 'function') h += '<button class="btn btn-gray" onclick="creerContreVisite();">' + ICONS.copy + ' Créer une contre-visite (' + counts.bad + ' non satisfaisante' + (counts.bad > 1 ? 's' : '') + ')</button>';
   h += '<div class="row"><button class="btn btn-gray" onclick="exportRapportPdf();">' + ICONS.download + ' Rapport PDF</button>' +
     '<button class="btn btn-gray" onclick="exportSyntheseExcel();">' + ICONS.list + ' Synthèse Excel</button></div>';
   if (typeof tempsBilanHtml === 'function') h += tempsBilanHtml(m); // temps passé (js/temps.js), interne

@@ -229,6 +229,7 @@ function schemaNumeros(m, s) {
 
 function schemaAvisTexte(it) {
   if (!it) return '';
+  if (it.status.nc) return 'Non contrôlée';
   if (it.status.state === 'todo') return 'À faire';
   var key = resolveAvisFieldKey(it.type);
   return it.inst.data[key] || 'À compléter';

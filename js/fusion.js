@@ -95,6 +95,7 @@ function mergeMissionInto(target, incoming) {
   });
   if (typeof docsFusionner === 'function') docsFusionner(target, incoming); // documents joints, schémas
   if (!target.notesSite && incoming.notesSite) target.notesSite = incoming.notesSite;
+  if (incoming.relecture && (!target.relecture || (incoming.relecture.t || 0) > (target.relecture.t || 0))) target.relecture = incoming.relecture; // js/qualite.js
   return report;
 }
 

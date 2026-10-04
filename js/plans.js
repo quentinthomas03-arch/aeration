@@ -317,7 +317,7 @@ function pdfBuildPlansSite(m) {
     placed.forEach(function (p) {
       var key = resolveAvisFieldKey(p.it.type);
       body.push([cell(p.n, { alignment: 'center', bold: true }), cell(p.it.type.label), cell(overviewRowTitle(p.it)), cell(p.it.inst.data.batiment),
-        cell(p.it.status.state === 'todo' ? 'À faire' : (p.it.inst.data[key] || 'À compléter'), { color: COLORS[p.it.status.cls] || '#333333', bold: p.it.status.cls === 'status-bad' })]);
+        cell(p.it.status.nc ? 'Non contrôlée' : p.it.status.state === 'todo' ? 'À faire' : (p.it.inst.data[key] || 'À compléter'), { color: COLORS[p.it.status.cls] || '#333333', bold: p.it.status.cls === 'status-bad' })]);
     });
     content.push({ table: { headerRows: 1, widths: [24, 120, '*', 110, 110], body: body },
       layout: { hLineColor: function () { return '#B7D7F0'; }, vLineColor: function () { return '#B7D7F0'; }, hLineWidth: function () { return 0.6; }, vLineWidth: function () { return 0.6; } } });

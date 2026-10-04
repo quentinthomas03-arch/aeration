@@ -49,6 +49,8 @@ function renderMissionDetail() {
       item('render();shareOrExportMission(' + m.id + ');', ICONS.download, 'Transférer la mission seule (fichier .json)') +
       (typeof imprimerEtiquettesQr === 'function' ? item('render();imprimerEtiquettesQr();', QR_ICON, 'Imprimer les étiquettes QR (avant la visite)') : '') +
       item('render();triggerMergeMission();', ICONS.merge, 'Fusionner le travail d’un collègue (.json)') +
+      (typeof renderRelecture === 'function' ? item('state.view=\'relecture\';render();', ICONS.check, 'Relire la mission (relecture)') : '') +
+      (typeof creerContreVisite === 'function' ? item('render();creerContreVisite();', ICONS.copy, 'Créer une contre-visite') : '') +
       '</div>';
   }
   h += '</div></div>';

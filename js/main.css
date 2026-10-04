@@ -939,3 +939,32 @@ textarea.input { font-family: inherit; line-height: 1.4; }
 .quantites-ligne input[inputmode="numeric"] { text-align: center; }
 .quantites-ligne label { min-width: 0; overflow-wrap: anywhere; }
 .quantites-actions { position: sticky; bottom: 0; margin: 0 -4px -4px; padding: 10px 4px 4px; background: linear-gradient(to bottom, transparent, var(--card-bg, #fff) 14px); display: flex; flex-direction: column; gap: 6px; }
+
+/* === Qualité : non contrôlée, relecture, harmonisation (js/qualite.js) === */
+.overview-row.status-nc { border-left-color: #6b7785; }
+.overview-row.status-nc .overview-row-status, .status-nc .status-dot { color: #6b7785; }
+.status-dot.status-nc { background: #6b7785; }
+.plan-pin.status-nc { background: #6b7785; }
+.nc-bandeau { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #EEF1F4; border: 1px dashed #6b7785; font-size: 14px; color: var(--text-dark); }
+.nc-actions { display: flex; gap: 6px; margin-left: auto; }
+.nc-actions .btn { width: auto; }
+.nc-lien { margin-top: 12px; width: auto; }
+.nc-form { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.nc-form .row { gap: 8px; margin-top: 6px; }
+.relecture-bandeau { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #EAF2FF; border: 1px solid #9cc3f0; font-size: 14px; color: #0b3d6e; }
+:root[data-theme="dark"] .relecture-bandeau { background: #16314a; color: #cfe4fb; border-color: #2c5f8f; }
+.relecture-ok { margin-top: 8px; color: #15803d; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.relecture-ok svg { width: 16px; height: 16px; }
+.relecture-compte { margin-top: 6px; font-size: 14px; color: var(--text-muted, #6b7785); }
+.relecture-item { display: flex; flex-direction: column; gap: 8px; border-left: 4px solid var(--border-subtle); }
+.relecture-item.ok { border-left-color: #16a34a; }
+.relecture-item.remarque { border-left-color: #d97706; }
+.relecture-tete { display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; }
+.relecture-tete svg { width: 16px; height: 16px; flex: 0 0 16px; }
+.relecture-item .input { margin: 0; }
+.relecture-item .btn { width: auto; align-self: flex-start; }
+.harmo-groupe { padding: 8px 0; border-top: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 6px; }
+.harmo-noms { font-size: 14px; }
+.harmo-groupe .row { gap: 8px; }
+.harmo-groupe .input { margin: 0; flex: 1; }
+.harmo-groupe .btn { width: auto; }

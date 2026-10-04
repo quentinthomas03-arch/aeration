@@ -5,82 +5,107 @@ var GUIDE_UTILISATION_ETAPES = [
   {
     icon: 'plus',
     titre: '1. Créer ou reprendre une mission',
-    texte: '« Nouvelle mission » puis les informations générales (client, site, n° d’affaire, dates). Pour un site déjà suivi : « Charger un site précédent » (mission de l’an dernier) ou « Importer un fichier Rapso (V29) ». Seules les données de structure sont reprises, jamais les mesures ; le plan du site, les schémas, les documents joints, les étiquettes QR et les photos de plaque reviennent aussi. L’accueil classe les missions (en cours, terminées, archivées) avec une recherche par client, site ou n° d’affaire.'
+    texte: '« Nouvelle mission » puis les informations générales (client, site, n° d’affaire, dates). Pour un site déjà suivi : « Charger un site précédent » (fichier de la mission de l’an dernier) ou « Importer un fichier Rapso (V29) ». Reviennent les installations, le plan, les schémas, les documents, les étiquettes QR, les notes pratiques, les photos de plaque et de l’an dernier, l’historique des mesures ; les mesures, elles, repartent à zéro.'
   },
   {
     icon: 'list',
-    titre: '2. Choisir les installations à contrôler',
-    texte: 'Sélectionnez les types présents sur le site, puis ajoutez chaque installation, ou créez-les toutes d’un coup avec « Créer les installations par quantités » : tapez le nombre par type dans le tableau, ou collez les lignes d’un tableau Excel (type, nombre, bâtiment, nom) ou importez le fichier ; un modèle Excel est fourni. Pour un laboratoire ou un atelier (soudure, peinture…), le type « Local à pollution spécifique » fait le bilan du local : air neuf par rapport au minimum réglementaire (R4222-11 et R4222-6), débit global extrait, compensation. Une installation qui recycle l’air se contrôle avec le type « Recyclage de l’air » (contrôle semestriel). Trois types suivent les guides INRS : décapage / grenaillage au jet libre (ED 768), machines-outils à fluide de coupe (ED 972), postes manuels aux solvants (ED 6049).'
-  },
-  {
-    icon: 'tag',
-    titre: '3. Avant la visite : préparer, imprimer les étiquettes',
-    texte: 'Menu « ⋯ » > « Préparer la visite » : notes pratiques du site (accès, clés, nacelle, horaires, contact ; hors rapport, reprises l’an prochain), matériel à emporter déduit des mesures prévues dans les fiches, étalonnage des appareils, quantités prévues au devis (l’écart est signalé avant de partir). Au bureau (pas d’imprimante sur site), « Imprimer les étiquettes QR » : une planche A4 de 3 × 7 étiquettes (type Avery L7160), une par installation, avec son nom en gros pour savoir où la coller. L’année suivante, « Scanner l’étiquette d’une installation » en haut de la mission (ou l’appareil photo du téléphone) ouvre directement la bonne fiche ; la référence imprimée sous le QR peut aussi être tapée.'
-  },
-  {
-    icon: 'edit',
-    titre: '4. Remplir chaque installation',
-    texte: 'La saisie se fait écran par écran ; le menu en haut permet de sauter à une étape. Au-dessus de chaque mesure, l’objectif à atteindre est affiché (« ≥ 20 m/s », « ≥ 60 m³/h »…), avec « atteint / non atteint » dès la saisie ; il est déduit du calcul de l’appli et des données déjà saisies. L’avis se met à jour en bas de la fiche, avec le critère en cause. Une valeur inhabituelle, un écart de plus de 30 % avec l’an dernier, une mesure à moins de 5 % du seuil ou un point de grille très différent des autres est signalé : à confirmer avant de quitter le poste. Les grilles de points se saisissent au pavé numérique intégré. « Aujourd’hui » remplit la date, « Phrases types » insère une observation, « Dupliquer » recopie la structure d’une installation semblable ; à côté, la calculette fait les calculs de terrain (débit d’après la vitesse et la section, Pitot, renouvellement, air neuf par occupant). Sous la fiche, une courbe montre l’évolution de la mesure principale sur les visites précédentes ; dans une CTA, cochez les locaux alimentés pour comparer son air neuf au besoin cumulé de ces locaux. En fin de fiche, « Terminé, installation suivante » enchaîne directement.'
-  },
-  {
-    icon: 'camera',
-    titre: '5. Photos et plaque signalétique',
-    texte: 'Le crayon sur une photo permet de l’annoter au doigt : entourer, flécher ou écrire sur le défaut (3 couleurs). La photo annotée part dans le rapport, l’original est conservé pour reprendre l’annotation. À la visite suivante, la photo de l’an dernier s’affiche (repère « N-1 ») pour reprendre le même cadrage. En bas de chaque fiche, « Note pour la prochaine visite » garde une info pratique, rappelée en tête de fiche l’année suivante. En bas de la fiche d’un équipement, « Photographier la plaque signalétique » garde la marque, le modèle et le débit nominal : la photo est reprise l’an prochain, hors rapport.'
-  },
-  {
-    icon: 'building',
-    titre: '6. Suivre l’avancement',
-    texte: 'La fiche mission liste toutes les installations par bâtiment ou par type, avec leur statut et une recherche. Le « Bilan » résume les avis (part satisfaisante, répartition par type, points non satisfaisants) et, pour un usage interne, le temps passé sur les fiches par type d’installation, avec celui de la visite précédente : utile pour chiffrer la prochaine visite.'
-  },
-  {
-    icon: 'map',
-    titre: '7. Plan du site',
-    texte: 'Onglet « Plan » de la mission : photographiez le plan d’évacuation ou importez le plan du client, puis « Placer des installations » et touchez le plan pour chacune. Les épingles prennent la couleur de l’avis ; toucher une épingle ouvre la fiche. Une installation découverte sur place se crée sans quitter le plan (« Nouvelle installation »). Le plan figure dans le rapport (4.2) et revient l’année suivante.'
-  },
-  {
-    icon: 'share',
-    titre: '8. Schéma du réseau',
-    texte: 'Dans l’onglet « Plan » ou les infos de la mission : « Dessiner un schéma de réseau ». Choisissez les types d’installations desservies, placez-les (outil « Installation »), ajoutez le ventilateur, le filtre, le rejet ou le retour d’air, puis tracez les gaines : touchez le départ puis l’arrivée ; toucher une gaine crée un piquage pour une division. Le sens de l’air et la couleur des gaines (aspiration, refoulement, recyclage) sont automatiques. En reliant le ventilateur à son installation contrôlée, l’appli compare le débit au ventilateur à la somme des débits mesurés aux installations raccordées (bilan du réseau). Le schéma figure dans le rapport (4.3) comme schéma de principe.'
-  },
-  {
-    icon: 'paperclip',
-    titre: '9. Documents du client',
-    texte: 'Infos mission > « Plans, schémas et documents joints » : photographiez ou joignez les documents remis (image ou PDF, 12 pages maximum par PDF) et cochez les installations concernées. Ils sont listés dans le rapport (3.3), reproduits en dernière annexe, et repris à la visite suivante. « Compléter ce plan » dessine un schéma par-dessus un plan du client.'
-  },
-  {
-    icon: 'check',
-    titre: '10. Vérifier avant de quitter le site',
-    texte: 'Menu « ⋯ » > « Vérifier avant de partir » : installations non commencées, champs encore vides, valeurs inhabituelles, dates incohérentes, avis contredit par un critère calculé, infos de mission manquantes pour le rapport. Un tap ouvre la bonne étape.'
-  },
-  {
-    icon: 'tool',
-    titre: '11. Déclarer ses appareils de mesure',
-    texte: 'Dans « Profil », enregistrez vos appareils (n° d’identification, date d’étalonnage). Cochez ceux utilisés dans « Infos mission » : ils apparaissent dans le rapport, et un étalonnage dépassé est signalé.'
-  },
-  {
-    icon: 'edit',
-    titre: '12. Remettre un compte rendu au client',
-    texte: 'Depuis le Bilan : « Compte rendu de fin de visite ». Synthèse, points non satisfaisants, remarques, puis signature du client au doigt. Le document précise qu’il ne remplace pas le rapport de contrôle.'
-  },
-  {
-    icon: 'flask',
-    titre: '13. Générer et envoyer le rapport',
-    texte: '« Rapport PDF » produit le rapport complet. Menu « ⋯ » : « Envoyer par mail : rapport PDF + mission » prépare un mail (objet, texte, signature, les deux fichiers joints) ; choisissez Outlook puis le destinataire. Le fichier .json permet de reprendre la mission sur ordinateur (« Importer une mission »). Le menu permet aussi d’envoyer le rapport seul et d’exporter la synthèse en Excel.'
+    titre: '2. Créer les installations',
+    texte: '« Sélection des installations » : cochez les types présents sur le site. Pour tout créer d’un coup : « Créer les installations par quantités » (menu ⋯) — tapez le nombre par type dans le tableau, ou collez les lignes d’un tableau Excel (type, nombre, bâtiment, nom), ou importez le fichier ; un modèle Excel est fourni. Pour un laboratoire ou un atelier, le type « Local à pollution spécifique » ; pour une installation qui recycle l’air, « Recyclage de l’air » ; trois types suivent les guides INRS (décapage ED 768, fluides de coupe ED 972, postes aux solvants ED 6049).'
   },
   {
     icon: 'clipboard',
-    titre: '14. Relevé des valeurs de référence (prestation optionnelle)',
-    texte: 'Si la prestation est prévue au devis, cochez-la dans « Infos mission ». Le menu « ⋯ » propose alors le relevé pour le dossier de valeurs de référence (arrêté du 8 octobre 1987) : une valeur mesurée n’est proposée que si elle est satisfaisante, sinon le minimum réglementaire. Une fois le relevé signé par le client, indiquez la date de validation : ses valeurs serviront de références à la visite suivante.'
+    titre: '3. Préparer la visite',
+    texte: 'Menu ⋯ › « Préparer la visite » : notes pratiques du site (accès, clés, nacelle, horaires, contact ; hors rapport, reprises l’an prochain), quantités prévues au devis, matériel à emporter déduit des mesures prévues dans les fiches, étalonnage des appareils. Au bureau (pas d’imprimante sur site), « Imprimer les étiquettes QR » : une planche A4 de 3 × 7 étiquettes (type Avery L7160), une par installation, avec son nom pour savoir où la coller.'
+  },
+  {
+    icon: 'search',
+    titre: '4. Retrouver une installation sur site',
+    texte: '« Scanner l’étiquette d’une installation » en haut de la mission (ou l’appareil photo du téléphone, ou la référence imprimée sous le QR) ouvre directement la bonne fiche. Sinon : la liste par bâtiment ou par type, la recherche, ou l’onglet « Plan » et ses épingles.'
+  },
+  {
+    icon: 'edit',
+    titre: '5. Remplir une fiche',
+    texte: 'La saisie se fait écran par écran ; le menu en haut permet de sauter à une étape. Au-dessus de chaque mesure, l’objectif à atteindre (« ≥ 20 m/s »…), avec « atteint / non atteint » dès la saisie. L’avis se met à jour en bas de la fiche avec le critère en cause. Pavé numérique intégré pour les grilles, « Aujourd’hui » pour la date, « Phrases types » pour les observations, « Dupliquer » pour une installation semblable, calculette (débit, Pitot, renouvellement, air neuf par occupant) en haut de la fiche. « Terminé, installation suivante » enchaîne.'
+  },
+  {
+    icon: 'check',
+    titre: '6. Contrôles automatiques des mesures',
+    texte: 'Sont signalés sous le champ : une valeur inhabituelle (virgule oubliée, unité confondue), un écart de plus de 30 % avec l’an dernier, une mesure à moins de 5 % du seuil (« à confirmer »), un point de grille très différent des autres (« à revérifier »). Sous la fiche, une courbe montre l’évolution de la mesure principale sur les visites précédentes.'
+  },
+  {
+    icon: 'tool',
+    titre: '7. Installation non contrôlée',
+    texte: 'En bas de la fiche, « Installation non contrôlée ? » : choisissez le motif (accès impossible, à l’arrêt, démontée, absence du client, sécurité…) et une précision. Elle compte comme terminée, n’apparaît plus dans « à compléter » et figure dans le rapport comme non contrôlée, avec son motif, au lieu d’une fiche vide.'
+  },
+  {
+    icon: 'camera',
+    titre: '8. Photos, plaque et notes',
+    texte: 'Le crayon sur une photo permet de l’annoter au doigt (entourer, flécher, écrire) ; l’original est conservé. À la visite suivante, la photo de l’an dernier (repère « N-1 ») aide à reprendre le même cadrage. En bas de la fiche d’un équipement : « Photographier la plaque signalétique » (marque, modèle, débit nominal, hors rapport) et « Note pour la prochaine visite », rappelée en tête de fiche l’année suivante.'
+  },
+  {
+    icon: 'map',
+    titre: '9. Plan du site',
+    texte: 'Onglet « Plan » : photographiez le plan d’évacuation ou importez celui du client, puis « Placer des installations » et touchez le plan pour chacune. Les épingles prennent la couleur de l’avis ; toucher une épingle ouvre la fiche. Une installation découverte sur place se crée sans quitter le plan. Le plan figure dans le rapport (4.2).'
+  },
+  {
+    icon: 'share',
+    titre: '10. Schéma du réseau',
+    texte: 'Onglet « Plan » ou infos de la mission : « Dessiner un schéma de réseau ». Choisissez les types desservis, placez les installations (outil « Installation », y compris une nouvelle), le ventilateur, le filtre, le rejet ou le retour d’air, puis les gaines : départ puis arrivée ; toucher une gaine crée un piquage. Sens de l’air et couleurs automatiques. En reliant le ventilateur à son installation, le bilan du réseau compare son débit à la somme des débits raccordés. Rapport (4.3).'
+  },
+  {
+    icon: 'zap',
+    titre: '11. Bilan d’air neuf des CTA',
+    texte: 'En bas de la fiche d’une CTA, « Locaux alimentés » : cochez les bureaux, ERP ou locaux spécifiques qu’elle dessert. L’air neuf de la CTA est comparé au besoin réglementaire cumulé de ces locaux (R4222-6). Rapport (4.4).'
+  },
+  {
+    icon: 'paperclip',
+    titre: '12. Documents du client',
+    texte: 'Infos mission › « Plans, schémas et documents joints » : photographiez ou joignez les documents remis (image ou PDF, 12 pages maximum) et cochez les installations concernées. Liste dans le rapport (3.3) et pages en annexe. « Compléter ce plan » dessine un schéma par-dessus.'
+  },
+  {
+    icon: 'check',
+    titre: '13. Vérifier avant de quitter le site',
+    texte: 'Menu ⋯ › « Vérifier avant de partir » : installations non commencées, champs vides, contrôles automatiques à revoir, écart avec le devis, commentaires de relecture à traiter, noms de bâtiments à harmoniser (« Bât B » / « Bâtiment B - Production » : un bouton les unifie), infos de mission manquantes. Un toucher ouvre la bonne étape.'
+  },
+  {
+    icon: 'building',
+    titre: '14. Suivre l’avancement',
+    texte: 'La fiche mission liste les installations par bâtiment, par type ou sur le plan, avec leur statut. Le « Bilan » résume les avis et, pour un usage interne, le temps passé sur les fiches par type (et celui de la visite précédente) pour chiffrer la prochaine visite.'
+  },
+  {
+    icon: 'edit',
+    titre: '15. Compte rendu de fin de visite',
+    texte: 'Depuis le Bilan : synthèse, points non satisfaisants, remarques, puis signature du client au doigt. Le document précise qu’il ne remplace pas le rapport.'
+  },
+  {
+    icon: 'flask',
+    titre: '16. Rapport et envoi',
+    texte: '« Rapport PDF » produit le rapport complet. Menu ⋯ › « Envoyer par mail : rapport PDF + mission » prépare un mail (objet, texte, signature, deux fichiers joints) ; choisissez Outlook puis le destinataire. Le fichier .json permet de reprendre la mission sur ordinateur (« Importer une mission »). Synthèse Excel depuis le Bilan.'
+  },
+  {
+    icon: 'check',
+    titre: '17. Relecture par un collègue',
+    texte: 'Transférez la mission au relecteur. Il ouvre menu ⋯ › « Relire la mission » : il valide chaque installation ou laisse un commentaire, puis « Relecture terminée ». Vous fusionnez son fichier : ses commentaires apparaissent en tête des fiches et dans « Vérifier avant de partir », et le rapport porte « Rapport vérifié par … le … ».'
+  },
+  {
+    icon: 'copy',
+    titre: '18. Contre-visite',
+    texte: 'Après travaux, depuis le Bilan ou le menu ⋯ : « Créer une contre-visite ». Une nouvelle mission reprend uniquement les installations non satisfaisantes, avec la mesure de la visite en « N-1 » ; le rapport rappelle le rapport d’origine.'
+  },
+  {
+    icon: 'clipboard',
+    titre: '19. Relevé des valeurs de référence (option)',
+    texte: 'Si la prestation est prévue au devis, cochez-la dans « Infos mission ». Le menu ⋯ propose le relevé pour le dossier de valeurs de référence (arrêté du 8 octobre 1987) : une valeur n’est proposée que si elle est satisfaisante, sinon le minimum réglementaire. Une fois validé par le client, il sert de référence à la visite suivante.'
   },
   {
     icon: 'merge',
-    titre: '15. Travailler à plusieurs sur un site',
-    texte: 'Transférez la mission (menu « ⋯ », « Transférer la mission seule ») à votre collègue ; chacun saisit ses bâtiments. En fin de visite, « Fusionner le travail d’un collègue » réunit tout dans votre mission (plans, schémas et documents compris) et signale les installations modifiées des deux côtés.'
+    titre: '20. Travailler à plusieurs',
+    texte: '« Transférer la mission seule » à votre collègue ; chacun saisit ses bâtiments. En fin de visite, « Fusionner le travail d’un collègue » réunit tout (plans, schémas, documents, relecture compris) et signale les installations modifiées des deux côtés.'
   },
   {
     icon: 'database',
-    titre: '16. Sauvegarde et sécurité des données',
-    texte: 'Les données restent sur le téléphone. À chaque installation terminée, une sauvegarde automatique est enregistrée (dossier choisi via « Sauvegarde » sur ordinateur, téléchargements sur téléphone). Un bandeau prévient si l’espace est plein ou si l’appli est ouverte dans deux onglets. Ne videz pas les données du navigateur sans avoir exporté vos missions.'
+    titre: '21. Sauvegarde et données',
+    texte: 'Les données restent sur le téléphone, rien n’est envoyé sur un serveur. À chaque installation terminée, une sauvegarde automatique est enregistrée. Un bandeau prévient si l’espace est plein ou si l’appli est ouverte dans deux onglets. Ne videz pas les données du navigateur sans avoir exporté vos missions.'
   }
 ];
 

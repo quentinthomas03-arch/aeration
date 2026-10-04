@@ -262,6 +262,7 @@ function renderGenericWizard(m, t, inst) {
   var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
     ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
   if (typeof noteInstallationBandeauHtml === 'function') h += noteInstallationBandeauHtml(inst); // note de la visite (js/visite.js)
+  if (typeof ncBandeauHtml === 'function') h += ncBandeauHtml(t.id, inst) + relectureBandeauHtml(inst); // non contrôlée, relecture (js/qualite.js)
 
   h += '<div class="wizard-progress">';
   visibleIdx.forEach(function (_, i) {
@@ -306,6 +307,7 @@ function renderGenericWizard(m, t, inst) {
   if (typeof histoCarteHtml === 'function') h += histoCarteHtml(t.id, inst); // historique (js/bilans.js)
   if (typeof bilanCtaCarteHtml === 'function') h += bilanCtaCarteHtml(t.id, inst); // bilan d'air neuf de la CTA
   if (typeof plaqueHtml === 'function') h += plaqueHtml(t.id, inst); // photo de la plaque (js/plaque.js)
+  if (typeof ncChampHtml === 'function') h += ncChampHtml(t.id, inst); // installation non contrôlée (js/qualite.js)
   if (typeof noteInstallationChampHtml === 'function') h += noteInstallationChampHtml(t.id, inst); // note pour la prochaine visite
 
   return h;

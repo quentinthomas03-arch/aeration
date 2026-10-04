@@ -169,8 +169,11 @@ function pdfSyntheseTable(cfg, list) {
     return { text: h.text, fontSize: 11, color: '#FFFFFF', fillColor: PDF_TABLE_HEADER_BLUE, alignment: 'center', margin: [0, 6, 0, 6] };
   }));
   list.forEach(function (inst) {
+    var nc = inst.data && inst.data._nonControle; // installation non contrôlée (js/qualite.js)
     body.push(headers.map(function (h) {
       var val = h.key ? inst.data[h.key] : undefined;
+      if (nc && h.isAvis) val = 'Non contrôlée';
+      if (nc && h.isComment) val = 'Motif : ' + nc.motif + (nc.precision ? ' (' + nc.precision + ')' : '');
       var text = (val === undefined || val === null || val === '') ? '-' : String(val);
       if (h.isAvis) return pdfBodyCell(text, { center: true, size: 10, fill: pdfAvisColor(text) });
       return pdfBodyCell(text, { center: !h.isComment, size: 10 });
@@ -783,6 +786,7 @@ function pdfLabelValueLine(label, value) {
 function pdfBuildPresentationMission(m, di, ic, isi) {
   var content = [];
   content.push(pdfHeading1('1. PRESENTATION DE LA MISSION', { top: 30 }));
+  if (typeof pdfMentionsQualite === 'function') content = content.concat(pdfMentionsQualite(m)); // contre-visite, rapport vérifié (js/qualite.js)
   content.push(pdfSubHeading('Objectif'));
   var nomSite = ic.nomEntreprise || '—';
   content.push({ text: 'Ce rapport présente les résultats de la vérification de l’aération et de l’assainissement des locaux de travail réalisée sur le site ' + nomSite + ', selon le contrat référencé ' + nomSite + '.', fontSize: 10, margin: [0, 10, 0, 10] });
@@ -887,6 +891,7 @@ function pdfBuildSyntheseControle(m) {
     content.push(pdfSyntheseTable(cfg, list));
   });
   if (!hasContent) content.push({ text: 'Aucune installation renseignée.', italics: true, fontSize: FS(20) });
+  if (typeof pdfNonControlees === 'function') content = content.concat(pdfNonControlees(m)); // installations non contrôlées (js/qualite.js)
   return content;
 }
 
@@ -1408,7 +1413,8 @@ function pdfBuildRapportDocDefinition(m) {
 
   var seenSectionGroups = {}, nbSections = 0;
   INSTALLATION_TYPES.forEach(function (t) {
-    var list = (m.installations && m.installations[t.id]) || [];
+    // Pas de fiche en annexe pour une installation non contrôlée (js/qualite.js)
+    var list = ((m.installations && m.installations[t.id]) || []).filter(function (inst) { return !(inst.data && inst.data._nonControle); });
     if (list.length === 0) return;
 
     var group = sectionGroupForType(t.id);

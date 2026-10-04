@@ -26,7 +26,7 @@ puis ouvrir `http://localhost:8129`.
 node outils/tests/run.js
 ```
 
-43 tests, environ 10 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
+44 tests, environ 10 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
 d'`index.html`, sans navigateur, et vérifient la mission de démonstration, le rapport PDF, le compte rendu,
 l'export Excel, le relevé de valeurs de référence, les contrôles, la fusion, le plan du site, les schémas
 de réseau, les documents joints, les étiquettes QR, les objectifs avant mesure, et les calculs face au Rapso.
@@ -111,6 +111,7 @@ d'un tiers ne peut pas exécuter de code, et la conversion ne dépend pas de l'a
 | `calculette.js` | Calculette de terrain (débit, Pitot, renouvellement, air neuf par occupant) |
 | `mesures.js` | Points aberrants des grilles, mesures à moins de 5 % du seuil (remontés dans « Vérifier avant de partir ») |
 | `import-liste.js` | Créer les installations par quantités (tableau) ou depuis un tableau Excel collé / importé, modèle Excel |
+| `qualite.js` | Installation non contrôlée (motif), contre-visite, harmonisation des noms de bâtiments, relecture (validation, commentaires, « Rapport vérifié par ») |
 
 ## Données
 
@@ -125,6 +126,8 @@ d'un tiers ne peut pas exécuter de code, et la conversion ne dépend pas de l'a
   « Dupliquer » ne recopie jamais les clés `_`.
 - Une photo annotée garde l'original sous `photo[i].orig` et les tracés sous `photo[i].annot`.
 - Installation : `_histo` = [{ a: année, v: valeur }] (mesure principale des visites précédentes, prolongé à chaque « Charger un site précédent ») ; sur une CTA, `_alimente` = identifiants des locaux qu'elle alimente.
+- Installation : `_nonControle` = { motif, precision } (statut « Non contrôlée », exclue des annexes du rapport, listée après la synthèse) ; `_relecture` = { ok, c }.
+- Mission : `relecture` = { par, date, t, statut } (« Rapport vérifié par » ; la plus récente gagne à la fusion) ; `contreVisite` = { affaire, chrono, date, n }.
 - Mission : `devis` = { typeId: quantité prévue } (comparé dans « Vérifier avant de partir », non repris l'année suivante).
 - Mission : `notesSite` (reprise), `tempsN1` (temps de la visite précédente), `_materiel` (cases cochées, propres à la visite).
 - Schéma : un élément `ventilateur` peut porter `inst` (son installation contrôlée) pour le bilan du réseau (`schemaBilanReseau`).
