@@ -401,6 +401,8 @@ function pdfConduitBlock(o) {
     return (r === 0 && c === Math.floor(cols / 2)) ? v(o.vitesse) : '/';
   };
   var d1 = parseFloat(String(o.d1 || '').replace(',', '.')), d2 = parseFloat(String(o.d2 || '').replace(',', '.'));
+  // Box de peinture : le Rapso appelle « Largeur » le côté 1 et répartit les colonnes sur le côté 2.
+  if (o.largeurD1) { var tmp = d1; d1 = d2; d2 = tmp; var t2 = o.d1; o = Object.assign({}, o, { d1: o.d2, d2: t2 }); }
   var colPos = function (c) {
     if (rect) return isNaN(d1) ? '' : pdfConduitPos((c + 0.5) * d1 / cols, o.posDec);
     if (isNaN(d1)) return '';
@@ -414,8 +416,10 @@ function pdfConduitBlock(o) {
 
   var mesure = pdfTable([125, 125, 274], [
     [{ text: '', border: [false, false, false, false] }, L('Valeur mesurée', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.observation), { rowSpan: 2, alignment: 'left', margin: [4, 12, 4, 0] })],
-    [L('Vitesse moyenne(m/s)', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.vitesse), { fontSize: 10.7, margin: [0, 4, 0, 4] }), {}]
-  ]);
+    [L('Vitesse moyenne(m/s)', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.vitesse), { fontSize: 10.7, margin: [0, 4, 0, 4] }), o.debitRow ? { text: '', border: [true, false, true, false] } : {}]
+  ].concat(o.debitRow ? [[L('Débit (m3/h)', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.debit), { fontSize: 10.7, margin: [0, 4, 0, 4] }), { text: '', border: [true, false, true, true] }]] : []));
+  // Box : l'observation couvre les lignes vitesse et débit.
+  if (o.debitRow) { mesure.table.body[0][2].rowSpan = 3; }
 
   if (rect) {
     var gridBody = [[L('')].concat(Array.apply(null, Array(cols)).map(function (_, c) { return L(colPos(c)); }))];
@@ -451,6 +455,28 @@ function pdfConduitBlock(o) {
   return out;
 }
 
+
+// Page de méthodologie au style du Rapso (EMFI Haguenau p. 50, 62, 82) : logo en haut à gauche,
+// titre bleu marine centré, texte bleu marine 11 pt sans encadré, illustration éventuelle. Reprend
+// les paragraphes non gras de "legal" (les titres en gras sont remplacés par opts.titre).
+var PDF_METHODO_BLUE = '#005499';
+function pdfMethodoPage(legal, opts) {
+  var out = [];
+  if (PDF_ASSETS.logo) out.push({ image: PDF_ASSETS.logo, width: 74, height: 70, absolutePosition: { x: 33, y: 45 } });
+  out.push({ text: opts.titre, fontSize: opts.titleSize || 15, color: opts.titleColor || PDF_METHODO_BLUE, alignment: 'center', margin: [90, 18, 20, 0] });
+  var paras = [];
+  (legal || []).forEach(function (n) {
+    var cell = n && n.table && n.table.body && n.table.body[0] && n.table.body[0][0];
+    if (cell && cell.text && !cell.bold) paras.push(String(cell.text));
+  });
+  paras.forEach(function (p, i) {
+    out.push({ text: p, fontSize: 11, color: PDF_METHODO_BLUE, margin: [3, i === 0 ? (opts.titre.indexOf('\n') !== -1 ? 30 : 48) : 4, 10, 0] });
+  });
+  if (opts.image && PDF_ASSETS.methodo && PDF_ASSETS.methodo[opts.image.key]) {
+    out.push({ image: PDF_ASSETS.methodo[opts.image.key], width: opts.image.w, height: opts.image.h, absolutePosition: { x: opts.image.x, y: opts.image.y } });
+  }
+  return out;
+}
 
 function pdfFicheBar(text, widthPt) {
   return pdfTable([widthPt || PDF_ANNEXE_CONTENT_WIDTH], [[pdfHeaderCell(text)]], { margin: [0, 0, 0, 0] });
@@ -1062,7 +1088,7 @@ function pdfBuildAnnexeHottes(list, logoDataUrl) {
     content.push({ text: 'Aucun local renseigné.', italics: true, fontSize: FS(20) });
     return content;
   }
-  content = content.concat(legal);
+  content = content.concat(pdfMethodoPage(legal, { titre: 'Méthodologie de vérification de l\'aspiration des hottes', titleSize: 11, titleColor: '#003F73', image: { key: 'hottes', x: 43, y: 215, w: 377, h: 179 } }));
   content.push({ text: '', pageBreak: 'after' });
   // Maquette du Rapso réel (EMFI Haguenau p. 63-64).
   var v = formatCrosstabValue;
@@ -1323,7 +1349,7 @@ var PDF_ANNEXES_FIDELES = {
 
 // Résolu par exportRapportPdf() avant l'assemblage (logo + bandeau + photos de page intercalaire),
 // simple objet global le temps d'un export — pas d'état persistant.
-var PDF_ASSETS = { logo: null, banner: null, dividers: {}, ctaSchema: null, sorbonneSchema: null };
+var PDF_ASSETS = { logo: null, banner: null, dividers: {}, ctaSchema: null, sorbonneSchema: null, methodo: {} };
 
 function pdfBuildAnnexeForType(t, list) {
   if (PDF_ANNEXES_FIDELES[t.id]) return PDF_ANNEXES_FIDELES[t.id](list);
@@ -1376,7 +1402,7 @@ function pdfBuildRapportDocDefinition(m) {
   content.push(Object.assign(pdfTocMarker('5. ANNEXES', 1), { pageBreak: 'before', pageOrientation: 'portrait' }));
   content.push({ text: 'ANNEXES', bold: true, color: PDF_ACCENT, fontSize: 40, alignment: 'center', margin: [0, 320, 0, 0] });
 
-  var seenSectionGroups = {};
+  var seenSectionGroups = {}, nbSections = 0;
   INSTALLATION_TYPES.forEach(function (t) {
     var list = (m.installations && m.installations[t.id]) || [];
     if (list.length === 0) return;
@@ -1385,7 +1411,7 @@ function pdfBuildRapportDocDefinition(m) {
     if (group && !seenSectionGroups[group.key]) {
       seenSectionGroups[group.key] = true;
       content.push({ text: '', pageBreak: 'before' });
-      var groupNum = SECTION_GROUPS.indexOf(group) + 1;
+      var groupNum = ++nbSections; // numérotation continue des sections présentes, comme le Rapso (5.1, 5.2, 5.3...)
       content = content.concat(pdfSectionDividerPage(group.titre, PDF_ASSETS.dividers[group.key], '5.' + groupNum + ' ' + group.sommaireTitre, group));
     }
     content.push({ text: '', pageBreak: 'before' });
@@ -1397,6 +1423,7 @@ function pdfBuildRapportDocDefinition(m) {
   // pour 5 sorbonnes, constaté le 2026-10-03).
   var images = {}, keyOf = {}, nImg = 0;
   [PDF_ASSETS.logo, PDF_ASSETS.banner, PDF_ASSETS.ctaSchema, PDF_ASSETS.sorbonneSchema].concat(
+    Object.keys(PDF_ASSETS.methodo || {}).map(function (k) { return PDF_ASSETS.methodo[k]; })).concat(
     Object.keys(PDF_ASSETS.dividers || {}).reduce(function (acc, k) { return acc.concat(PDF_ASSETS.dividers[k] || []); }, [])
   ).forEach(function (url) {
     if (url && !keyOf[url]) { keyOf[url] = 'img' + (nImg++); images[keyOf[url]] = url; }
@@ -1440,16 +1467,20 @@ function pdfFetchAsDataUrl(path) {
 function exportRapportPdf() {
   var m = getCurrentMission();
   if (!m) { alert('Aucune mission sélectionnée'); return; }
-  if (typeof pdfMake === 'undefined') {
-    alert('Bibliothèque PDF non chargée. Rechargez l’application.');
-    return;
-  }
+  buildRapportPdf(m).then(function (r) { r.pdf.download(r.filename); })
+    .catch(function (err) { alert('Erreur lors de l’export PDF.\n' + err.message); });
+}
+
+// Construit le rapport (images chargées, mise en page pdfmake) sans le télécharger : utilisé par
+// l'export (download) et par l'envoi (getBlob + partage natif, js/sorties.js).
+function buildRapportPdf(m) {
+  if (typeof pdfMake === 'undefined') return Promise.reject(new Error('Bibliothèque PDF non chargée. Rechargez l’application.'));
 
   var sectionImagePaths = [];
   var sectionImageCounts = SECTION_GROUPS.map(function (g) { return g.images.length; });
   SECTION_GROUPS.forEach(function (g) { sectionImagePaths = sectionImagePaths.concat(g.images); });
 
-  Promise.all([resolveMissionPhotos(m), pdfFetchAsDataUrl(LOGO_PATH), pdfFetchAsDataUrl(BANNER_PATH), pdfFetchAsDataUrl(CTA_SCHEMA_PATH), pdfFetchAsDataUrl(SORBONNE_SCHEMA_PATH)].concat(sectionImagePaths.map(pdfFetchAsDataUrl)))
+  return Promise.all([resolveMissionPhotos(m), pdfFetchAsDataUrl(LOGO_PATH), pdfFetchAsDataUrl(BANNER_PATH), pdfFetchAsDataUrl(CTA_SCHEMA_PATH), pdfFetchAsDataUrl(SORBONNE_SCHEMA_PATH)].concat(sectionImagePaths.map(pdfFetchAsDataUrl)).concat(Object.keys(METHODO_IMAGES).map(function (k) { return pdfFetchAsDataUrl(METHODO_IMAGES[k]); })))
     .then(function (bufs) {
       var resolvedM = bufs[0];
       PDF_ASSETS.logo = bufs[1];
@@ -1462,13 +1493,11 @@ function exportRapportPdf() {
         PDF_ASSETS.dividers[g.key] = bufs.slice(cursor, cursor + sectionImageCounts[i]);
         cursor += sectionImageCounts[i];
       });
-      try {
-        var docDefinition = pdfBuildRapportDocDefinition(resolvedM);
-        var rawName = (m.clientSite || 'Mission').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç\s-]/g, '').trim();
-        pdfMake.createPdf(docDefinition).download(rawName + '_controle_aeration.pdf');
-      } catch (err) {
-        alert('Erreur lors de l’export PDF.\n' + err.message);
-      }
+      PDF_ASSETS.methodo = {};
+      Object.keys(METHODO_IMAGES).forEach(function (k) { PDF_ASSETS.methodo[k] = bufs[cursor++]; });
+      var docDefinition = pdfBuildRapportDocDefinition(resolvedM);
+      var rawName = (m.clientSite || 'Mission').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç\s-]/g, '').trim();
+      return { pdf: pdfMake.createPdf(docDefinition), filename: rawName + '_controle_aeration.pdf' };
     });
 }
 
@@ -1494,7 +1523,7 @@ function pdfBuildAnnexeCTA(list, logoDataUrl, ctaSchemaDataUrl) {
     content.push({ text: 'Aucun local renseigné.', italics: true, fontSize: FS(20) });
     return content;
   }
-  content = content.concat(legal);
+  content = content.concat(pdfMethodoPage(legal, { titre: 'Méthodologie de vérification des\nCentrales de Traitement d\'Air' }));
   content.push({ text: '', pageBreak: 'after' });
   var W_LABEL = PT(3200);
   list.forEach(function (inst, idx) {
@@ -1629,7 +1658,7 @@ function pdfBuildAnnexeSorbonnes(list, logoDataUrl) {
     content.push({ text: 'Aucun local renseigné.', italics: true, fontSize: FS(20) });
     return content;
   }
-  content = content.concat(legal);
+  content = content.concat(pdfMethodoPage(legal, { titre: 'Méthodologie de vérification des sorbonnes' }));
   content.push({ text: '', pageBreak: 'after' });
   // Maquette du Rapso réel sur deux pages (EMFI Haguenau p. 51-52), bloc x 30 -> 564 (534 pt).
   var v = formatCrosstabValue;
@@ -1776,7 +1805,8 @@ function pdfBuildAnnexeSorbonnes(list, logoDataUrl) {
 var PDF_TITRES_CABINE = {
   'Ouverte': 'CABINE DE PEINTURE OUVERTE',
   'Fermée': 'CABINE DE PEINTURE FERMEE',
-  'Semi-fermée': 'CABINE DE PEINTURE SEMI-FERMEE'
+  'Semi-fermée': 'CABINE DE PEINTURE SEMI-FERMEE',
+  'Encombrant': 'CABINE DE PEINTURE D\'ENCOMBRANT'
 };
 function pdfBuildAnnexeCabinesPeinture(list, logoDataUrl) {
   var titre = 'Cabine de peinture';
@@ -1792,31 +1822,27 @@ function pdfBuildAnnexeCabinesPeinture(list, logoDataUrl) {
     content.push({ text: 'Aucun local renseigné.', italics: true, fontSize: FS(20) });
     return content;
   }
-  content = content.concat(legal);
+  content = content.concat(pdfMethodoPage(legal, { titre: 'Méthodologie de vérification de la\nventilation des cabines de peinture' }));
   content.push({ text: '', pageBreak: 'after' });
-  var W_LABEL = PT(3200), W_IDENT = PT(5200), W_PHOTO = PDF_ANNEXE_CONTENT_WIDTH - W_IDENT - 24;
+  // Maquette du Rapso réel (Nord Réducteurs p. 29-30), bloc x 27 -> 541 (514 pt).
+  var v = formatCrosstabValue;
+  var L = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
+  var V = function (t, extra) { return Object.assign(pdfBodyCell(t, { center: true, size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
+  var NONE = [false, false, false, false];
+  var t = function (w, body) { return pdfTight(pdfTable(w, body)); };
+  var bar = function (txt, w) { return t([w || 514], [[L(txt, { fontSize: 10.5 })]]); };
+  var gap = function (h) { return { text: '', margin: [0, 0, 0, h] }; };
+  var m6 = { margin: [1, 6, 1, 6] }, m12 = { margin: [1, 12, 1, 12] };
 
   function pdfCabineVitesseTable(d) {
-    var recommandeePar = formatCrosstabValue(d.v1_recommandee_par);
-    var W = [2400, 1800, 1800, 2018, 1618].map(PT);
-    var rows = [[pdfHeaderCell(''), pdfHeaderCell('Valeurs mesurées'), pdfHeaderCell('Valeurs de référence'), pdfHeaderCell('Valeurs recommandées par ' + recommandeePar), pdfHeaderCell('Avis par rappport aux valeurs de référence')]];
-    rows.push([
-      pdfHeaderCell('Vitesse moyenne (m/s)'),
-      pdfBodyCell(formatCrosstabValue(d.v1_mesuree), { center: true }),
-      pdfBodyCell(formatCrosstabValue(d.v1_reference), { center: true }),
-      pdfBodyCell(formatCrosstabValue(d.v1_valeur_recommandee), { center: true }),
-      pdfBodyCell(formatCrosstabValue(d.v1_avis), { center: true, bold: true })
-    ]);
+    var par = d.v1_recommandee_par ? 'par ' + d.v1_recommandee_par : 'par la Norme 16985';
+    var rows = [[{ text: '', border: NONE }, L('Valeurs mesurées', m12), L('Valeurs de référence', m12), L('Valeurs recommandées ' + par, { fontSize: 8, margin: [1, 8, 1, 8] }),
+      L('Avis par rappport aux valeurs de référence', m6)]];
+    rows.push([L('Vitesse moyenne (m/s)', { margin: [1, 1, 1, 1] }), V(v(d.v1_mesuree), m6), V(v(d.v1_reference), m6), V(v(d.v1_valeur_recommandee), m6), V(v(d.v1_avis), m6)]);
     if (d.v2_active === 'Oui') {
-      rows.push([
-        pdfHeaderCell('Vitesse minimale (m/s)'),
-        pdfBodyCell(formatCrosstabValue(d.v2_mesuree), { center: true }),
-        pdfBodyCell(formatCrosstabValue(d.v2_reference), { center: true }),
-        pdfBodyCell(formatCrosstabValue(d.v2_valeur_recommandee), { center: true }),
-        pdfBodyCell(formatCrosstabValue(d.v2_avis), { center: true, bold: true })
-      ]);
+      rows.push([L('Vitesse minimale (m/s)', { margin: [1, 1, 1, 1] }), V(v(d.v2_mesuree), m6), V(v(d.v2_reference), m6), V(v(d.v2_valeur_recommandee), m6), V(v(d.v2_avis), m6)]);
     }
-    return pdfTable(W, rows);
+    return t([78, 102, 103, 102, 129], rows);
   }
 
   list.forEach(function (inst, idx) {
@@ -1825,64 +1851,71 @@ function pdfBuildAnnexeCabinesPeinture(list, logoDataUrl) {
     if (idx > 0) content.push({ text: '', pageBreak: 'before' });
     content.push(pdfAnnexePageHeader(titre, sousTitre, logoDataUrl));
 
-    var identTable = pdfTable([W_LABEL, W_IDENT - W_LABEL], pdfFicheIdentRows([
-      ['Marque', formatCrosstabValue(d.marque)],
-      ['Emplacement', formatCrosstabValue(d.batiment)],
-      ['Date du contrôle', formatCrosstabValue(d.date_controle)],
-      ['Réf. de l’équipement et/ou Implantation', formatCrosstabValue(d.reference_equipement)]
+    content.push(t([78, 256, 77, 103], [
+      [L('Marque', m6), V(v(d.marque), m6), L('Emplacement', m6), V(v(d.batiment), Object.assign({ alignment: 'left' }, m6))],
+      [L('Date du contrôle', { margin: [1, 0, 1, 12] }), V(v(d.date_controle), m6), L('description de la cabine', { margin: [1, 4, 1, 4], rowSpan: 2 }), V(v(d.reference_equipement), { alignment: 'left', margin: [1, 4, 1, 4], rowSpan: 2 })],
+      [{ text: '', border: [false, false, false, false] }, { text: '', border: [false, false, false, false] }, {}, {}]
     ]));
-    content.push(pdfFicheTwoCol(identTable, pdfFichePhotoBox(d.photo, W_PHOTO), W_IDENT, W_PHOTO));
-    content.push({ text: '', margin: [0, 0, 0, PT(120)] });
+    content.push(gap(12));
 
-    content.push(pdfTable([W_LABEL, PDF_ANNEXE_CONTENT_WIDTH - W_LABEL], pdfFicheIdentRows([
-      ['Type de flux', formatCrosstabValue(d.type_flux)],
-      ['Nature des produits à peindre', formatCrosstabValue(d.nature_produits)],
-      ['Pulvérisation', formatCrosstabValue(d.pulverisation)],
-      ['Zone de travail', formatCrosstabValue(d.zone_travail)]
-    ])));
-    content.push({ text: '', margin: [0, 0, 0, PT(120)] });
-
-    content.push(pdfFicheBar('État visuel de la cabine'));
-    content.push(pdfFicheObservationBox(formatCrosstabValue(d.etat_visuel_cabine)));
-    content.push({ text: '', margin: [0, 0, 0, PT(120)] });
-    content.push(pdfFicheBar('Test fumigène'));
-    content.push(pdfFicheConclusionRow('Vérification de la direction du flux', formatCrosstabValue(d.direction_flux)));
-    content.push(pdfFicheConclusionRow('État des filtres', formatCrosstabValue(d.etat_filtres)));
-    content.push({ text: '', margin: [0, 0, 0, PT(120)] });
-
-    content.push(pdfFicheBar('Vitesse d’air dans la cabine'));
+    var photo = d.photo ? { image: d.photo, fit: [226, 190], alignment: 'center', margin: [0, 2, 0, 2] } : { text: '', margin: [0, 70, 0, 70] };
+    content.push({ columns: [
+      { width: 231, stack: [
+        { table: { widths: [125], body: [[L('Photo de l\'installation')]] }, layout: pdfBorderedLayout() },
+        { table: { widths: [227], body: [[photo]] }, layout: pdfBorderedLayout() }
+      ] },
+      { width: 283, stack: [t([78, 76, 77, 52], [
+        [L('Type de flux', m6), V(v(d.type_flux), Object.assign({ colSpan: 3 }, m6)), {}, {}],
+        [L('Nature des produits à peindre', { margin: [1, 2, 1, 2] }), V(v(d.nature_produits), Object.assign({ colSpan: 3, fontSize: 11 }, m12)), {}, {}],
+        [L('Pulvérisation', m12), V(v(d.pulverisation), m12), L('Zone de travail', m12), V(v(d.zone_travail), m12)],
+        [L('Etat visuel de la cabine', { colSpan: 4, fontSize: 10.5 }), {}, {}, {}],
+        [V(v(d.etat_visuel_cabine), { colSpan: 4, margin: [1, 14, 1, 14] }), {}, {}, {}]
+      ])] }
+    ], columnGap: 0 });
+    content.push(t([231, 283], [
+      [L('Test fumigène', { colSpan: 2, fontSize: 10.5 }), {}],
+      [L('Vérification de la direction du flux', m6), V(v(d.direction_flux), m6)],
+      [L('Etat des filtres', m6), V(v(d.etat_filtres), m6)]
+    ]));
+    content.push(bar('Vitesse d\'air dans la cabine vide'));
+    content.push(gap(12));
     content.push(pdfCabineVitesseTable(d));
-    content.push({ text: '', margin: [0, 0, 0, PT(120)] });
-
-    content.push(pdfFicheBar('Débit d’air dans la cabine vide'));
-    content.push(pdfTable([2400, 2412, 2412, 2412].map(PT), [
-      [pdfHeaderCell(''), pdfHeaderCell('Valeurs mesurées'), pdfHeaderCell('Valeurs de référence'), pdfHeaderCell('Avis par rappport aux valeurs de référence')],
-      [
-        pdfHeaderCell('Débit (m³/h)'),
-        pdfBodyCell(formatCrosstabValue(d.debit_mesure), { center: true }),
-        pdfBodyCell(formatCrosstabValue(d.debit_reference), { center: true }),
-        pdfBodyCell(formatCrosstabValue(d.debit_avis), { center: true, bold: true })
-      ]
+    content.push(gap(12));
+    content.push(bar('Débit d\'air dans la cabine vide'));
+    content.push(gap(12));
+    content.push(t([78, 102, 103, 129], [
+      [{ text: '', border: NONE }, L('Valeurs mesurées', m12), L('Valeurs de référence', m12), L('Avis par rappport aux valeurs de référence', m6)],
+      [L('Debit (m3/h)', m6), V(v(d.debit_mesure), m6), V(v(d.debit_reference), m6), V(v(d.debit_avis), m6)]
     ]));
-    content.push({ text: '', margin: [0, 0, 0, PT(120)] });
 
-    content.push(pdfFicheBar('Conclusion'));
-    content.push(pdfFicheConclusionRow('Avis par rapport à la réglementation et/ou aux préconisations (dossier de valeurs de référence si existant, norme 16985, guide INRS) vis-à-vis des cabines de peinture :', formatCrosstabValue(d.conclusion)));
-    content.push({ text: '', margin: [0, 0, 0, PT(120)] });
-    content.push(pdfFicheBar('Observation'));
-    content.push(pdfFicheObservationBox(formatCrosstabValue(d.observations)));
-
+    // ——— Page 2 : conclusion, observation, mesure de la cabine vide ———
+    content.push({ text: '', pageBreak: 'before' });
+    content.push(bar('Conclusion'));
+    content.push(gap(12));
+    content.push(t([78, 256, 180], [
+      [L('Avis par rapport à la réglementation et/ou aux préconisations (dossier de valeurs de référence si existant, norme 16985, guide INRS) vis-à-vis des cabines de peinture :', { colSpan: 2 }), {},
+        V(v(d.conclusion), { alignment: 'left', margin: [4, 12, 1, 12] })],
+      [L('Observation', { margin: [1, 12, 1, 12] }), V(v(d.observations), { colSpan: 2, alignment: 'left', margin: [4, 12, 4, 12] }), {}]
+    ]));
     if (d.largeur_cabine || d.longueur_cabine) {
-      content.push({ text: '', pageBreak: 'before' });
-      content.push(pdfFicheBar('Mesure de la cabine vide'));
-      content.push(pdfTable([PT(4200), PDF_ANNEXE_CONTENT_WIDTH - PT(4200)], [
-        [pdfHeaderCell('Largeur (m)'), pdfBodyCell(formatCrosstabValue(d.largeur_cabine))],
-        [pdfHeaderCell('Longueur (m)'), pdfBodyCell(formatCrosstabValue(d.longueur_cabine))]
-      ]));
-      content.push({ text: '', margin: [0, 0, 0, PT(120)] });
-      if (Array.isArray(d.vitesse_grid)) {
-        content.push(pdfFicheGrilleTable(d.vitesse_grid, d.vitesse_nb_axes, d.vitesse_nb_points));
-        content.push({ text: '', margin: [0, 0, 0, PT(120)] });
+      content.push(gap(24));
+      content.push(bar('Mesure de la cabine vide'));
+      content.push(gap(12));
+      content.push(t([78, 77], [[L('Hauteur(m)'), V(v(d.largeur_cabine))], [L('Longueur(m)'), V(v(d.longueur_cabine))]]));
+      content.push(gap(36));
+      // Grille : positions en longueur (colonnes) et en hauteur (lignes, du haut vers le bas), comme le Rapso
+      var nbA = parseInt(d.vitesse_nb_axes, 10) || 0, nbP = parseInt(d.vitesse_nb_points, 10) || 0;
+      var H = parseFloat(String(d.largeur_cabine || '').replace(',', '.')), Lg = parseFloat(String(d.longueur_cabine || '').replace(',', '.'));
+      if (Array.isArray(d.vitesse_grid) && nbA && nbP) {
+        var pos = function (x) { return pdfFrNumber(String(Math.round(x * 100) / 100)); };
+        var body = [[L('L/l')].concat(Array.apply(null, Array(nbP)).map(function (_, c) { return L(isNaN(Lg) ? '' : pos((c + 0.5) * Lg / nbP)); }))];
+        for (var r = 0; r < nbA; r++) {
+          body.push([L(isNaN(H) ? '' : pos((nbA - r - 0.5) * H / nbA))].concat(Array.apply(null, Array(nbP)).map(function (_, c) {
+            var g = d.vitesse_grid[r] && d.vitesse_grid[r][c]; return V((g === undefined || g === '') ? '-' : String(g));
+          })));
+        }
+        content.push(t([26].concat(Array(nbP).fill(26)), body));
+        content.push(gap(24));
       }
       content.push(pdfCabineVitesseTable(d));
     }
@@ -1907,87 +1940,98 @@ function pdfBuildAnnexeBoxPeinture(list, logoDataUrl) {
     return content;
   }
   // Référentiel : affiché sur la page intercalaire de la section (cf. SECTION_GROUPS.divNote).
-  var W_LABEL = PT(3200), W_IDENT = PT(5200), W_PHOTO = PDF_ANNEXE_CONTENT_WIDTH - W_IDENT - 24;
+  // Maquette du Rapso réel (Nord Réducteurs p. 39-41).
+  var v = formatCrosstabValue;
+  var L = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
+  var V = function (t, extra) { return Object.assign(pdfBodyCell(t, { center: true, size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
+  var NONE = [false, false, false, false];
+  var t = function (w, body, ind) { var x = pdfTight(pdfTable(w, body)); if (ind) x.margin = [ind, 0, 0, 0]; return x; };
+  var bar = function (txt) { return t([540], [[L(txt, { fontSize: 11 })]]); };
+  var gap = function (h) { return { text: '', margin: [0, 0, 0, h] }; };
+  var m6 = { margin: [1, 6, 1, 6] }, m12 = { margin: [1, 12, 1, 12] };
+  // Verdict de chaque critère, affiché en préfixe comme dans le Rapso ("Satisfaisant : ...").
+  var apos = function (x) { return String(x || '').replace(/[’']/g, "'").trim(); };
+  var avec = function (val, bon) { return val ? ((apos(val) === apos(bon) ? 'Satisfaisant' : 'Non satisfaisant') + ' : ' + val) : '-'; };
   list.forEach(function (inst, idx) {
     var d = inst.data;
+    var n = Math.min(parseInt(d.nombre_captage, 10) || 0, 4);
     if (idx > 0) content.push({ text: '', pageBreak: 'before' });
     content.push(pdfAnnexePageHeader(titre, sousTitre, logoDataUrl));
 
-    var identTable = pdfTable([W_LABEL, W_IDENT - W_LABEL], pdfFicheIdentRows([
-      ['Activité et référence du local', formatCrosstabValue(d.activite_reference_local)],
-      ['Bâtiment', formatCrosstabValue(d.batiment)],
-      ['Date de contrôle', formatCrosstabValue(d.date_controle)],
-      ["Réf. équipement", formatCrosstabValue(d.reference_equipement)],
-      ['Nombre de captage', formatCrosstabValue(d.nombre_captage)]
+    content.push({ columns: [
+      { width: 309, stack: [t([155, 154], [
+        [L('Activité et référence du local', m6), V(v(d.activite_reference_local), Object.assign({ bold: true }, m6))],
+        [L('Date de contrôle'), V(v(d.date_controle), { bold: true })],
+        [L('Mesures réalisées :', m12), V('Débits des captages\nVitesse d\'extraction', { fontSize: 11, margin: [1, 4, 1, 4] })],
+        [L('Nombre de captage présent dans le box', { alignment: 'left', margin: [4, 1, 1, 1] }), V(String(n), Object.assign({ bold: true }, m6))]
+      ])] },
+      { width: 231, stack: [t([77, 154], [[L('Bâtiment :', m12), V(v(d.batiment), Object.assign({ bold: true }, m12))]])] }
+    ] });
+    content.push(gap(12));
+
+    var etat = v(d.etat_visuel_installations);
+    var photo = d.photo ? { image: d.photo, fit: [300, 170], alignment: 'center', margin: [0, 2, 0, 2] } : { text: '', margin: [0, 84, 0, 84] };
+    content.push({ columns: [
+      { width: 309, stack: [
+        { table: { widths: [202], body: [[L('Photo de l\'équipement', { fontSize: 11 })]] }, layout: pdfBorderedLayout() },
+        { table: { widths: [304], body: [[photo]] }, layout: pdfBorderedLayout() }
+      ] },
+      { width: 231, stack: [
+        t([231], [[L('Etat  visuel des installations', { fontSize: 11 })], [V(etat, { margin: [2, 18, 2, 18] })]]),
+        gap(26),
+        t([231], [[L('Principe de ventilation', { fontSize: 11 })], [V(avec(d.type_ventilation, 'Le renouvellement d’air du local est assuré par un captage localisé'), { alignment: 'left', margin: [6, 30, 4, 30] })]])
+      ] }
+    ] });
+    content.push(gap(24));
+
+    content.push(bar('Caractéristiques de la ventilation'));
+    content.push(gap(12));
+    var concl = d.conclusion_renouvellement === 'Non Satisfaisant' ? 'Non satisfaisant\n< 50 Volumes par heure' : v(d.conclusion_renouvellement);
+    content.push(t([129, 103, 51, 103, 51, 103], [
+      [L('Ventilation naturelle permanente', { margin: [1, 2, 1, 2] }), V(avec(d.ventilation_naturelle, 'Présence d’ouvertures haute et basse, diamétralement opposées'), { colSpan: 5, alignment: 'left', margin: [6, 6, 1, 6] }), {}, {}, {}, {}],
+      [L('Asservissement', m6), V(avec(d.asservissement, 'Ventilation mécanique asservie à la présence de l’opérateur'), { colSpan: 5, alignment: 'left', margin: [6, 6, 1, 6] }), {}, {}, {}, {}],
+      [L('Taux de renouvellement', m12), V('Volume du local (m3)', m12), V(v(d.volume_local), m12), V('Volume par heure', m12), V(v(d.volume_par_heure), m12), V(concl, { margin: [1, 2, 1, 2] })]
     ]));
-    content.push(pdfFicheTwoCol(identTable, pdfFichePhotoBox(d.photo, W_PHOTO), W_IDENT, W_PHOTO));
-    content.push({ text: '', margin: [0, 0, 0, PT(120)] });
 
-    var etatVisuel = formatCrosstabValue(d.etat_visuel_installations);
-    if (Array.isArray(d.etat_visuel_installations) && d.etat_visuel_installations.indexOf('Autres') !== -1 && d.etat_visuel_si_autres) {
-      etatVisuel += ' (' + d.etat_visuel_si_autres + ')';
+    // ——— Page 2 : vitesses et débits par captage, conclusion, observation, mesures dans le conduit ———
+    content.push({ text: '', pageBreak: 'before' });
+    content.push(bar('Mesure de la vitesse d\'extraction'));
+    content.push(gap(14));
+    var caps = [];
+    for (var c = 1; c <= n; c++) caps.push(c);
+    if (caps.length) {
+      content.push(t([78].concat(caps.map(function () { return 77; })), [
+        [{ text: '', border: NONE }].concat(caps.map(function (c) { return L('Captage n°' + c, m6); })),
+        [L('Vitesse moyenne(m/s)', m6)].concat(caps.map(function (c) { return V(v(d['captage' + c + '_vitesse_moyenne']), m12); })),
+        [L('Débit mesuré (m3/h)', m6)].concat(caps.map(function (c) { return V(v(d['captage' + c + '_debit']), m12); }))
+      ], 26));
+      content.push(gap(12));
     }
-    content.push(pdfFicheTitreSouligne('Examen visuel de l’état des éléments de l’installation'));
-    content.push(pdfTable([W_LABEL, PDF_ANNEXE_CONTENT_WIDTH - W_LABEL], pdfFicheIdentRows([
-      ['État visuel des installations', etatVisuel],
-      ['Ventilation naturelle permanente', formatCrosstabValue(d.ventilation_naturelle)],
-      ['Asservissement', formatCrosstabValue(d.asservissement)],
-      ['Type de ventilation', formatCrosstabValue(d.type_ventilation)]
-    ])));
-    content.push({ text: '', margin: [0, 0, 0, PT(120)] });
+    content.push(t([104, 78, 128, 103], [[L('Débit d\'extraction du box', { margin: [1, 2, 1, 2] }), V(v(d.debit_extraction_box), m6),
+      L('Débit minimal (m3/h) pour 50 volumes/heure', { margin: [1, 2, 1, 2] }), V(v(d.debit_minimal_50vh), m6)]], 26));
+    content.push(gap(48));
+    content.push(bar('Conclusion'));
+    content.push(gap(12));
+    content.push(t([386, 154], [[V('Avis par rapport à la réglementation  et/ou aux préconisations (dossier de valeurs de référence si existant, normes, guide INRS) :', { alignment: 'left', margin: [6, 2, 4, 2] }),
+      V(v(d.avis), { margin: [1, 7, 1, 7] })]]));
+    content.push(gap(12));
+    content.push(t([540], [[L('Observation', { fontSize: 11 })], [V(v(d.observation), { alignment: 'left', margin: [8, 10, 4, 10] })]]));
 
-    content.push(pdfFicheTitreSouligne('Taux de renouvellement'));
-    content.push(pdfTable([W_LABEL, PDF_ANNEXE_CONTENT_WIDTH - W_LABEL], pdfFicheIdentRows([
-      ['Volume du local (m³)', formatCrosstabValue(d.volume_local)],
-      ["Débit d’extraction du box (m³/h)", formatCrosstabValue(d.debit_extraction_box)],
-      ['Volume par heure (vol/h)', formatCrosstabValue(d.volume_par_heure)],
-      ['Débit minimal (m³/h) pour 50 volumes/heure', formatCrosstabValue(d.debit_minimal_50vh)],
-      ['Conclusion — taux de renouvellement', formatCrosstabValue(d.conclusion_renouvellement)]
-    ])));
-    content.push({ text: '', margin: [0, 0, 0, PT(120)] });
-
-    var n = parseInt(d.nombre_captage, 10) || 0;
-    if (n > 0) {
-      var capCols = [['', 2200]];
-      for (var i = 1; i <= n; i++) capCols.push(['Captage n°' + i, (9636 - 2200) / n]);
-      content.push(pdfFicheTitreSouligne('Vitesse et débit d’extraction par captage'));
-      var rowVitesse = [pdfHeaderCell('Vitesse moyenne (m/s)')];
-      var rowDebit = [pdfHeaderCell('Débit mesuré (m³/h)')];
-      for (var j = 1; j <= n; j++) {
-        rowVitesse.push(pdfBodyCell(formatCrosstabValue(d['captage' + j + '_vitesse_moyenne']), { center: true }));
-        rowDebit.push(pdfBodyCell(formatCrosstabValue(d['captage' + j + '_debit']), { center: true }));
-      }
-      content.push(pdfTable(capCols.map(function (c) { return PT(c[1]); }), [
-        capCols.map(function (c) { return pdfHeaderCell(c[0]); }),
-        rowVitesse,
-        rowDebit
-      ]));
-      content.push({ text: '', margin: [0, 0, 0, PT(120)] });
-    }
-
-    content.push(pdfFicheBar('Conclusion'));
-    content.push(pdfFicheConclusionRow('Avis global :', formatCrosstabValue(d.avis)));
-    content.push({ text: '', margin: [0, 0, 0, PT(60)] });
-    content.push(pdfFicheBar('Observation'));
-    content.push(pdfFicheObservationBox(formatCrosstabValue(d.observation)));
-    if (d.commentaire) {
-      content.push({ text: '', margin: [0, 0, 0, PT(60)] });
-      content.push(pdfFicheBar('Commentaire'));
-      content.push(pdfFicheObservationBox(formatCrosstabValue(d.commentaire)));
-    }
-
-    for (var c = 1; c <= n; c++) {
+    caps.forEach(function (c) {
       var p = 'captage' + c;
-      if (!d[p + '_forme_conduit']) continue;
-      content.push({ text: '', pageBreak: 'before' });
-      var vitesseC = d[p + '_vitesse_mode'] === 'Grille de points' ? d[p + '_vitesse_moyenne'] : d[p + '_vitesse_directe'];
-      // Bloc conduit commun, maquette du Rapso (cf. pdfConduitBlock).
-      content = content.concat(pdfConduitBlock({
-        titre: 'Captage n°' + c + ' — Mesure dans le conduit',
+      if (!d[p + '_forme_conduit']) return;
+      var vit = d[p + '_vitesse_mode'] === 'Grille de points' ? d[p + '_vitesse_moyenne'] : d[p + '_vitesse_directe'];
+      content.push({ stack: [gap(24)].concat(pdfConduitBlock({
+        titre: 'Mesure de la vitesse d\'extraction ' + c,
         forme: d[p + '_forme_conduit'], temperature: d[p + '_temperature'], pression: d[p + '_pression_statique'], masse: d[p + '_masse_volumique'],
-        d1: d[p + '_diametre_cote1'], d2: d[p + '_cote2'], vitesse: vitesseC || d[p + '_vitesse_moyenne'],
-        grid: d[p + '_vitesse_mode'] === 'Grille de points' ? d[p + '_vitesse_grid'] : null, nbAxes: d[p + '_vitesse_nb_axes'], nbPoints: d[p + '_vitesse_nb_points']
-      }));
+        d1: d[p + '_diametre_cote1'], d2: d[p + '_cote2'], vitesse: vit || d[p + '_vitesse_moyenne'], debit: d[p + '_debit'],
+        grid: d[p + '_vitesse_mode'] === 'Grille de points' ? d[p + '_vitesse_grid'] : null, nbAxes: d[p + '_vitesse_nb_axes'], nbPoints: d[p + '_vitesse_nb_points'],
+        posDec: 0, largeurD1: true, debitRow: true
+      })), unbreakable: true });
+    });
+    if (d.commentaire) {
+      content.push(gap(24));
+      content.push(t([540], [[L('Commentaire / Information')], [V(v(d.commentaire), { alignment: 'left', margin: [8, 14, 4, 14] })]]));
     }
   });
   return content;
@@ -2560,7 +2604,7 @@ function pdfBuildAnnexeInstallationsDiverses(list, logoDataUrl) {
     content.push({ text: 'Aucun local renseigné.', italics: true, fontSize: FS(20) });
     return content;
   }
-  content = content.concat(legal);
+  content = content.concat(pdfMethodoPage(legal, { titre: 'Méthodologie de vérification de la ventilation\nd\'équipements divers', image: { key: 'equipements', x: 84, y: 186, w: 214, h: 356 } }));
   content.push({ text: '', pageBreak: 'after' });
   // Maquette du Rapso réel sur deux pages (EMFI Haguenau p. 83-84).
   var v = formatCrosstabValue;

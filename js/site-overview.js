@@ -14,17 +14,22 @@ function hasRealInstallationData(data) {
 
 // Le schéma n'a pas de convention unique pour le champ d'avis final (voir catalogue des 18 types) :
 // on essaie la clé 'avis' (la majorité des types), puis le dernier champ calculé dont le libellé
-// évoque un avis/une conclusion, puis en dernier recours le dernier champ calculé du type. Pour
-// 2-3 types sans conclusion unifiée (sorbonnes, bras_aspiration, torches_aspirantes) ce dernier
-// recours est une approximation : le statut affiché peut rester "En cours" même si le technicien
-// considère l'installation traitée. Purement indicatif pour cet écran de navigation, aucun impact
-// sur le calcul ou l'export du rapport.
+// évoque un avis/une conclusion, puis en dernier recours le dernier champ calculé du type — repli
+// seulement pour un type absent de SYNTHESE_CONFIG (voir ci-dessous). Purement indicatif pour cet
+// écran de navigation, aucun impact sur le calcul ou l'export du rapport.
 var _avisFieldCache = {};
 function resolveAvisFieldKey(type) {
   if (_avisFieldCache.hasOwnProperty(type.id)) return _avisFieldCache[type.id];
-  var key = null;
-  var direct = type.fields.find(function (f) { return f.key === 'avis'; });
-  if (direct) {
+  // En priorité l'avis retenu par la synthèse du rapport (js/report-shared.js SYNTHESE_CONFIG) : même
+  // verdict que celui imprimé. L'heuristique ci-dessous choisissait pour l'extracteur la conclusion du
+  // taux de renouvellement (section optionnelle) et pour les torches le constat du 10e point, d'où un
+  // statut « En cours » permanent sur des installations terminées (constaté le 2026-10-03).
+  var syn = (typeof SYNTHESE_CONFIG !== 'undefined') && SYNTHESE_CONFIG[type.id];
+  var key = (syn && syn.avis && type.fields.some(function (f) { return f.key === syn.avis; })) ? syn.avis : null;
+  var direct = !key && type.fields.find(function (f) { return f.key === 'avis'; });
+  if (key) {
+    // déjà résolu par la synthèse
+  } else if (direct) {
     key = direct.key;
   } else {
     for (var i = type.fields.length - 1; i >= 0 && !key; i--) {
@@ -240,10 +245,18 @@ function overviewRowTitle(it, mode) {
     var v = f ? inst.data[f.key] : '';
     return v || ('#' + (it.idx + 1));
   }
-  var f2 = type.fields.find(function (f) { return f.type === 'text' && f.key !== 'batiment'; });
+  // Champ qui identifie l'équipement en priorité (référence, repère...) : « le premier champ texte
+  // hors bâtiment » tombait selon le type sur la marque, la localisation ou même la date de contrôle.
+  for (var i = 0; i < OVERVIEW_TITLE_KEYS.length; i++) {
+    var k = OVERVIEW_TITLE_KEYS[i];
+    if (inst.data[k] && !/^[\/-]$/.test(String(inst.data[k]).trim()) && type.fields.some(function (f) { return f.key === k; })) return String(inst.data[k]);
+  }
+  var f2 = type.fields.find(function (f) { return f.type === 'text' && f.key !== 'batiment' && !/date/.test(f.key) && inst.data[f.key]; });
   var v2 = f2 ? inst.data[f2.key] : '';
   return v2 || ('#' + (it.idx + 1));
 }
+var OVERVIEW_TITLE_KEYS = ['reference_equipement', 'reference_local', 'repere', 'reference_machine', 'activite_reference_local',
+  'nom_local', 'localisation', 'atelier'];
 
 // Le titre passe désormais sur plusieurs lignes plutôt que d'être tronqué par "..." pile sur la
 // partie qui identifie l'installation, illisible sur site dès que le repère est un peu long

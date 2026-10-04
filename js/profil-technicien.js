@@ -39,7 +39,7 @@ function renderProfilTechnicien() {
   h += '<div class="card">';
   PROFIL_TECHNICIEN_FIELDS.forEach(function (f) {
     h += '<div class="field"><label class="label">' + escapeHtml(f.label) + '</label>';
-    h += '<input type="text" class="input" value="' + escapeHtml(pf[f.key] || '') + '" onchange="updateProfilTemp(\'' + f.key + '\',this.value);">';
+    h += '<input ' + inputKindAttrs(f.key) + ' class="input" value="' + escapeHtml(pf[f.key] || '') + '" onchange="updateProfilTemp(\'' + f.key + '\',this.value);">';
     h += '</div>';
   });
   h += '</div>';

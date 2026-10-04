@@ -27,6 +27,7 @@ function gwToggleMulti(typeId, key, option) {
   var idx = current.indexOf(option);
   if (idx === -1) current.push(option); else current.splice(idx, 1);
   inst.data[key] = current;
+  touchInstallation(inst);
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
   render();
@@ -37,9 +38,12 @@ function gwToggleMulti(typeId, key, option) {
 function gwBigText(typeId, f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
   var st = fieldState(f, inst);
+  var today = (isVisitDateField(f) && val !== todayFr())
+    ? todayButtonHtml('gwField(\'' + typeId + '\',\'' + f.key + '\',todayFr());') : '';
   return '<div class="field-big">' + fieldLabelWithTag(f, st) +
     '<input type="text" class="input-text-big state-' + st + '" value="' + escapeHtml(val) +
-    '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + fieldHint(st) +
+    '"' + (isVisitDateField(f) ? ' inputmode="numeric" placeholder="jj/mm/aaaa"' : '') +
+    ' onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + today + fieldHint(st) +
     appareilsRepriseHtml(typeId, f, inst) + '</div>';
 }
 
@@ -49,7 +53,8 @@ function gwBigNumber(typeId, f, inst) {
   return '<div class="field-big">' + fieldLabelWithTag(f, st) +
     '<input type="text" inputmode="decimal" class="input-big state-' + st + '" value="' + escapeHtml(val) +
     '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + fieldHint(st) +
-    gwN1Hint(typeId, f.key, inst) + '</div>';
+    plausibilityHintHtml(typeId, f, val) + gwN1Hint(typeId, f.key, inst) +
+    (typeof fieldAssistHtml === 'function' ? fieldAssistHtml(typeId, f, inst) : '') + '</div>';
 }
 
 // Boutons larges (2 colonnes max) : select/toggle à choix restreint (≤4 options).
@@ -115,6 +120,7 @@ function gwN1Hint(typeId, key, inst) {
   if (!pair) return '';
   var v = inst.data[pair.n1];
   if (v === undefined || v === '') return '';
+  v = frDisplay(v);
   // Écart avec la mesure de cette année (js/terrain-assist.js) : signalé en couleur au-delà du seuil,
   // pour revérifier sur place une faute de frappe ou une vraie dérive.
   var e = n1Ecart(inst.data[key], v);
@@ -126,10 +132,7 @@ function gwN1Hint(typeId, key, inst) {
 }
 
 function gwComputedBadge(typeId, f, inst) {
-  var display = inst.data[f.key];
-  var text = (display === '' || display === undefined) ? '—' : String(display);
-  return '<div class="field-big">' + computedLabelWithTag(f.label) +
-    '<div class="status-badge ' + statusClass(display) + '">' + escapeHtml(text) + '</div>' +
+  return '<div class="field-big">' + computedLabelWithTag(f.label) + computedValueHtml(inst.data[f.key]) +
     gwN1Hint(typeId, f.key, inst) + '</div>';
 }
 
@@ -205,11 +208,7 @@ function gwNextStep(typeId) {
   // Fin du parcours : persister l'étape 0 (pas seulement en mémoire) — sinon inst.data._step reste
   // sur la dernière étape visitée et rouvrir cette installation plus tard saute directement dessus
   // au lieu de repartir du début (bug trouvé lors de l'audit du 2026-09-18).
-  state.currentStep = 0;
-  gwPersistStep(typeId, 0);
-  state.view = 'type-list';
-  render();
-  scheduleAutoBackup();
+  finishInstallation(typeId, false);
 }
 
 // Sélecteur d'étape (ergonomie du 2026-09-19) : pour les types à beaucoup d'étapes (ex. CTA, 13
@@ -290,10 +289,13 @@ function renderGenericWizard(m, t, inst) {
   if (posInVisible < visibleIdx.length - 1) {
     h += '<button class="btn btn-primary" onclick="gwNextStep(\'' + t.id + '\');">Suivant ' + ICONS.arrowRight + '</button>';
   } else {
-    h += '<button class="btn btn-primary" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
-      ICONS.check + ' Terminé</button>';
+    // Auparavant ce bouton revenait à la liste sans passer par la fin de parcours de gwNextStep :
+    // la sauvegarde automatique n'était jamais déclenchée pour ces 17 types (constaté le 2026-10-03).
+    h += finishButtonHtml(t.id);
   }
   h += '</div>';
+  if (posInVisible === visibleIdx.length - 1) h += nextInstallationButtonHtml(t.id);
+  h += liveVerdictBarHtml(t.id, inst);
 
   return h;
 }

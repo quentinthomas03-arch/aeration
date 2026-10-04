@@ -29,7 +29,7 @@ function renderSelectInstallations() {
   visibleTypes.forEach(function (t) {
     var selected = m.typesSelectionnes.indexOf(t.id) !== -1;
     h += '<button class="install-select-btn' + (selected ? ' selected' : '') + '" onclick="toggleTypeSelectionne(\'' + t.id + '\');">' +
-      escapeHtml(t.label) + '</button>';
+      '<span class="install-select-picto">' + getIcon(t.icon) + '</span>' + escapeHtml(t.label) + '</button>';
   });
   h += '</div></div>';
 

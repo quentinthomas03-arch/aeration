@@ -30,8 +30,16 @@ var state = {
   pendingImport: null
 };
 
+// Strictement croissant dans une session : auparavant, des centaines d'installations créées dans la
+// même milliseconde (import Rapso, préremplissage N-1) tiraient leur id dans 1000 valeurs seulement,
+// d'où des doublons (constaté le 2026-10-03) — l'assistant de saisie reprenait alors l'étape d'une
+// autre installation de même id.
+var _lastGeneratedId = 0;
 function generateId() {
-  return Date.now() * 1000 + Math.floor(Math.random() * 1000);
+  var id = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+  if (id <= _lastGeneratedId) id = _lastGeneratedId + 1;
+  _lastGeneratedId = id;
+  return id;
 }
 
 function escapeHtml(t) {
@@ -57,12 +65,61 @@ function saveData(k, d) {
   }
 }
 
+var MISSIONS_STORAGE_KEY = 'aeration_missions_v1';
+
+// ⚠️ BUG CORRIGÉ le 2026-10-03 : une sauvegarde illisible (JSON tronqué, mission malformée) était
+// ignorée en silence — l'app démarrait vide et la PREMIÈRE saisie écrasait définitivement les
+// données d'origine. Désormais le contenu illisible est mis de côté (clé de quarantaine + bouton de
+// téléchargement) et, si même cette copie échoue (stockage plein), l'enregistrement reste bloqué
+// plutôt que d'écraser la seule copie existante.
 function loadData() {
-  try {
-    var m = localStorage.getItem('aeration_missions_v1');
-    if (m) state.missions = JSON.parse(m);
-  } catch (e) {}
-  state.missions.forEach(normalizeMission);
+  var raw = null;
+  try { raw = localStorage.getItem(MISSIONS_STORAGE_KEY); } catch (e) {}
+  if (raw) {
+    var parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) {}
+    if (Array.isArray(parsed)) state.missions = parsed;
+    else quarantineUnreadableMissions(raw);
+  }
+  var bad = [];
+  state.missions = state.missions.filter(function (m) {
+    try { normalizeMission(m); return true; } catch (e) {
+      console.error('[Stockage] Mission illisible mise de côté :', e);
+      bad.push(m);
+      return false;
+    }
+  });
+  if (bad.length) quarantineUnreadableMissions(JSON.stringify(bad));
+}
+
+function quarantineUnreadableMissions(text) {
+  var key = MISSIONS_STORAGE_KEY + '_illisible_' + Date.now();
+  state._unreadableMissions = (state._unreadableMissions || '') + text;
+  try { localStorage.setItem(key, text); } catch (e) { state._saveBlocked = true; }
+  if (typeof showDataAlertBanner === 'function') {
+    showDataAlertBanner('unreadable-banner', 'Des données de mission enregistrées sont illisibles' +
+      (state._saveBlocked ? ' et l’enregistrement est suspendu pour ne pas les écraser.' : ' : elles ont été mises de côté, sans perte.') +
+      ' Téléchargez-les et transmettez le fichier pour récupération.', 'Télécharger', downloadUnreadableMissions);
+  }
+}
+
+function downloadUnreadableMissions() {
+  if (!state._unreadableMissions || typeof downloadBlob !== 'function') return;
+  downloadBlob(new Blob([state._unreadableMissions], { type: 'application/json' }), 'aeration-donnees-illisibles-' + Date.now() + '.json');
+}
+
+// Deux onglets/fenêtres de l'app ouverts en même temps : chacun garde sa propre copie des missions en
+// mémoire, et le dernier qui enregistre écrasait en silence tout ce que l'autre avait saisi. Dès qu'un
+// autre onglet enregistre, celui-ci cesse d'enregistrer et demande d'être rechargé.
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('storage', function (e) {
+    if (e.key !== MISSIONS_STORAGE_KEY || state._staleTab) return;
+    state._staleTab = true;
+    if (typeof showDataAlertBanner === 'function') {
+      showDataAlertBanner('stale-tab-banner', 'L’application a enregistré des données dans un autre onglet. ' +
+        'Rechargez cette page avant de continuer : ici, plus rien n’est enregistré.', 'Recharger', function () { window.location.reload(); });
+    }
+  });
 }
 
 // Complète les missions sauvegardées avant l'ajout de nouveaux champs (rétrocompatibilité)
@@ -73,6 +130,19 @@ function normalizeMission(m) {
   if (!m.documentsTransmis) m.documentsTransmis = ref.documentsTransmis;
   if (!m.descriptionLocaux) m.descriptionLocaux = ref.descriptionLocaux;
   if (!Array.isArray(m.appareilsMesure)) m.appareilsMesure = [];
+  // Types ajoutés après la création de la mission (ex. local_specifique, recyclage) : liste vide
+  if (!m.installations) m.installations = {};
+  INSTALLATION_TYPES.forEach(function (t) { if (!Array.isArray(m.installations[t.id])) m.installations[t.id] = []; });
+
+  // Répare les id d'installation en double hérités de l'ancien generateId (cf. ci-dessus).
+  var seenInstIds = {};
+  Object.keys(m.installations || {}).forEach(function (typeId) {
+    (m.installations[typeId] || []).forEach(function (inst) {
+      if (!inst) return;
+      if (inst.id === undefined || seenInstIds[inst.id]) inst.id = generateId();
+      seenInstIds[inst.id] = true;
+    });
+  });
 
   // Sanitaires : pré-remplit chambre_erp_individuelle depuis nom_usage uniquement si le champ n'a
   // jamais été renseigné — ne modifie jamais une valeur Oui/Non déjà saisie (même incohérente avec
@@ -145,7 +215,11 @@ function normalizeMission(m) {
 }
 
 function persistMissions() {
-  return saveData('aeration_missions_v1', state.missions);
+  if (state._staleTab || state._saveBlocked) {
+    console.error('[Stockage] Enregistrement refusé :', state._staleTab ? 'onglet périmé' : 'données illisibles non sauvegardées');
+    return false;
+  }
+  return saveData(MISSIONS_STORAGE_KEY, state.missions);
 }
 
 function getCurrentMission() {
@@ -426,7 +500,12 @@ function createMissionFromPreviousSite(source) {
   Object.keys(source.installations || {}).forEach(function (typeId) {
     if (!m.installations.hasOwnProperty(typeId)) return;
     m.installations[typeId] = (source.installations[typeId] || []).map(function (inst) {
-      return { id: generateId(), data: buildInstallationDataFromPrevious(typeId, inst.data) };
+      var data = buildInstallationDataFromPrevious(typeId, inst.data);
+      // Relevé de valeurs de référence validé par le client lors de la visite précédente (js/dvr.js) :
+      // ses valeurs deviennent les références de cette visite, sans écraser une référence existante.
+      var refs = (typeof dvrReferencesFor === 'function') ? dvrReferencesFor(source, inst) : null;
+      if (refs) Object.keys(refs).forEach(function (k) { if (data[k] === undefined || data[k] === '' || data[k] === '/') data[k] = refs[k]; });
+      return { id: generateId(), data: data };
     });
   });
   normalizeMission(m);

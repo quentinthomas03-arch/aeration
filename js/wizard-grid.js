@@ -70,6 +70,60 @@ function gwGridNavRow(typeId, key, idx, total) {
   return h;
 }
 
+// === Pavé numérique intégré (ergonomie du 2026-10-03) ===
+// Le clavier du téléphone masquait la moitié de l'écran et obligeait à refermer/rouvrir le champ à
+// chaque point. Le pavé saisit la valeur, « Valider » l'enregistre et passe au point suivant. Le
+// clavier du téléphone reste disponible (préférence mémorisée sur l'appareil).
+var KEYPAD_PREF_KEY = 'aeration_keypad_v1';
+function keypadEnabled() { try { return localStorage.getItem(KEYPAD_PREF_KEY) !== 'off'; } catch (e) { return true; } }
+function toggleKeypad() {
+  try { localStorage.setItem(KEYPAD_PREF_KEY, keypadEnabled() ? 'off' : 'on'); } catch (e) {}
+  state.gridDraft = null;
+  render();
+}
+
+function gwDraftText(draftKey, val) {
+  return (state.gridDraft && state.gridDraft.key === draftKey) ? state.gridDraft.text : String(val === undefined ? '' : val);
+}
+
+function gwKey(draftKey, k, val) {
+  // Première touche sur un point déjà renseigné : on remplace la valeur (sauf ⌫, qui la corrige)
+  var enCours = state.gridDraft && state.gridDraft.key === draftKey;
+  var t = enCours ? state.gridDraft.text : (k === 'del' ? String(val === undefined ? '' : val) : '');
+  if (k === 'del') t = t.slice(0, -1);
+  else if (k === 'clear') t = '';
+  else if (k === ',') { if (t.indexOf(',') === -1 && t.indexOf('.') === -1) t = (t || '0') + ','; }
+  else if (t.length < 8) t = (t === '0' || t === '/') ? k : t + k;
+  state.gridDraft = { key: draftKey, text: t };
+  var el = document.getElementById('grid-keypad-display');
+  if (el) { el.textContent = t || '—'; el.classList.toggle('empty', !t); }
+}
+
+function gwKeyValidate(typeId, fkey, r, c, idx, total, draftKey, val) {
+  var t = gwDraftText(draftKey, val).replace(/,$/, '');
+  state.gridDraft = null;
+  updateGridCell(typeId, fkey, r, c, t);
+  if (idx < total - 1) gwGridNav(typeId, fkey, 1, total); else render();
+}
+
+function gwKeypadHtml(typeId, f, r, c, idx, total, val) {
+  var draftKey = typeId + ':' + f.key + ':' + idx;
+  var esc = function (s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); };
+  var v = esc(val === undefined ? '' : val);
+  var key = function (k, label, cls) {
+    return '<button type="button" class="keypad-key' + (cls ? ' ' + cls : '') + '" onclick="gwKey(\'' + draftKey + '\',\'' + k + '\',\'' + v + '\');">' + label + '</button>';
+  };
+  var shown = gwDraftText(draftKey, val);
+  var h = '<div id="grid-keypad-display" class="keypad-display' + (shown ? '' : ' empty') + '">' + escapeHtml(shown || '—') + '</div>';
+  h += '<div class="keypad">';
+  ['7', '8', '9', '4', '5', '6', '1', '2', '3'].forEach(function (k) { h += key(k, k); });
+  h += key(',', ',', 'keypad-sec') + key('0', '0') + key('del', '⌫', 'keypad-sec');
+  h += '</div>';
+  h += '<button type="button" class="btn btn-primary keypad-ok" onclick="gwKeyValidate(\'' + typeId + '\',\'' + f.key + '\',' + r + ',' + c + ',' + idx + ',' + total + ',\'' + draftKey + '\',\'' + v + '\');">' +
+    ICONS.check + (idx < total - 1 ? ' Valider et point suivant' : ' Valider le dernier point') + '</button>';
+  return h;
+}
+
 function gwGridPointEntry(typeId, f, inst) {
   var meta = gwGridMeta(f, inst);
   if (!meta.rows || !meta.cols) {
@@ -100,15 +154,21 @@ function gwGridPointEntry(typeId, f, inst) {
   h += '</div>';
   h += '<div class="grid-point-caption">' + escapeHtml(meta.rowLabel) + ' ' + (r + 1) + ' · ' +
     escapeHtml(meta.colLabel) + ' ' + (c + 1) + ' sur ' + meta.cols + '</div>';
-  h += '<input type="text" inputmode="decimal" class="input-big state-' + st + '" value="' + escapeHtml(val) +
-    '" onchange="updateGridCell(\'' + typeId + '\',\'' + f.key + '\',' + r + ',' + c + ',this.value);">';
-  h += fieldHint(st);
+  if (keypadEnabled()) {
+    h += gwKeypadHtml(typeId, f, r, c, idx, total, val);
+  } else {
+    h += '<input type="text" inputmode="decimal" class="input-big state-' + st + '" value="' + escapeHtml(val) +
+      '" onchange="updateGridCell(\'' + typeId + '\',\'' + f.key + '\',' + r + ',' + c + ',this.value);">';
+  }
+  h += fieldHint(st) + plausibilityHintHtml(typeId, f, val);
   h += '<div class="row" style="margin-top:10px;">';
   h += '<button type="button" class="btn btn-gray btn-small" onclick="updateGridCell(\'' + typeId + '\',\'' +
     f.key + '\',' + r + ',' + c + ',\'/\');render();">Exclure ce point (/)</button>';
   h += '<button type="button" class="btn btn-gray btn-small" onclick="gwGridToggleRecap(\'' + recapKey +
     '\');">⊞ Voir toute la grille</button>';
   h += '</div>';
+  h += '<button type="button" class="keypad-switch" onclick="toggleKeypad();">' +
+    (keypadEnabled() ? 'Utiliser le clavier du téléphone' : 'Utiliser le pavé numérique') + '</button>';
   h += gwGridNavRow(typeId, f.key, idx, total);
   h += '</div>';
   return h;
@@ -131,7 +191,7 @@ function gwGridRecap(typeId, f, inst, meta, total, recapKey) {
       var filled = !fieldEmptyValue(v);
       var cls = 'grid-recap-cell' + (filled ? ' filled' : '') + (i === idx ? ' current' : '');
       h += '<td class="' + cls + '" onclick="gwGridJumpTo(\'' + typeId + '\',\'' + f.key + '\',' + i + ');">' +
-        (filled ? escapeHtml(v) : '—') + '</td>';
+        (filled ? escapeHtml(frDisplay(v)) : '—') + '</td>';
     }
     h += '</tr>';
   }

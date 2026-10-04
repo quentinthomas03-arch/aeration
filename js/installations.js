@@ -4,24 +4,36 @@
 function renderMissionDetail() {
   var m = getCurrentMission();
   if (!m) { state.view = 'home'; render(); return ''; }
-  var h = '<button class="back-btn" onclick="state.view=\'home\';render();">' + ICONS.arrowLeft + ' Accueil</button>';
-  h += '<div class="card"><h1>' + ICONS.building + ' ' + escapeHtml(m.clientSite || 'Mission') + '</h1>';
-  h += '<p class="subtitle">' + escapeHtml(m.controleur || '') + (m.dateControle ? ' • ' + escapeHtml(m.dateControle) : '') + '</p></div>';
+  var h = '<button class="back-btn" onclick="state.missionMenuOpen=false;state.view=\'home\';render();">' + ICONS.arrowLeft + ' Accueil</button>';
+  h += '<div class="card mission-head"><h1>' + ICONS.building + ' ' + escapeHtml(m.clientSite || 'Mission') + '</h1>';
+  h += '<p class="subtitle">' + escapeHtml(m.controleur || '') + (m.dateControle ? ' • ' + escapeHtml(m.dateControle) : '') + '</p>';
 
-  h += '<div class="row" style="margin-bottom:8px;">';
-  h += '<button class="btn btn-gray btn-small" onclick="state.view=\'mission-form\';render();">' + ICONS.edit + ' Infos mission</button>';
-  h += '<button class="btn btn-gray btn-small" onclick="state.view=\'select-installations\';render();">' + ICONS.list + ' Sélection installations</button>';
+  // Écran allégé (ergonomie du 2026-10-03) : la liste des installations, essentielle sur site, passe
+  // avant les actions secondaires. Restent visibles le rapport PDF (export direct pdfmake, cf.
+  // js/export-pdf.js) et le bilan ; le reste est regroupé dans le menu « ⋯ ».
+  h += '<div class="mission-actions">';
+  h += '<button class="btn btn-primary btn-small" onclick="exportRapportPdf();">' + ICONS.download + ' Rapport PDF</button>';
+  h += '<button class="btn btn-gray btn-small" onclick="state.missionMenuOpen=false;state.view=\'bilan\';render();">' + BILAN_ICON + ' Bilan</button>';
+  h += '<button class="btn btn-gray btn-small mission-more-btn' + (state.missionMenuOpen ? ' active' : '') + '" aria-label="Plus d\u2019actions" ' +
+    'onclick="state.missionMenuOpen=!state.missionMenuOpen;render();">' + MORE_ICON + '</button>';
   h += '</div>';
-
-  h += '<div class="row" style="margin-bottom:12px;">';
-  // Chantier "export PDF direct" (2026-09) : bascule complète depuis le Word — les 18 types sont
-  // portés fidèlement vers pdfmake (voir js/export-pdf.js, PDF_ANNEXES_FIDELES) et validés contre les
-  // rapports de référence réels. Le technicien clique un seul bouton, aucun logiciel externe requis.
-  h += '<button class="btn btn-blue btn-small" onclick="exportRapportPdf();">' + ICONS.download + ' Rapport PDF</button>';
-  h += '</div>';
-  h += '<div class="row" style="margin-bottom:12px;">';
-  h += '<button class="btn btn-gray btn-small" onclick="shareOrExportMission(' + m.id + ');">' + ICONS.download + ' Exporter / Transférer</button>';
-  h += '<button class="btn btn-gray btn-small" onclick="state.view=\'verification-depart\';render();">' + ICONS.check + ' Vérifier avant de partir</button>';
+  if (state.missionMenuOpen) {
+    var item = function (onclick, icon, label) {
+      return '<button type="button" class="home-action-row" onclick="state.missionMenuOpen=false;' + onclick + '">' +
+        '<span class="home-action-row-icon">' + icon + '</span><div class="home-action-row-title">' + label + '</div></button>';
+    };
+    h += '<div class="mission-menu">' +
+      item('state.view=\'mission-form\';render();', ICONS.edit, 'Infos mission') +
+      item('state.view=\'select-installations\';render();', ICONS.list, 'Sélection des installations') +
+      item('state.view=\'verification-depart\';render();', ICONS.check, 'Vérifier avant de partir') +
+      item('render();shareRapportPdf();', ICONS.upload, 'Envoyer le rapport (mail, Teams…)') +
+      item('state.view=\'compte-rendu\';render();', ICONS.edit, 'Compte rendu de fin de visite') +
+      item('render();exportSyntheseExcel();', ICONS.list, 'Exporter la synthèse (Excel)') +
+      (m.dvr && m.dvr.actif ? item('state.view=\'dvr\';render();', ICONS.clipboard, 'Relevé des valeurs de référence') : '') +
+      item('render();shareOrExportMission(' + m.id + ');', ICONS.download, 'Transférer la mission (fichier .json)') +
+      item('render();triggerMergeMission();', ICONS.merge, 'Fusionner le travail d’un collègue (.json)') +
+      '</div>';
+  }
   h += '</div>';
 
   // Chantier "ergonomie de saisie terrain" (2026-08) : la liste à plat "un type = une ligne avec
@@ -319,8 +331,10 @@ function renderFieldInput(typeId, f, inst) {
   if (f.type === 'text') {
     return '<input type="text" class="input" value="' + escapeHtml(val) + '" onchange="' + onchange + '">';
   }
+  // type="text" + inputmode="decimal" (pas type="number") : clavier numérique avec virgule sur mobile,
+  // et une valeur stockée avec virgule (« 15,9 », import Rapso) reste affichée au lieu d'un champ vide.
   if (f.type === 'number') {
-    return '<input type="number" class="input" value="' + escapeHtml(val) + '" onchange="' + onchange + '">';
+    return '<input type="text" inputmode="decimal" class="input" value="' + escapeHtml(val) + '" onchange="' + onchange + '">';
   }
   if (f.type === 'textarea') {
     return '<textarea class="input" rows="3" onchange="' + onchange + '">' + escapeHtml(val) + '</textarea>';
@@ -351,10 +365,7 @@ function renderFieldInput(typeId, f, inst) {
     h += '</div>';
     return h;
   }
-  if (f.type === 'computed') {
-    var display = (val === '' || val === undefined) ? '—' : String(val);
-    return '<div class="status-badge ' + statusClass(val) + '">' + escapeHtml(display) + '</div>';
-  }
+  if (f.type === 'computed') return computedValueHtml(val);
   if (f.type === 'grid') {
     var cols = Math.min(parseInt(inst.data[f.colsKey], 10) || 0, GRID_MAX);
     var rows = Math.min(parseInt(inst.data[f.rowsKey], 10) || 0, GRID_MAX);
@@ -381,9 +392,9 @@ function renderFieldInput(typeId, f, inst) {
     chargers.forEach(function (c, i) {
       var deb = chargerDebit(c);
       h += '<tr>' +
-        '<td style="padding:2px;"><input type="number" value="' + escapeHtml(c.nb || '') + '" style="width:50px;padding:6px;border:1px solid #d1d5db;border-radius:6px;" onchange="updateCharger(\'' + typeId + '\',' + i + ',\'nb\',this.value);"></td>' +
-        '<td style="padding:2px;"><input type="number" value="' + escapeHtml(c.tension || '') + '" style="width:70px;padding:6px;border:1px solid #d1d5db;border-radius:6px;" onchange="updateCharger(\'' + typeId + '\',' + i + ',\'tension\',this.value);"></td>' +
-        '<td style="padding:2px;"><input type="number" value="' + escapeHtml(c.courant || '') + '" style="width:70px;padding:6px;border:1px solid #d1d5db;border-radius:6px;" onchange="updateCharger(\'' + typeId + '\',' + i + ',\'courant\',this.value);"></td>' +
+        '<td style="padding:2px;"><input type="text" inputmode="decimal" value="' + escapeHtml(c.nb || '') + '" style="width:50px;padding:6px;border:1px solid #d1d5db;border-radius:6px;" onchange="updateCharger(\'' + typeId + '\',' + i + ',\'nb\',this.value);"></td>' +
+        '<td style="padding:2px;"><input type="text" inputmode="decimal" value="' + escapeHtml(c.tension || '') + '" style="width:70px;padding:6px;border:1px solid #d1d5db;border-radius:6px;" onchange="updateCharger(\'' + typeId + '\',' + i + ',\'tension\',this.value);"></td>' +
+        '<td style="padding:2px;"><input type="text" inputmode="decimal" value="' + escapeHtml(c.courant || '') + '" style="width:70px;padding:6px;border:1px solid #d1d5db;border-radius:6px;" onchange="updateCharger(\'' + typeId + '\',' + i + ',\'courant\',this.value);"></td>' +
         '<td style="padding:6px;text-align:center;font-weight:600;">' + (deb === '' ? '—' : deb) + '</td>' +
         '<td style="padding:2px;"><button class="agent-delete" onclick="removeCharger(\'' + typeId + '\',' + i + ');">' + ICONS.trash + '</button></td>' +
         '</tr>';
@@ -422,6 +433,7 @@ function updateInstallationField(typeId, key, value) {
   var inst = getCurrentInstallation(typeId);
   if (!inst) return;
   inst.data[key] = value;
+  touchInstallation(inst);
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
   if (state.view === 'installation-form') render();
@@ -432,6 +444,7 @@ function addCharger(typeId) {
   if (!inst) return;
   if (!Array.isArray(inst.data.chargeurs)) inst.data.chargeurs = [];
   inst.data.chargeurs.push({ nb: '', tension: '', courant: '' });
+  touchInstallation(inst);
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
   render();
@@ -441,6 +454,7 @@ function updateCharger(typeId, idx, field, value) {
   var inst = getCurrentInstallation(typeId);
   if (!inst || !inst.data.chargeurs || !inst.data.chargeurs[idx]) return;
   inst.data.chargeurs[idx][field] = value;
+  touchInstallation(inst);
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
   render();
@@ -450,6 +464,7 @@ function removeCharger(typeId, idx) {
   var inst = getCurrentInstallation(typeId);
   if (!inst || !Array.isArray(inst.data.chargeurs)) return;
   inst.data.chargeurs.splice(idx, 1);
+  touchInstallation(inst);
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
   render();
@@ -462,6 +477,7 @@ function updateGridCell(typeId, key, r, c, value) {
   if (!grid[r]) grid[r] = [];
   grid[r][c] = value.trim();
   inst.data[key] = grid;
+  touchInstallation(inst);
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
   if (state.view === 'installation-form') render();
@@ -474,6 +490,7 @@ function toggleInstallationCheckbox(typeId, key, option, checked) {
   if (checked) { if (current.indexOf(option) === -1) current.push(option); }
   else { current = current.filter(function (o) { return o !== option; }); }
   inst.data[key] = current;
+  touchInstallation(inst);
   if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
   persistMissions();
   if (state.view === 'installation-form') render();
@@ -499,6 +516,7 @@ function handleInstallationPhoto(typeId, key, input) {
     var inst = m.installations[typeId][state.currentInstIndex];
     var photos = Array.isArray(inst.data[key]) ? inst.data[key] : [];
     inst.data[key] = photos.concat([{ id: id }]).slice(0, PHOTO_MAX_PER_INSTALLATION);
+    touchInstallation(inst);
     persistMissions();
     render();
   }).catch(function (err) {
@@ -512,6 +530,7 @@ function removeInstallationPhoto(typeId, key, photoId) {
   var inst = m.installations[typeId][state.currentInstIndex];
   var photos = Array.isArray(inst.data[key]) ? inst.data[key] : [];
   inst.data[key] = photos.filter(function (p) { return p.id !== photoId; });
+  touchInstallation(inst);
   persistMissions();
   deletePhotoBlob(photoId); // suppression explicite d'une photo précise : pas d'annulation possible
   // (chantier "Annuler la dernière action" volontairement limité à suppression/duplication

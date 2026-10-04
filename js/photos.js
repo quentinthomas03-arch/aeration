@@ -189,34 +189,54 @@ function resolveMissionPhotosForExport(m) {
 
 // Import JSON (js/import-export.js) : réécrit les photos embarquées en base64 vers IndexedDB, puis
 // ne garde que la référence {id} dans la mission — jamais la photo elle-même une fois réimportée.
+// Chaque photo embarquée reçoit un id NEUF (⚠️ BUG CORRIGÉ le 2026-10-03) : en gardant l'id d'origine,
+// réimporter une mission déjà présente sur l'appareil faisait partager les mêmes blobs aux deux
+// versions — « Annuler » supprimait alors les photos de la mission existante, et « Écraser » celles
+// de la mission tout juste importée.
 function restoreMissionPhotosFromImport(mission) {
   var jobs = [];
   forEachInstallationPhotoField(mission, function (inst) {
     var photos = Array.isArray(inst.data.photo) ? inst.data.photo : [];
     inst.data.photo = photos.map(function (p) {
       if (!p || !p.id) return null;
-      if (p.dataUrl) {
-        jobs.push(
-          fetch(p.dataUrl).then(function (r) { return r.blob(); })
-            .then(function (blob) { return savePhotoBlob(p.id, blob); })
-            .catch(function () {})
-        );
-      }
-      return { id: p.id };
+      if (!p.dataUrl) return { id: p.id }; // photo non embarquée : simple référence, conservée telle quelle
+      var ref = { id: generatePhotoId() };
+      jobs.push(
+        fetch(p.dataUrl).then(function (r) { return r.blob(); })
+          .then(function (blob) { return savePhotoBlob(ref.id, blob); })
+          .catch(function () {})
+      );
+      return ref;
     }).filter(Boolean);
   });
   return Promise.all(jobs).then(function () { return mission; });
 }
 
+// Ids de photos encore référencés par les missions de l'appareil (+ missions pas encore enregistrées,
+// ex. celle en cours d'import) : une suppression ne touche jamais un blob qu'une autre mission utilise.
+function referencedPhotoIds(extraMissions) {
+  var ids = {};
+  (state.missions || []).concat(extraMissions || []).forEach(function (m) {
+    forEachInstallationPhotoField(m, function (inst) {
+      (inst && inst.data && Array.isArray(inst.data.photo) ? inst.data.photo : []).forEach(function (p) {
+        if (p && p.id) ids[p.id] = true;
+      });
+    });
+  });
+  return ids;
+}
+
 // Supprime de IndexedDB toutes les photos référencées par une mission entière — à appeler avant de
 // retirer la mission de state.missions (deleteMission). Auparavant jamais appelé à la suppression :
 // les blobs restaient orphelins indéfiniment, rongeant la marge de stockage (fuite trouvée lors de
-// l'audit du 2026-09-18).
-function deleteMissionPhotoBlobs(mission) {
+// l'audit du 2026-09-18). À appeler APRÈS avoir retiré la mission de state.missions : tout id encore
+// référencé ailleurs (state.missions ou keepMissions) est épargné.
+function deleteMissionPhotoBlobs(mission, keepMissions) {
+  var keep = referencedPhotoIds(keepMissions);
   var ids = [];
   forEachInstallationPhotoField(mission, function (inst) {
     (Array.isArray(inst.data.photo) ? inst.data.photo : []).forEach(function (p) {
-      if (p && p.id) ids.push(p.id);
+      if (p && p.id && !keep[p.id]) ids.push(p.id);
     });
   });
   return Promise.all(ids.map(function (id) { return deletePhotoBlob(id).catch(function () {}); }));
@@ -225,9 +245,10 @@ function deleteMissionPhotoBlobs(mission) {
 // Supprime de IndexedDB les photos référencées par une seule installation — à appeler avant de la
 // retirer d'une mission (deleteInstallation), même raison que deleteMissionPhotoBlobs ci-dessus.
 function deleteInstallationPhotoBlobs(inst) {
+  var keep = referencedPhotoIds();
   var photos = (inst && inst.data && Array.isArray(inst.data.photo)) ? inst.data.photo : [];
   return Promise.all(photos.map(function (p) {
-    return (p && p.id) ? deletePhotoBlob(p.id).catch(function () {}) : Promise.resolve();
+    return (p && p.id && !keep[p.id]) ? deletePhotoBlob(p.id).catch(function () {}) : Promise.resolve();
   }));
 }
 

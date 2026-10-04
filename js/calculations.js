@@ -229,7 +229,8 @@ function buildBoxCaptageCalcRules(n) {
         }
         return d[p + '_vitesse_directe'] || '';
       } },
-    { target: p + '_debit', fn: function (d, x) {
+    // Débit arrondi à l'unité comme le Rapso (542 m³/h) : le taux de renouvellement en découle (15,49 vol/h).
+    { target: p + '_debit', decimals: 0, fn: function (d, x) {
         var v = debitFromSV(exactOr(x, d, p + '_surface'), exactOr(x, d, p + '_vitesse_moyenne'));
         return isNaN(v) ? '' : v;
       } }
@@ -801,7 +802,7 @@ var CALC_RULES = {
         }
         return any ? Math.round(total * 10) / 10 : '';
       } },
-    { target: 'volume_par_heure', decimals: 1, fn: function (d) {
+    { target: 'volume_par_heure', decimals: 2, fn: function (d) {
         var q = num(d.debit_extraction_box), vol = num(d.volume_local);
         return (isNaN(q) || isNaN(vol) || vol === 0) ? '' : q / vol;
       } },

@@ -205,7 +205,8 @@ function computeVerification(m) {
       it: it,
       notStarted: notStarted,
       missing: notStarted ? [] : verifMissingFields(it.type, it.inst),
-      ecarts: notStarted ? [] : verifEcarts(it.type, it.inst)
+      ecarts: notStarted ? [] : verifEcarts(it.type, it.inst),
+      anomalies: notStarted ? [] : installationAnomalies(it.type, it.inst, m)
     };
   });
 
@@ -219,6 +220,7 @@ function computeVerification(m) {
     });
   }
   if (!items.length) missionIssues.push('Aucune installation saisie.');
+  missionIssues = missionIssues.concat(missionCoherenceIssues(m));
   return { items: items, missionIssues: missionIssues };
 }
 
@@ -238,7 +240,7 @@ function renderVerificationDepart() {
   if (!m) { state.view = 'home'; render(); return ''; }
   var v = computeVerification(m);
   var aCompleter = v.items.filter(function (x) { return x.notStarted || x.missing.length; });
-  var avecEcart = v.items.filter(function (x) { return x.ecarts.length; });
+  var avecEcart = v.items.filter(function (x) { return x.ecarts.length || x.anomalies.length; });
 
   var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' Vue d’ensemble</button>';
   h += '<div class="card"><h1>' + ICONS.check + ' Vérifier avant de partir</h1>' +
@@ -247,7 +249,7 @@ function renderVerificationDepart() {
   h += '<div class="stat-tiles">' +
     statTile(v.items.length - aCompleter.length, 'Complètes', 'status-ok') +
     statTile(aCompleter.length, 'À compléter', aCompleter.length ? 'status-warn' : 'status-muted') +
-    statTile(avecEcart.length, 'Écart N-1', avecEcart.length ? 'status-bad' : 'status-muted') +
+    statTile(avecEcart.length, 'À revérifier', avecEcart.length ? 'status-bad' : 'status-muted') +
     '</div>';
 
   if (v.missionIssues.length) {
@@ -264,7 +266,7 @@ function renderVerificationDepart() {
   }
 
   v.items.forEach(function (x) {
-    if (!x.notStarted && !x.missing.length && !x.ecarts.length) return;
+    if (!x.notStarted && !x.missing.length && !x.ecarts.length && !x.anomalies.length) return;
     var it = x.it;
     h += '<div class="card verif-card">';
     h += '<div class="verif-head" onclick="openVerificationTarget(\'' + it.type.id + '\',' + it.idx + ',null);">' +
@@ -274,8 +276,13 @@ function renderVerificationDepart() {
       h += '<div class="verif-line verif-line-warn" onclick="openVerificationTarget(\'' + it.type.id + '\',' + it.idx + ',null);">Installation non commencée</div>';
     }
     x.ecarts.forEach(function (e) {
-      h += '<div class="verif-line verif-line-bad">' + escapeHtml(e.label) + ' : ' + escapeHtml(e.cur) +
-        ' (N-1 : ' + escapeHtml(e.n1) + ', écart ' + formatEcartPct(e.pct) + ')</div>';
+      h += '<div class="verif-line verif-line-bad">' + escapeHtml(e.label) + ' : ' + escapeHtml(frDisplay(e.cur)) +
+        ' (N-1 : ' + escapeHtml(frDisplay(e.n1)) + ', écart ' + formatEcartPct(e.pct) + ')</div>';
+    });
+    // Valeurs inhabituelles et incohérences (js/controles.js) : à revérifier, pas forcément fausses
+    x.anomalies.forEach(function (a) {
+      h += '<div class="verif-line verif-line-bad verif-line-link" onclick="openVerificationTarget(\'' + it.type.id + '\',' + it.idx + ',' +
+        (a.stepIdx === null ? 'null' : a.stepIdx) + ');">' + escapeHtml(a.label) + ' — ' + escapeHtml(a.message) + '</div>';
     });
     x.missing.slice(0, VERIF_MAX_CHAMPS).forEach(function (f) {
       h += '<div class="verif-line" onclick="openVerificationTarget(\'' + it.type.id + '\',' + it.idx + ',' +

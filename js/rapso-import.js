@@ -205,6 +205,8 @@ var RAPSO_FIELD_MAP = {
   ],
 
   cabines_peinture: [
+    // Colonne "CDP" du Rapso : "CDP Ouverte" / "CDP Fermee" / "CDP Encombrant" (vérifié sur classeurs réels).
+    ['CDP', 'type_cabine', function (v) { var m = { 'cdp ouverte': 'Ouverte', 'cdp fermee': 'Fermée', 'cdp fermée': 'Fermée', 'cdp semi-fermee': 'Semi-fermée', 'cdp encombrant': 'Encombrant' }; return m[String(v || '').trim().toLowerCase()] || ''; }],
     ['Marque', 'marque'], ['Emplacement', 'batiment'], ['Date du contrôle', 'date_controle'],
     ['Description de la cabine', 'reference_equipement'],
     ['Nature des produits à peindre', 'nature_produits'],
@@ -350,9 +352,25 @@ function rapsoSheetToInstallations(typeId, rows) {
         if (ci !== undefined && String(row[ci] || '').trim()) data.h_mm_autre = String(row[ci]).trim();
       });
     }
+    rapsoSnapToOptions(typeId, data);
     if (Object.keys(data).length > 0) out.push(data);
   }
   return out;
+}
+
+// Les classeurs Rapso écrivent l'apostrophe droite (d'air) là où les options du schéma ont
+// l'apostrophe typographique (d’air) : sans ce recalage, la valeur importée ne correspond à aucune
+// option et les avis calculés sur égalité exacte (box de peinture notamment) tombent à tort en
+// « Non Satisfaisant ». Seul l'écart d'apostrophe est corrigé, rien d'autre.
+function rapsoSnapToOptions(typeId, data) {
+  var type = INSTALLATION_TYPES.filter(function (t) { return t.id === typeId; })[0];
+  if (!type) return;
+  var apos = function (x) { return String(x).replace(/[‘’']/g, "'"); };
+  type.fields.forEach(function (f) {
+    if (!Array.isArray(f.options) || typeof data[f.key] !== 'string' || f.options.indexOf(data[f.key]) !== -1) return;
+    var hit = f.options.filter(function (o) { return typeof o === 'string' && apos(o) === apos(data[f.key]); })[0];
+    if (hit) data[f.key] = hit;
+  });
 }
 
 // Point d'entrée : lit un classeur (déjà parsé par SheetJS, cf. js/xlsx.full.min.js) et construit un

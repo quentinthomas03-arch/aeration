@@ -748,7 +748,7 @@ var INSTALLATION_TYPES = [
     fields: [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
       { key: 'marque', label: 'Marque', type: 'text' },
-      { key: 'type_cabine', label: 'Type de cabine', type: 'select', options: ['Fermée', 'Ouverte', 'Semi-fermée'] },
+      { key: 'type_cabine', label: 'Type de cabine', type: 'select', options: ['Fermée', 'Ouverte', 'Semi-fermée', 'Encombrant'] },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
       { key: 'reference_equipement', label: 'Description de la cabine', type: 'text' },
       { key: 'photo', label: 'Photo de l\u2019installation', type: 'photo' },

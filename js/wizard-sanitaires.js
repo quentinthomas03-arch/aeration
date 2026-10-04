@@ -82,10 +82,11 @@ function renderSanitairesWizard(m, t, inst) {
   if (step < SANITAIRES_STEP_LABELS.length - 1) {
     h += '<button class="btn btn-primary" onclick="sanitairesNextStep();">Suivant ' + ICONS.arrowRight + '</button>';
   } else {
-    h += '<button class="btn btn-primary" onclick="sanitairesNextStep();">' +
-      ICONS.check + ' Terminé</button>';
+    h += finishButtonHtml('sanitaires');
   }
   h += '</div>';
+  if (step === SANITAIRES_STEP_LABELS.length - 1) h += nextInstallationButtonHtml('sanitaires');
+  h += liveVerdictBarHtml('sanitaires', inst);
 
   return h;
 }
@@ -147,9 +148,7 @@ function sanTextarea(f, inst) {
 }
 
 function sanComputedBadge(label, display) {
-  var text = (display === '' || display === undefined) ? '—' : String(display);
-  return '<div class="field-big">' + computedLabelWithTag(label) +
-    '<div class="status-badge ' + statusClass(display) + '">' + escapeHtml(text) + '</div></div>';
+  return '<div class="field-big">' + computedLabelWithTag(label) + computedValueHtml(display) + '</div>';
 }
 
 // === Étapes ===

@@ -174,9 +174,17 @@ function resolveImportConflict(action) {
   if (action === 'overwrite') {
     // Même raison : les photos de l'ancienne version écrasée doivent être libérées, pas seulement
     // conservées orphelines dans IndexedDB.
-    if (typeof deleteMissionPhotoBlobs === 'function') deleteMissionPhotoBlobs(pending.existing);
+    // Retirée de state.missions d'abord : deleteMissionPhotoBlobs épargne tout id encore référencé.
     state.missions = state.missions.filter(function (m) { return m.id !== pending.existing.id; });
+    if (typeof deleteMissionPhotoBlobs === 'function') deleteMissionPhotoBlobs(pending.existing, [pending.incoming]);
     finishImportMission(pending.incoming);
+    return;
+  }
+
+  if (action === 'merge') {
+    // Travail à plusieurs (js/fusion.js) : les installations de l'autre appareil sont ajoutées, la
+    // version la plus récente gardée quand une installation existe des deux côtés.
+    applyMerge(pending.existing, pending.incoming);
     return;
   }
 
@@ -330,6 +338,61 @@ function importRapsoFromArrayBuffer(buf, fileName) {
   }
 }
 
+// ————————————————————————————————————————————
+// Mission de démonstration (présentation de l'appli, formation) : site FICTIF « INDUSTRIE EXEMPLE »,
+// 23 installations sur 13 types avec des mesures réalistes (reprises de missions réelles, tout texte
+// identifiant remplacé), plus un bureau identifié mais non mesuré pour montrer la saisie en direct.
+// Chargée comme une mission neuve à chaque fois (nouveaux id) : on peut la modifier, la supprimer et
+// la recharger sans conflit. Fichier embarqué dans le cache hors ligne (sw.js).
+// ————————————————————————————————————————————
+var DEMO_MISSION_PATH = 'assets/demo/mission-demo.json';
+
+function loadDemoMission() {
+  fetch(DEMO_MISSION_PATH).then(function (r) {
+    if (!r.ok) throw new Error('fichier de démonstration introuvable (' + r.status + ')');
+    return r.json();
+  }).then(function (data) {
+    var m = extractMissionFromImportData(data);
+    if (!m) throw new Error('format non reconnu');
+    m.id = generateId();
+    m.createdAt = new Date().toISOString();
+    INSTALLATION_TYPES.forEach(function (t) {
+      if (!m.installations[t.id]) m.installations[t.id] = [];
+      m.installations[t.id].forEach(function (inst) { inst.id = generateId(); });
+    });
+    normalizeMission(m);
+    return addDemoPhotos(m).then(function () {
+      state.missions.push(m);
+      persistMissions();
+      state.currentMissionId = m.id;
+      state.view = 'mission-detail';
+      render();
+    });
+  }).catch(function (err) {
+    alert('Impossible de charger la mission de démonstration :\n\n' + err.message);
+  });
+}
+
+// Photos de démonstration : les photos d'équipement des intercalaires du rapport (gabarit Rapso),
+// une par type, enregistrées en IndexedDB comme une vraie prise de vue (une copie par installation).
+// En cas d'échec (hors ligne, quota), la démo se charge simplement sans photo.
+function addDemoPhotos(m) {
+  var jobs = [];
+  forEachInstallationPhotoField(m, function (inst, typeId) {
+    if (!hasRealInstallationData(inst.data) || (Array.isArray(inst.data.photo) && inst.data.photo.length)) return;
+    var g = SECTION_GROUPS.filter(function (x) { return x.types.indexOf(typeId) !== -1; })[0];
+    if (!g || !g.images.length) return;
+    var path = g.images[g.images.length - 1];
+    jobs.push(fetch(path).then(function (r) { if (!r.ok) throw new Error(path); return r.blob(); })
+      .then(function (blob) { return compressImageFile(blob); })
+      .then(function (blob) {
+        var id = generatePhotoId();
+        return savePhotoBlob(id, blob).then(function () { inst.data.photo = [{ id: id }]; });
+      }).catch(function () {}));
+  });
+  return Promise.all(jobs);
+}
+
 function renderImportConflict() {
   var pending = state.pendingImport;
   if (!pending) { state.view = 'home'; render(); return ''; }
@@ -351,7 +414,9 @@ function renderImportConflict() {
     '<p class="subtitle">Une mission avec le même identifiant existe déjà sur cet appareil. Que veux-tu faire ?</p></div>';
   h += summaryCard('Mission actuelle sur cet appareil', existing);
   h += summaryCard('Mission à importer', incoming);
-  h += '<button class="btn btn-primary" onclick="resolveImportConflict(\'overwrite\');">' + ICONS.check + ' Écraser la mission existante</button>';
+  h += '<button class="btn btn-primary" onclick="resolveImportConflict(\'merge\');">' + ICONS.merge + ' Fusionner (travail à plusieurs)</button>';
+  h += '<p class="subtitle" style="margin:-2px 4px 10px;">Ajoute les installations saisies sur l’autre appareil ; si une installation a été modifiée des deux côtés, la version la plus récente est gardée.</p>';
+  h += '<button class="btn btn-gray" onclick="resolveImportConflict(\'overwrite\');">' + ICONS.check + ' Écraser la mission existante</button>';
   h += '<button class="btn btn-gray" onclick="resolveImportConflict(\'keep-both\');">' + ICONS.copy + ' Garder les deux (créer une copie)</button>';
   h += '<button class="btn btn-gray" onclick="resolveImportConflict(\'cancel\');">Annuler</button>';
   return h;

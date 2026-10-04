@@ -16,6 +16,9 @@ function render() {
     case 'ed-reference': h = renderEdReference(); break;
     case 'guide-utilisation': h = renderGuideUtilisation(); break;
     case 'verification-depart': h = renderVerificationDepart(); break;
+    case 'bilan': h = renderBilan(); break;
+    case 'compte-rendu': h = renderCompteRendu(); break;
+    case 'dvr': h = renderDvr(); break;
     default: h = renderHome();
   }
   document.getElementById('app').innerHTML = h;
@@ -90,6 +93,34 @@ function showStorageErrorBanner() {
   document.body.appendChild(banner);
 }
 
+// Bandeau d'alerte données persistant (même style que le bandeau de stockage) : données illisibles
+// mises de côté, onglet périmé (js/state.js). Le bouton déclenche l'action proposée.
+function showDataAlertBanner(id, message, buttonLabel, onClick) {
+  if (!document.body) { document.addEventListener('DOMContentLoaded', function () { showDataAlertBanner(id, message, buttonLabel, onClick); }); return; }
+  if (document.getElementById(id)) return;
+  var banner = document.createElement('div');
+  banner.id = id;
+  banner.className = 'storage-error-banner';
+  banner.innerHTML = '<span>' + ICONS.database + ' ' + escapeHtml(message) + '</span><button type="button" class="storage-error-banner-btn"></button>';
+  var btn = banner.querySelector('button');
+  btn.textContent = buttonLabel;
+  btn.addEventListener('click', onClick);
+  document.body.appendChild(banner);
+}
+
+// Les champs n'enregistrent qu'à l'évènement "change" (sortie du champ). Un technicien qui saisit une
+// valeur puis verrouille le téléphone ou change d'appli ne quitte jamais le champ, et Android peut
+// tuer la page en arrière-plan : la dernière saisie était perdue. On force la validation du champ
+// actif dès que la page passe en arrière-plan (blur déclenche "change" de façon synchrone).
+function flushPendingInput() {
+  var el = document.activeElement;
+  if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) el.blur();
+}
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden') flushPendingInput();
+});
+window.addEventListener('pagehide', flushPendingInput);
+
 // Bouton retour Android
 window.addEventListener('popstate', function (event) {
   event.preventDefault();
@@ -98,6 +129,9 @@ window.addEventListener('popstate', function (event) {
   else if (state.view === 'add-installation-picker') state.view = 'mission-detail';
   else if (state.view === 'site-overview-group') state.view = 'mission-detail';
   else if (state.view === 'verification-depart') state.view = 'mission-detail';
+  else if (state.view === 'bilan') state.view = 'mission-detail';
+  else if (state.view === 'compte-rendu') state.view = 'bilan';
+  else if (state.view === 'dvr') state.view = 'mission-detail';
   else if (state.view === 'import-conflict') state.view = 'home';
   else if (state.view === 'ed-reference') state.view = 'home';
   else if (state.view === 'guide-utilisation') state.view = 'home';
@@ -112,6 +146,7 @@ history.pushState({ view: state.view }, '', '');
 
 loadData();
 render();
+if (typeof shouldShowTour === 'function' && shouldShowTour()) startTour();
 
 // Migration rétrocompatible des photos base64 brutes (voir js/photos.js migrateLegacyPhotos) — hors
 // du chemin critique du premier rendu, ne relance un rendu que si une migration a eu lieu.

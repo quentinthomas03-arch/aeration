@@ -5,6 +5,7 @@ function renderHome() {
     renderStorageIndicatorPlaceholder() +
     (typeof renderAutoBackupFolderIndicator === 'function' ? renderAutoBackupFolderIndicator() : '') +
     (typeof renderAutoBackupIndicator === 'function' ? renderAutoBackupIndicator() : '') + '</div>';
+  if (typeof renderNouveautesCard === 'function') h += renderNouveautesCard();
   h += '<button class="btn btn-primary" onclick="createMission();">' + ICONS.plus + ' Nouvelle mission</button>';
   h += '<button class="btn btn-gray" onclick="triggerImportMission();" style="margin-top:8px;">' + ICONS.upload + ' Reprendre une mission en cours (.json)</button>';
 
@@ -23,23 +24,11 @@ function renderHome() {
   h += '</div>';
 
   if (state.missions.length === 0) {
-    h += '<div class="empty-state"><div class="empty-state-icon">' + ICONS.empty + '</div><p>Aucune mission pour l\u2019instant</p></div>';
+    h += '<div class="empty-state"><div class="empty-state-icon">' + ICONS.empty + '</div><p>Aucune mission pour l\u2019instant</p>' +
+      '<button class="btn btn-gray" style="margin-top:12px;" onclick="loadDemoMission();">' + ICONS.play + ' D\u00e9couvrir avec une mission de d\u00e9monstration</button></div>';
   } else {
-    h += '<div class="section-title" style="margin-top:16px;">Missions</div>';
+    h += renderHomeMissions();
   }
-
-  state.missions.slice().reverse().forEach(function (m) {
-    var totalInst = 0;
-    Object.keys(m.installations || {}).forEach(function (k) { totalInst += m.installations[k].length; });
-    var incomplete = (!m.typesSelectionnes || m.typesSelectionnes.length === 0) && !m._selectionDejaValidee;
-    var targetView = incomplete ? 'mission-form' : 'mission-detail';
-    h += '<div class="nav-item" onclick="state.currentMissionId=' + m.id + ';state.view=\'' + targetView + '\';render();">';
-    h += '<div class="nav-icon">' + ICONS.building + '</div>';
-    h += '<div style="flex:1;"><div style="font-weight:600;">' + escapeHtml(m.clientSite || 'Sans nom') + '</div>';
-    h += '<div class="subtitle">' + (incomplete ? 'À compléter (Entrées)' : (totalInst + ' installation(s) renseignée(s)')) + '</div></div>';
-    h += '<button class="agent-delete" onclick="event.stopPropagation();deleteMission(' + m.id + ');">' + ICONS.trash + '</button>';
-    h += '</div>';
-  });
 
   // Barre d'icônes discrète pour les réglages/ressources peu fréquents, au lieu de boutons gris pleine
   // largeur qui rivalisaient visuellement avec les missions et les actions ci-dessus.
@@ -47,11 +36,122 @@ function renderHome() {
   h += '<button type="button" class="home-tab-btn" onclick="state.view=\'profil-technicien\';render();">' + ICONS.user + '<span>Profil</span></button>';
   h += '<button type="button" class="home-tab-btn" onclick="state.view=\'guide-utilisation\';render();">' + ICONS.play + '<span>Guide</span></button>';
   h += '<button type="button" class="home-tab-btn" onclick="state.view=\'ed-reference\';render();">' + ICONS.clipboard + '<span>Aide-mémoire</span></button>';
+  h += '<button type="button" class="home-tab-btn" onclick="cycleTheme();">' + THEME_ICON + '<span>' + themeLabel() + '</span></button>';
   if (typeof isFsaSupported === 'function' && isFsaSupported()) {
     h += '<button type="button" class="home-tab-btn" onclick="chooseAutoBackupFolder();">' + ICONS.folder + '<span>Sauvegarde</span></button>';
   }
   h += '</div>';
 
+  return h;
+}
+
+// === Liste des missions de l'accueil : recherche, filtres, avancement (ergonomie du 2026-10-03) ===
+
+var ARCHIVE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg>';
+var HOME_FILTERS = [
+  { key: 'actives', label: 'Toutes' }, { key: 'encours', label: 'En cours' },
+  { key: 'terminees', label: 'Terminées' }, { key: 'archivees', label: 'Archivées' }
+];
+
+function missionIsSetup(m) {
+  return (!m.typesSelectionnes || m.typesSelectionnes.length === 0) && !m._selectionDejaValidee;
+}
+
+function missionProgress(m) {
+  if (missionIsSetup(m)) return { status: 'setup', done: 0, total: 0 };
+  var items = overviewOrderedItems(m);
+  var done = items.filter(function (it) { return it.status.state === 'done'; }).length;
+  var status = m.archived ? 'archivee' : (items.length && done === items.length ? 'terminee' : 'encours');
+  return { status: status, done: done, total: items.length };
+}
+
+// Date de la mission pour le tri : 1re date des dates d'intervention, sinon date de contrôle, sinon création
+function missionSortDate(m) {
+  var d = (typeof datesInText === 'function') ? datesInText((m.donneesInternes || {}).datesIntervention || m.dateControle) : [];
+  if (d.length) return Math.min.apply(null, d.map(Number));
+  var c = Date.parse(m.createdAt || '');
+  return isNaN(c) ? 0 : c;
+}
+
+function missionMatchesFilter(m, p, filter) {
+  if (filter === 'archivees') return !!m.archived;
+  if (m.archived) return false;
+  if (filter === 'encours') return p.status === 'encours' || p.status === 'setup';
+  if (filter === 'terminees') return p.status === 'terminee';
+  return true;
+}
+
+function missionHaystack(m) {
+  var di = m.donneesInternes || {}, ic = m.infosClient || {}, si = m.infosSiteIntervention || {};
+  return [m.clientSite, ic.nomEntreprise, si.siteIntervention, si.ville, ic.ville, di.numeroAffaire, di.numeroChrono].join(' ').toLowerCase();
+}
+
+var _homeSearchDebounceId = null;
+function setHomeSearch(v) {
+  state.homeSearch = v;
+  if (_homeSearchDebounceId) clearTimeout(_homeSearchDebounceId);
+  _homeSearchDebounceId = setTimeout(function () {
+    _homeSearchDebounceId = null;
+    render();
+    var input = document.getElementById('home-search-input');
+    if (input) { input.focus(); var pos = input.value.length; input.setSelectionRange(pos, pos); }
+  }, 150);
+}
+
+function setHomeFilter(k) { state.homeFilter = k; render(); }
+
+function toggleArchiveMission(id) {
+  var m = state.missions.find(function (x) { return x.id === id; });
+  if (!m) return;
+  m.archived = !m.archived;
+  persistMissions();
+  render();
+}
+
+function renderHomeMissions() {
+  var filter = state.homeFilter || 'actives';
+  var term = (state.homeSearch || '').trim().toLowerCase();
+  var rows = state.missions.map(function (m) { return { m: m, p: missionProgress(m), date: missionSortDate(m) }; });
+  var count = {};
+  HOME_FILTERS.forEach(function (f) { count[f.key] = rows.filter(function (r) { return missionMatchesFilter(r.m, r.p, f.key); }).length; });
+
+  var h = '<div class="section-title" style="margin-top:16px;">Missions</div>';
+  if (state.missions.length >= 4) {
+    h += '<div class="overview-search"><span class="overview-search-icon">' + ICONS.search + '</span>' +
+      '<input type="text" id="home-search-input" class="input overview-search-input" placeholder="Rechercher (client, site, ville, n° d’affaire)" value="' +
+      escapeHtml(state.homeSearch || '') + '" oninput="setHomeSearch(this.value);"></div>';
+  }
+  h += '<div class="home-filters">';
+  HOME_FILTERS.forEach(function (f) {
+    if (f.key === 'archivees' && !count.archivees) return;
+    h += '<button type="button" class="home-filter' + (filter === f.key ? ' active' : '') + '" onclick="setHomeFilter(\'' + f.key + '\');">' +
+      f.label + ' <span>' + count[f.key] + '</span></button>';
+  });
+  h += '</div>';
+
+  var shown = rows.filter(function (r) { return missionMatchesFilter(r.m, r.p, filter) && (!term || missionHaystack(r.m).indexOf(term) !== -1); });
+  shown.sort(function (a, b) { return b.date - a.date || (b.m.id - a.m.id); });
+  if (!shown.length) {
+    h += '<div class="empty-state"><p>' + (term ? 'Aucune mission ne correspond à « ' + escapeHtml(state.homeSearch) + ' ».' : 'Aucune mission dans cette catégorie.') + '</p></div>';
+  }
+  shown.forEach(function (r) {
+    var m = r.m, p = r.p;
+    var targetView = p.status === 'setup' ? 'mission-form' : 'mission-detail';
+    var pct = p.total ? Math.round(100 * p.done / p.total) : 0;
+    var dateTxt = r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '';
+    var chip = { setup: ['À compléter', 'status-warn'], encours: ['En cours', 'status-warn'], terminee: ['Terminée', 'status-ok'], archivee: ['Archivée', 'status-muted'] }[p.status];
+    h += '<div class="nav-item mission-card" onclick="state.currentMissionId=' + m.id + ';state.view=\'' + targetView + '\';render();">';
+    h += '<div class="nav-icon">' + ICONS.building + '</div>';
+    h += '<div style="flex:1;min-width:0;"><div class="mission-card-title">' + escapeHtml(m.clientSite || 'Sans nom') + '</div>';
+    h += '<div class="subtitle">' + (p.status === 'setup' ? 'Entrées à compléter' : p.done + '/' + p.total + ' installation(s) terminée(s)') + (dateTxt ? ' · ' + dateTxt : '') + '</div>';
+    if (p.status !== 'setup') h += '<div class="mission-progress"><span style="width:' + pct + '%;"></span></div>';
+    h += '<span class="appareil-badge ' + chip[1] + '" style="margin-top:6px;">' + chip[0] + '</span></div>';
+    h += '<div class="mission-card-actions">';
+    h += '<button class="mission-icon-btn" title="' + (m.archived ? 'Désarchiver' : 'Archiver') + '" aria-label="' + (m.archived ? 'Désarchiver' : 'Archiver') +
+      '" onclick="event.stopPropagation();toggleArchiveMission(' + m.id + ');">' + ARCHIVE_ICON + '</button>';
+    h += '<button class="agent-delete" aria-label="Supprimer" onclick="event.stopPropagation();deleteMission(' + m.id + ');">' + ICONS.trash + '</button>';
+    h += '</div></div>';
+  });
   return h;
 }
 
@@ -150,6 +250,7 @@ function renderMissionForm() {
   ]);
 
   h += renderAppareilsMissionSection(m);
+  if (typeof renderDvrMissionOption === 'function') h += renderDvrMissionOption(m);
   h += renderDocumentsTransmisSection(m);
   h += renderDescriptionLocauxSection(m);
 
@@ -167,7 +268,7 @@ function renderMissionSection(title, section, m, fields) {
   fields.forEach(function (f) {
     var val = (m[section] && m[section][f.key]) || '';
     h += '<div class="field"><label class="label">' + escapeHtml(f.label) + '</label>';
-    h += '<input type="text" class="input" value="' + escapeHtml(val) + '" onchange="updateMissionField(\'' + section + '\',\'' + f.key + '\',this.value);">';
+    h += '<input ' + inputKindAttrs(f.key) + ' class="input" value="' + escapeHtml(val) + '" onchange="updateMissionField(\'' + section + '\',\'' + f.key + '\',this.value);">';
     h += '</div>';
   });
   h += '</div>';
