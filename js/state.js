@@ -513,6 +513,8 @@ function createMissionFromPreviousSite(source) {
       if (inst.data && inst.data._plan) data._plan = JSON.parse(JSON.stringify(inst.data._plan));
       // Étiquette QR collée sur l'installation (js/qr.js) : même code d'une année sur l'autre
       if (inst.data && inst.data._qr) data._qr = inst.data._qr;
+      // Photo de la plaque signalétique (js/plaque.js) : l'équipement est le même
+      if (inst.data && inst.data._plaque) data._plaque = inst.data._plaque;
       var nid = generateId();
       if (inst.id) idMap[inst.id] = nid;
       return { id: nid, data: data };

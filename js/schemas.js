@@ -429,6 +429,7 @@ function schemaOuvrir(i) {
   state.schemaTraceDepuis = null;
   state.schemaHistorique = [];
   state.schemaChoixTypes = false;
+  state.creationRapide = null;
   var typesMission = schemaTypesDeLaMission(m);
   state.schemaTypesChoix = Array.isArray(s.types) ? s.types.slice() : (typesMission.length === 1 ? [typesMission[0].type.id] : []);
   state.schemaRetour = state.view === 'mission-detail' ? 'mission-detail' : 'mission-form'; // ouvert depuis la vue Plan ou les données de la mission
@@ -582,30 +583,37 @@ function renderSchemaEditor() {
 // Consigne de l'outil en cours (au-dessus du schéma)
 function renderSchemaConsigne(m, s, outil) {
   if (outil === 'installation') {
-    var items = schemaInstallationsDuSchema(m, s), cible = schemaItemDeCle(m, state.schemaInstCible);
-    var h = '<div class="card schema-placement">';
-    var libTypes = Array.isArray(s.types) && s.types.length ? INSTALLATION_TYPES.filter(function (t) { return s.types.indexOf(t.id) !== -1; }).map(function (t) { return t.label; }).join(', ') : 'toutes les installations du site';
-    h += '<div class="schema-types-resume"><span>Réseau : <b>' + escapeHtml(libTypes) + '</b></span><button type="button" class="btn btn-gray btn-small" onclick="schemaModifierTypes();">Modifier</button></div>';
-    if (!items.length) return h + '<p class="subtitle">Aucune installation de ce type dans la mission pour l’instant.</p></div>';
+    // Toutes les installations du site peuvent être ajoutées : celles des types du réseau d'abord
+    var duReseau = schemaInstallationsDuSchema(m, s), autres = schemaInstallations(m).filter(function (it) { return duReseau.indexOf(it) === -1; });
+    var cible = schemaItemDeCle(m, state.schemaInstCible);
+    var h = '<div class="card schema-placement"><div class="label">Ajouter une installation au schéma</div>';
+    var typesReseau = Array.isArray(s.types) && s.types.length ? s.types : [];
+    if (!state.creationType && typesReseau.length) state.creationType = typesReseau[0];
+    var creation = (typeof creationRapideHtml === 'function') ? creationRapideHtml(m, 'schema', INSTALLATION_TYPES.map(function (t) { return t.id; })) : '';
+    if (!duReseau.length && !autres.length) return h + '<p class="subtitle">Aucune installation dans la mission pour l’instant.</p>' + creation + '</div>';
     h += '<select class="input" onchange="state.schemaInstCible=this.value;render();"><option value="">— choisir l’installation —</option>';
-    var parBat = {}, ordre = [];
-    items.forEach(function (it) {
-      var b = it.inst.data.batiment || 'Sans bâtiment';
-      if (!parBat[b]) { parBat[b] = []; ordre.push(b); }
-      parBat[b].push(it);
-    });
-    ordre.forEach(function (b) {
-      h += '<optgroup label="' + escapeHtml(b) + '">';
-      parBat[b].forEach(function (it) {
-        var k = it.type.id + ':' + it.idx;
-        h += '<option value="' + k + '"' + (k === state.schemaInstCible ? ' selected' : '') + '>' + (schemaInstallationPlacee(s, it.inst.id) ? '✓ ' : '') + escapeHtml(it.type.label + ' — ' + overviewRowTitle(it)) + '</option>';
+    var groupes = function (items, prefixe) {
+      var parBat = {}, ordre = [];
+      items.forEach(function (it) {
+        var b = it.inst.data.batiment || 'Sans bâtiment';
+        if (!parBat[b]) { parBat[b] = []; ordre.push(b); }
+        parBat[b].push(it);
       });
-      h += '</optgroup>';
-    });
+      ordre.forEach(function (b) {
+        h += '<optgroup label="' + escapeHtml(prefixe + b) + '">';
+        parBat[b].forEach(function (it) {
+          var k = it.type.id + ':' + it.idx;
+          h += '<option value="' + k + '"' + (k === state.schemaInstCible ? ' selected' : '') + '>' + (schemaInstallationPlacee(s, it.inst.id) ? '✓ ' : '') + escapeHtml(it.type.label + ' — ' + overviewRowTitle(it)) + '</option>';
+        });
+        h += '</optgroup>';
+      });
+    };
+    groupes(duReseau, autres.length && typesReseau.length ? 'Réseau · ' : '');
+    if (typesReseau.length) groupes(autres, 'Autres installations · ');
     h += '</select>';
     if (cible) h += '<div class="schema-consigne">' + (schemaInstallationPlacee(s, cible.inst.id) ? 'Déjà sur le schéma : touchez pour la <b>déplacer</b> : ' : 'Touchez le schéma pour placer : ') + '<b>' + escapeHtml(overviewRowTitle(cible)) + '</b></div>';
-    else h += '<div class="schema-consigne">Toutes les installations sont placées. Ajoutez le ventilateur puis reliez avec l’outil <b>Gaine</b>.</div>';
-    return h + '</div>';
+    else h += '<div class="schema-consigne">Choisissez une installation dans la liste, puis touchez le schéma à son emplacement.</div>';
+    return h + creation + '</div>';
   }
   var txt;
   if (outil === 'gaine') {
@@ -614,6 +622,8 @@ function renderSchemaConsigne(m, s, outil) {
       : 'Touchez le départ de la gaine (une installation…), puis son arrivée. Pour une <b>division</b>, touchez d’abord la gaine existante : un piquage se crée et la nouvelle gaine en part.';
   } else if (outil === 'select') txt = 'Touchez un élément ou une gaine pour le voir ou le supprimer ; faites glisser un élément pour le déplacer.';
   else txt = 'Touchez le schéma pour placer : <b>' + escapeHtml(schemaElement(outil).nom) + '</b>.';
+  // Ajouter une installation reste à portée de main quel que soit l'outil
+  if (!state.schemaTraceDepuis) txt += '<div class="schema-ajout-inst"><button type="button" class="btn btn-gray btn-small" onclick="schemaChoisirOutil(\'installation\');">' + ICONS.plus + ' Ajouter une installation</button></div>';
   return '<div class="schema-consigne schema-consigne-seule">' + txt + '</div>';
 }
 

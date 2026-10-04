@@ -301,6 +301,7 @@ function renderGenericWizard(m, t, inst) {
   h += '</div>';
   if (posInVisible === visibleIdx.length - 1) h += nextInstallationButtonHtml(t.id);
   h += liveVerdictBarHtml(t.id, inst);
+  if (typeof plaqueHtml === 'function') h += plaqueHtml(t.id, inst); // photo de la plaque (js/plaque.js)
 
   return h;
 }

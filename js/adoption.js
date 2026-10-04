@@ -4,10 +4,19 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.51';
+var APP_VERSION = '1.54';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.54', date: '04/10/2026', items: [
+    'Guide d’utilisation et visite guidée mis à jour : étiquettes QR, objectif avant la mesure, photos annotées et plaque, plan du site, schéma du réseau, documents du client, envoi par mail.'
+  ] },
+  { version: '1.53', date: '04/10/2026', items: [
+    'Photo de la plaque signalétique : en bas de la fiche d’un équipement, photographiez la plaque (marque, modèle, débit nominal). Elle est reprise à la visite suivante, hors rapport.'
+  ] },
+  { version: '1.52', date: '04/10/2026', items: [
+    'Nouvelle installation depuis le schéma de réseau ou le plan du site : type, nom et bâtiment, puis un toucher pour la placer. Elle rejoint la mission, à renseigner ensuite comme les autres.'
+  ] },
   { version: '1.51', date: '04/10/2026', items: [
     'Schéma de réseau simplifié : installations, ventilateur, filtre, rejet et retour d’air. Les gaines se tracent en touchant le départ puis l’arrivée ; toucher une gaine crée un piquage (division vers plusieurs installations). Le sens de l’air et la couleur des gaines sont automatiques.'
   ] },
@@ -142,10 +151,12 @@ var TOUR_STEPS = [
     texte: 'Créez une mission, ou repartez de la visite de l’an dernier (fichier JSON ou classeur Rapso) : bâtiments et installations sont repris, il ne reste qu’à mesurer.' },
   { icon: 'zap', titre: 'Une saisie guidée, étape par étape',
     texte: 'Chaque installation se remplit écran par écran. Les calculs sont automatiques, l’avis se met à jour en direct en bas de la fiche, et une valeur inhabituelle est signalée tout de suite.' },
+  { icon: 'map', titre: 'Le site sous les yeux',
+    texte: 'Plan du site avec les installations épinglées, schéma du réseau (gaines, ventilateur, rejet), documents du client, étiquettes QR à coller : l’an prochain, un scan ouvre la bonne fiche. Au-dessus de chaque mesure, l’objectif à atteindre.' },
   { icon: 'check', titre: 'Avant de quitter le site',
     texte: '« Vérifier avant de partir » liste ce qui manque ou paraît incohérent. Le Bilan résume les avis et produit un compte rendu signé par le client sur l’écran.' },
   { icon: 'download', titre: 'Le rapport en un clic',
-    texte: 'Rapport PDF au format Rapso, envoi par mail ou Teams, export Excel. Tout est enregistré sur le téléphone et sauvegardé automatiquement à chaque installation terminée.' }
+    texte: 'Rapport PDF au format Rapso, mail prêt dans Outlook (rapport + mission), export Excel. Tout est enregistré sur le téléphone et sauvegardé automatiquement à chaque installation terminée.' }
 ];
 
 function shouldShowTour() {

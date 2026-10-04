@@ -830,3 +830,25 @@ textarea.input { font-family: inherit; line-height: 1.4; }
 .schema-consigne { margin-top: 8px; font-size: 14px; color: var(--text-dark); line-height: 1.45; }
 .schema-consigne-seule { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--primary-pale); border: 1px solid rgba(0,130,222,0.25); }
 .schema-consigne .btn { width: auto; margin-left: 6px; vertical-align: middle; }
+
+/* === Création rapide d'installation (js/creation-rapide.js) === */
+.creation-rapide-btn { margin-top: 10px; width: auto; }
+.creation-rapide-btn svg { width: 14px; height: 14px; }
+.creation-rapide { margin-top: 10px; padding: 10px; border-radius: 12px; border: 1px dashed #0082DE; display: flex; flex-direction: column; gap: 8px; }
+.creation-rapide .input { margin: 0; }
+.creation-rapide .row { gap: 8px; }
+.schema-ajout-inst { margin-top: 8px; }
+.schema-ajout-inst .btn { margin-left: 0; }
+.schema-ajout-inst .btn svg { width: 14px; height: 14px; }
+
+/* === Photo de la plaque signalétique (js/plaque.js) === */
+.plaque-carte { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px 12px; }
+.plaque-vignette { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border-subtle); cursor: zoom-in; flex: 0 0 64px; }
+.plaque-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.plaque-texte .subtitle, .plaque-ajout .subtitle { margin: 0; font-size: 12px; }
+.plaque-actions { display: flex; gap: 6px; }
+.plaque-actions .btn { width: auto; cursor: pointer; }
+.plaque-actions .btn svg { width: 14px; height: 14px; }
+.plaque-ajout { display: flex; align-items: center; gap: 10px; cursor: pointer; width: 100%; color: var(--text-dark); }
+.plaque-ajout > svg { width: 22px; height: 22px; color: #0082DE; flex: 0 0 22px; }
+.plaque-ajout > span { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }

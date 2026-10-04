@@ -26,9 +26,13 @@ puis ouvrir `http://localhost:8129`.
 node outils/tests/run.js
 ```
 
-27 tests, environ 10 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
+37 tests, environ 10 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
 d'`index.html`, sans navigateur, et vérifient la mission de démonstration, le rapport PDF, le compte rendu,
-l'export Excel, le relevé de valeurs de référence, les contrôles, la fusion, et les calculs face au Rapso.
+l'export Excel, le relevé de valeurs de référence, les contrôles, la fusion, le plan du site, les schémas
+de réseau, les documents joints, les étiquettes QR, les objectifs avant mesure, et les calculs face au Rapso.
+Un test vérifie aussi que `APP_VERSION`, `CACHE_NAME` (sw.js) et la première entrée des Nouveautés
+concordent, et que chaque script d'`index.html` est dans le pré-cache de `sw.js` : un oubli de version
+empêcherait les téléphones de voir la mise à jour.
 
 Puis, pour publier une nouvelle version aux techniciens :
 
@@ -62,8 +66,10 @@ ancienne version V27, fiches incomplètes). Le test automatique échoue s'il y e
 ## Organisation du code
 
 Ordre de chargement : celui des balises `<script>` d'`index.html`. Les fonctions sont globales.
-Les bibliothèques lourdes (pdfmake, polices, SheetJS) ne sont pas dans `index.html` : toute fonction qui
-les utilise passe d'abord par `ensureLib()` (`js/lazy-libs.js`). Elles restent dans le pré-cache de `sw.js`.
+Les bibliothèques lourdes (pdfmake, polices, SheetJS, pdf.js) ne sont pas dans `index.html` : toute fonction
+qui les utilise passe d'abord par `ensureLib()` (`js/lazy-libs.js`). Elles restent dans le pré-cache de `sw.js`.
+pdf.js (lecture des PDF joints) est appelé avec `isEvalSupported: false` et en rendu « print » : un PDF reçu
+d'un tiers ne peut pas exécuter de code, et la conversion ne dépend pas de l'affichage de l'écran.
 
 | Fichier | Rôle |
 |---|---|
@@ -91,6 +97,14 @@ les utilise passe d'abord par `ensureLib()` (`js/lazy-libs.js`). Elles restent d
 | `adoption.js`, `guide-utilisation.js`, `ed-reference.js` | Nouveautés, visite guidée, guide, aide-mémoire des guides INRS |
 | `a-propos.js` | Écran « À propos » : version et liste des textes, normes et guides appliqués (à tenir à jour) |
 | `lazy-libs.js` | Chargement à la demande de pdfmake, des polices et de SheetJS (`ensureLib('pdf')`, `ensureLib('xlsx')`) |
+| `plans.js` | Plan du site : épingles des installations, page 4.2 du rapport |
+| `documents-joints.js` | Documents du client (images, PDF convertis en images), liste 3.3 et annexe ; export, import et assainissement des images jointes (`docsNormaliser`) |
+| `schemas.js` | Schéma de réseau : éléments, gaines, piquages, sens de l'air déduit du ventilateur (`schemaOrientation`), page 4.3 |
+| `creation-rapide.js` | Créer une installation depuis le schéma ou le plan |
+| `seuils.js` | Objectif affiché avant une mesure, déduit des formules (`CALC_RULES`) en essayant des valeurs |
+| `qr.js` | Étiquettes QR (planche PDF), scanner intégré, ouverture par l'adresse `?qr=CODE` |
+| `annotation.js` | Annotation des photos (original conservé) |
+| `plaque.js` | Photo de la plaque signalétique d'un équipement |
 
 ## Données
 
@@ -98,8 +112,16 @@ les utilise passe d'abord par `ensureLib()` (`js/lazy-libs.js`). Elles restent d
   Une mission contient `installations[typeId] = [{ id, data }]`.
 - Photos : IndexedDB `aeration_photos_v1`. La mission ne garde qu'une référence `[{ id }]`.
   Les photos sont intégrées en base64 seulement dans les fichiers exportés.
-- Les clés de `data` qui commencent par `_` sont des méta-données d'écran (`_step`, `_mod`), jamais des
-  champs de rapport.
+- Les clés de `data` qui commencent par `_` sont des méta-données, jamais des champs de rapport :
+  `_step`, `_mod` (écran, fusion), `_plan` (épingle sur le plan), `_qr` (code de l'étiquette),
+  `_plaque` (photo de la plaque). `_plan`, `_qr` et `_plaque` sont repris à la visite suivante ;
+  « Dupliquer » ne recopie jamais les clés `_`.
+- Une photo annotée garde l'original sous `photo[i].orig` et les tracés sous `photo[i].annot`.
+- Au niveau de la mission : `plans`, `documentsJoints`, `schemas` (identifiants d'installation dans
+  `instIds` / `elements[].inst`, remis à jour à la visite suivante). Dans un fichier exporté, les images
+  des documents, des fonds de schéma et des plaques sont dans `imagesJointes` (identifiant -> base64).
+- Tout identifiant réutilisé dans un `onclick` est validé à l'import (`docsNormaliser`, `qrNormaliser`) :
+  un fichier .json reçu d'un tiers ne doit pas pouvoir injecter de code.
 - Une sauvegarde illisible n'est jamais écrasée : elle est mise de côté sous `aeration_missions_v1_illisible_<date>`.
 
 ## Faire évoluer
@@ -140,6 +162,12 @@ et `sw.js`, puis des tests dans `outils/tests/run.js`.
 ## Points ouverts
 
 Voir la fiche « Points à arbitrer par la direction technique ». Les principaux :
-seuil des sorbonnes, règle des 80 %, envoi direct du rapport, stockage des données,
+seuil des sorbonnes, règle des 80 %, envoi direct via le Microsoft 365 SOCOTEC (à valider par la DSI),
+stockage des données, filtres de rechange et humidificateur des CTA,
 et 5 types d'installation dont l'import Rapso n'a jamais été vérifié sur un vrai classeur
 (menuiserie réseau, torches, traitement de surface, locaux fumeurs, ERP).
+Réglé : sanitaires à usage individuel à 15 m³/h (R4212-6), appliqué depuis la version 1.45.
+
+Fonctions testées sans vrai téléphone (gestes simulés) : tracé du schéma et annotation au doigt, scanner
+QR intégré (Chrome Android uniquement ; ailleurs, appareil photo ou saisie de la référence), envoi vers
+Outlook par le partage du téléphone.

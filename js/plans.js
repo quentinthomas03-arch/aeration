@@ -86,6 +86,7 @@ function renderPlanView(m, items) {
     var deja = items.filter(function (it) { return it.inst.data._plan; });
     if (deja.length) h += '<optgroup label="Déjà placées (déplacer)">' + deja.map(function (it) { return opt(it, ' ✓'); }).join('') + '</optgroup>';
     h += '</select>';
+    if (typeof creationRapideHtml === 'function') h += creationRapideHtml(m, 'plan', m.typesSelectionnes || []);
     h += '<div class="row" style="margin-top:8px;">';
     if (cible && cible.inst.data._plan) h += '<button class="btn btn-gray btn-small" onclick="planRetirer();">Retirer du plan</button>';
     h += '<button class="btn btn-primary btn-small" onclick="state.planPlacement=null;render();">' + ICONS.check + ' Terminer le placement</button></div>';
