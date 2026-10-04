@@ -175,6 +175,7 @@ function schemaOuvrir(i) {
   state.schemaSel = null;
   state.schemaLienDepuis = null;
   state.schemaHistorique = [];
+  state.schemaRetour = state.view === 'mission-detail' ? 'mission-detail' : 'mission-form'; // ouvert depuis la vue Plan ou les données de la mission
   state.view = 'schema-editor';
   render();
   window.scrollTo(0, 0);
@@ -188,7 +189,7 @@ function renderSchemaEditor() {
   var m = getCurrentMission(), s = m && schemaCourant(m);
   if (!s) { state.view = m ? 'mission-form' : 'home'; return m ? renderMissionForm() : renderHome(); }
   var outil = state.schemaOutil || 'select';
-  var h = '<button class="back-btn" onclick="schemaFermer();">' + ICONS.arrowLeft + ' Documents de la mission</button>';
+  var h = '<button class="back-btn" onclick="schemaFermer();">' + ICONS.arrowLeft + ' ' + (state.schemaRetour === 'mission-detail' ? 'Plan du site' : 'Documents de la mission') + '</button>';
   h += '<div class="card schema-entete"><div class="schema-titre">' + SCHEMA_ICON + '<b>' + escapeHtml(s.nom) + '</b></div>' +
     '<button class="btn btn-gray btn-small" onclick="schemaRenommer();">' + ICONS.edit + ' Renommer</button></div>';
 
@@ -252,7 +253,7 @@ function renderSchemaPanneau(m, s, outil) {
 }
 
 function schemaFermer() {
-  state.view = 'mission-form';
+  state.view = state.schemaRetour || 'mission-form';
   state.schemaSel = null;
   render();
 }
@@ -421,7 +422,7 @@ function schemaSupprimer() {
   if (!s || !confirm('Supprimer le schéma « ' + s.nom + ' » ?')) return;
   m.schemas = missionSchemas(m).filter(function (x) { return x.id !== s.id; });
   persistMissions();
-  state.view = 'mission-form';
+  state.view = state.schemaRetour || 'mission-form';
   render();
 }
 

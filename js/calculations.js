@@ -94,6 +94,11 @@ function debitMinSanitaires(d) {
   var nbDouche = num(d.douches); if (isNaN(nbDouche)) nbDouche = 0;
   var nbLavabos = num(d.lavabos); if (isNaN(nbLavabos)) nbLavabos = 0;
 
+  // R.4212-6 (**) : cabinet d'aisances, salle de bains ou de douches qui n'est pas à usage collectif
+  // -> débit minimal limité à 15 m³/h (demande de Quentin du 2026-10-04 ; le relevé « Individuel ou
+  // Collectif » n'était jusque-là pas pris en compte). Un local avec seulement des lavabos n'est pas visé.
+  if (d.individuel_collectif === 'Individuel' && (nbUrine > 0 || nbDouche > 0)) return 15;
+
   if (nbUrine === 0 && nbDouche === 0 && nbLavabos < 2) return 0;
   if (nbUrine === 0 && nbDouche === 1 && nbLavabos < 2) return 45;
   if (nbUrine === 1 && nbDouche === 0 && nbLavabos < 2) return 30;

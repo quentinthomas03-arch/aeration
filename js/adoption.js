@@ -4,10 +4,16 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.44';
+var APP_VERSION = '1.46';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.46', date: '04/10/2026', items: [
+    'Schémas de réseau : bouton « Dessiner un schéma de réseau » ajouté aussi dans l’onglet Plan de la mission.'
+  ] },
+  { version: '1.45', date: '04/10/2026', items: [
+    'Sanitaires : un WC, une salle de bains ou de douches à usage individuel est comparé à 15 m³/h (article R4212-6), et non plus à 30 ou 45 m³/h.'
+  ] },
   { version: '1.44', date: '04/10/2026', items: [
     'Envoyer par mail : le rapport PDF et le fichier de la mission (pour modifier sur ordinateur) partent dans un mail prêt (objet, texte, signature) ; choisissez Outlook puis le destinataire.'
   ] },

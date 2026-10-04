@@ -50,7 +50,7 @@ function renderPlanView(m, items) {
   if (!plans.length) {
     return '<div class="card plan-empty"><div class="plan-empty-icon">' + PLAN_ICON + '</div>' +
       '<p><b>Aucun plan pour ce site.</b></p><p class="subtitle">Prenez en photo le plan d’évacuation affiché sur place, ou importez le plan fourni par le client, puis placez chaque installation d’un toucher. L’année suivante, le plan et les emplacements seront repris.</p>' +
-      planAddButtonHtml('btn btn-primary') + '</div>';
+      planAddButtonHtml('btn btn-primary') + '</div>' + planSchemasBlock(m);
   }
   var plan = currentPlan(m);
   state.planCourant = plan.id;
@@ -96,7 +96,16 @@ function renderPlanView(m, items) {
     h += '<button class="btn btn-gray btn-small" onclick="planRenommer(\'' + plan.id + '\');">' + ICONS.edit + ' Renommer</button>';
     h += '<button class="btn btn-gray btn-small" onclick="planSupprimer(\'' + plan.id + '\');">' + ICONS.trash + ' Supprimer</button></div>';
   }
-  return h;
+  return h + (placing ? '' : planSchemasBlock(m));
+}
+
+// Raccourci vers les schémas de réseau (js/schemas.js), aussi accessibles depuis les données de la mission
+function planSchemasBlock(m) {
+  if (typeof schemaNouveau !== 'function') return '';
+  return '<div class="card plan-schemas"><div class="section-title">' + SCHEMA_ICON + ' Schémas de réseau</div>' +
+    '<p class="subtitle">Pas de plan du réseau d’aspiration ou d’extraction ? Dessinez-le sur place : postes, gaines, filtre, ventilateur, rejet… et reliez chaque poste à son installation.</p>' +
+    renderSchemasList(m) +
+    '<button type="button" class="btn btn-primary btn-small" onclick="schemaNouveau();">' + ICONS.plus + ' Dessiner un schéma de réseau</button></div>';
 }
 
 function planAddButtonHtml(cls) {
