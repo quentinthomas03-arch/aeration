@@ -58,6 +58,7 @@ function renderSanitairesWizard(m, t, inst) {
 
   var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
     ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
+  h += installationNomHtml(t, inst); // local / repère et bâtiment de la fiche ouverte
   if (typeof noteInstallationBandeauHtml === 'function') h += noteInstallationBandeauHtml(inst); // note de la visite (js/visite.js)
   if (typeof ncBandeauHtml === 'function') h += ncBandeauHtml('sanitaires', inst) + relectureBandeauHtml(inst); // non contrôlée, relecture (js/qualite.js)
 
@@ -112,7 +113,8 @@ function sanBigNumber(f, inst) {
   var state = fieldState(f, inst);
   return '<div class="field-big">' + fieldLabelWithTag(f, state) +
     '<input type="text" inputmode="decimal" class="input-big state-' + state + '" value="' + escapeHtml(val) +
-    '" onchange="sanField(\'' + f.key + '\',this.value);">' + fieldHint(state) + '</div>';
+    '" onchange="sanField(\'' + f.key + '\',this.value);">' + fieldHint(state) +
+    (typeof aidesMesureHtml === 'function' ? aidesMesureHtml('sanitaires', f, inst) : '') + '</div>'; // bouches au cône ou aux dimensions (js/aides-mesure.js)
 }
 
 // Boutons larges (2 colonnes max) pour les select à choix restreint (Oui/Non, Individuel/Collectif,

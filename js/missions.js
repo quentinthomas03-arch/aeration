@@ -84,7 +84,7 @@ function missionMatchesFilter(m, p, filter) {
 
 function missionHaystack(m) {
   var di = m.donneesInternes || {}, ic = m.infosClient || {}, si = m.infosSiteIntervention || {};
-  return [m.clientSite, ic.nomEntreprise, si.siteIntervention, si.ville, ic.ville, di.numeroAffaire, di.numeroChrono].join(' ').toLowerCase();
+  return [m.clientSite, di.referenceOffre, ic.nomEntreprise, si.siteIntervention, si.ville, ic.ville, di.numeroAffaire, di.numeroChrono].join(' ').toLowerCase();
 }
 
 var _homeSearchDebounceId = null;
@@ -143,7 +143,8 @@ function renderHomeMissions() {
     var chip = { setup: ['À compléter', 'status-warn'], encours: ['En cours', 'status-warn'], terminee: ['Terminée', 'status-ok'], archivee: ['Archivée', 'status-muted'] }[p.status];
     h += '<div class="nav-item mission-card" onclick="state.currentMissionId=' + m.id + ';state.view=\'' + targetView + '\';render();">';
     h += '<div class="nav-icon">' + ICONS.building + '</div>';
-    h += '<div style="flex:1;min-width:0;"><div class="mission-card-title">' + escapeHtml(m.clientSite || 'Sans nom') + '</div>';
+    h += '<div style="flex:1;min-width:0;"><div class="mission-card-title">' + escapeHtml(missionNom(m, 'Sans nom')) + '</div>';
+    if (m.clientSite && missionNom(m) !== m.clientSite) h += '<div class="subtitle" style="font-weight:600;">' + escapeHtml(m.clientSite) + '</div>';
     h += '<div class="subtitle">' + (p.status === 'setup' ? 'Entrées à compléter' : p.done + '/' + p.total + ' installation(s) terminée(s)') + (dateTxt ? ' · ' + dateTxt : '') + '</div>';
     if (p.status !== 'setup') h += '<div class="mission-progress"><span style="width:' + pct + '%;"></span></div>';
     h += '<span class="appareil-badge ' + chip[1] + '" style="margin-top:6px;">' + chip[0] + '</span></div>';
@@ -154,6 +155,13 @@ function renderHomeMissions() {
     h += '</div></div>';
   });
   return h;
+}
+
+// Nom affiché d'une mission (retour terrain du 2026-10-05) : la référence de l'offre, le nom du client
+// passant en dessous ; à défaut, le nom du client
+function missionNom(m, defaut) {
+  var ref = String((m && m.donneesInternes && m.donneesInternes.referenceOffre) || '').trim();
+  return ref || (m && m.clientSite) || defaut || 'Mission';
 }
 
 function createMission() {

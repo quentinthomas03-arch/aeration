@@ -6,7 +6,7 @@
 // une photo du rapport : méta-donnée inst.data._plaque (identifiant de l'image en IndexedDB).
 
 // Locaux sans plaque signalétique à photographier
-var PLAQUE_TYPES_EXCLUS = ['bureaux', 'sanitaires', 'erp', 'locaux_fumeurs'];
+var PLAQUE_TYPES_EXCLUS = ['bureaux', 'sanitaires', 'erp', 'locaux_fumeurs', 'local_specifique']; // mesures aux bouches d'un local : pas de plaque
 
 function plaqueHtml(typeId, inst) {
   if (!inst || PLAQUE_TYPES_EXCLUS.indexOf(typeId) !== -1) return '';

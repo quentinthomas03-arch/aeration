@@ -15,7 +15,8 @@ function renderMissionDetail() {
   var meta = [dates ? '<span>' + ICONS.clock + escapeHtml(dates) + '</span>' : '', m.controleur ? '<span>' + ICONS.user + escapeHtml(m.controleur) + '</span>' : ''].join('');
   h += '<div class="card mission-head"><div class="mission-hero"><div class="mission-hero-text">' +
     '<div class="mission-hero-kicker">' + (di.numeroAffaire ? 'Affaire ' + escapeHtml(di.numeroAffaire) : 'Mission') + '</div>' +
-    '<h1>' + escapeHtml(m.clientSite || 'Mission') + '</h1>' +
+    '<h1>' + escapeHtml(missionNom(m)) + '</h1>' +
+    (m.clientSite && missionNom(m) !== m.clientSite ? '<div class="mission-hero-sub">' + escapeHtml(m.clientSite) + '</div>' : '') +
     (lieu && lieu !== m.clientSite ? '<div class="mission-hero-sub">' + escapeHtml(lieu) + '</div>' : '') +
     (meta ? '<div class="mission-hero-meta">' + meta + '</div>' : '') + '</div>' +
     (heroItems.length ? missionRingSvg(heroDone, heroItems.length) : '') + '</div><div class="mission-head-body">';
@@ -70,22 +71,33 @@ function renderTypeList() {
   if (!m || !t) { state.view = 'home'; render(); return ''; }
   var list = m.installations[t.id] || [];
 
-  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(m.clientSite || 'Mission') + '</button>';
+  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(missionNom(m)) + '</button>';
   h += '<div class="card"><h1>' + getIcon(t.icon) + ' ' + escapeHtml(t.label) + '</h1><p class="subtitle">' + list.length + ' installation(s)</p></div>';
   if (typeof renderEdReferenceBadge === 'function') h += renderEdReferenceBadge(t.id);
 
   list.forEach(function (inst, idx) {
-    var titleField = t.fields.find(function (f) { return f.type === 'text'; });
-    var title = titleField ? (inst.data[titleField.key] || 'Sans nom') : ('#' + (idx + 1));
+    // Référence du local / repère / équipement, et le bâtiment en dessous : le premier champ texte
+    // (le bâtiment) donnait le même nom à 15 bureaux d'un même bâtiment (retour terrain du 2026-10-05)
+    var title = overviewRowTitle({ type: t, inst: inst, idx: idx });
+    var bat = inst.data.batiment;
     h += '<div class="nav-item" onclick="state.currentInstIndex=' + idx + ';state.currentStep=0;state.view=\'installation-form\';render();">';
     h += '<div class="nav-icon">' + getIcon(t.icon) + '</div>';
-    h += '<div style="flex:1;"><div style="font-weight:600;">' + escapeHtml(title) + '</div></div>';
+    h += '<div style="flex:1;"><div style="font-weight:600;">' + escapeHtml(title) + '</div>' +
+      (bat && bat !== title ? '<div class="subtitle">' + escapeHtml(bat) + '</div>' : '') + '</div>';
     h += '<button class="agent-delete" onclick="event.stopPropagation();deleteInstallation(\'' + t.id + '\',' + idx + ');">' + ICONS.trash + '</button>';
     h += '</div>';
   });
 
   h += '<button class="btn btn-primary" onclick="addInstallation(\'' + t.id + '\');">' + ICONS.plus + ' Ajouter</button>';
   return h;
+}
+
+// Nom de la fiche ouverte (référence du local, repère…) et son bâtiment, sous l'en-tête de saisie
+function installationNomHtml(t, inst) {
+  if (!inst || !hasRealInstallationData(inst.data)) return '';
+  var nom = overviewRowTitle({ type: t, inst: inst, idx: state.currentInstIndex }), bat = inst.data.batiment;
+  return '<div class="subtitle" style="margin:-4px 0 8px;font-weight:600;">' + escapeHtml(nom) +
+    (bat && bat !== nom ? ' · ' + escapeHtml(bat) : '') + '</div>';
 }
 
 function addInstallation(typeId) {

@@ -4,10 +4,24 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.64';
+var APP_VERSION = '1.67';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.67', date: '05/10/2026', items: [
+    'Mesure au cône : choisissez votre cône K35 (coeff. 22), K75 (coeff. 50) ou K120 (coeff. 135) en un geste ; un coefficient libre reste possible pour un cas particulier.'
+  ] },
+  { version: '1.66', date: '05/10/2026', items: [
+    'Local à pollution spécifique : taux de renouvellement (débit extrait ÷ volume). Vous saisissez le taux que vous retenez pour l’activité et sa source, ou reprenez en un geste un taux déjà retenu sur un autre local ; sans taux recommandé, il reste informatif.'
+  ] },
+  { version: '1.65', date: '05/10/2026', items: [
+    'Local à pollution spécifique : choisissez avant de mesurer ce que vous contrôlez (extraction, air neuf ou les deux) ; la partie compensation est retirée, la plaque signalétique n’est plus proposée.',
+    'Bureaux, sanitaires et locaux spécifiques : débit bouche par bouche au cône, aux dimensions de la bouche (largeur × longueur ou diamètre, × vitesse) ou en débit direct.',
+    'Listes : chaque installation affiche son local ou son repère (avec le bâtiment), et les missions la référence de l’offre (avec le client).',
+    'Bureaux en soufflage ou double flux : l’absence d’ouvrant ne rend plus l’avis non satisfaisant ; % d’air neuf non saisi = tout l’air soufflé compté.',
+    'Sanitaires : la limite de 15 m³/h « individuel » ne vaut plus que pour un local isolé (1 WC et/ou 1 douche).',
+    'Plus de fichier .json ouvert à chaque installation terminée (sauvegarde auto seulement dans le dossier choisi sur ordinateur).'
+  ] },
   { version: '1.64', date: '04/10/2026', items: [
     'Rapport précédent importé : les débits mesurés l’an dernier (CTA, extracteurs, hottes, captages) deviennent les valeurs N-1 des installations créées, avec l’historique.',
     'Importer le dossier de valeurs de référence du client (Excel, CSV ou PDF), menu « ⋯ » de la mission : chaque valeur est rapprochée de son installation et de son champ, vous cochez ce que vous reprenez.',

@@ -265,6 +265,7 @@ function renderGenericWizard(m, t, inst) {
 
   var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
     ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
+  h += installationNomHtml(t, inst); // local / repère et bâtiment de la fiche ouverte
   if (typeof noteInstallationBandeauHtml === 'function') h += noteInstallationBandeauHtml(inst); // note de la visite (js/visite.js)
   if (typeof ncBandeauHtml === 'function') h += ncBandeauHtml(t.id, inst) + relectureBandeauHtml(inst); // non contrôlée, relecture (js/qualite.js)
 

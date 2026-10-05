@@ -182,7 +182,7 @@ function vrAppliquer() {
 function renderValeursReference() {
   var m = getCurrentMission();
   if (!m) { state.view = 'home'; return renderHome(); }
-  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(m.clientSite || 'Mission') + '</button>';
+  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(missionNom(m)) + '</button>';
   h += '<div class="card"><h1>' + ICONS.clipboard + ' Valeurs de référence du client</h1>' +
     '<p class="subtitle">Importez le dossier de valeurs de référence remis par le client (Excel, CSV ou PDF). L’appli rapproche chaque valeur d’une installation de la mission et du bon champ « référence » ; vous cochez ce que vous reprenez. Le fichier reste sur l’appareil.</p>' +
     '<label class="btn btn-gray btn-small">' + ICONS.upload + ' Importer le dossier<input type="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf" style="display:none;" onchange="vrLireFichier(this);"></label>' +

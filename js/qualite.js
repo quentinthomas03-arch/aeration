@@ -207,7 +207,7 @@ function renderRelecture() {
   if (!m) { state.view = 'home'; return renderHome(); }
   var items = overviewOrderedItems(m), p = (typeof getProfilTechnicien === 'function' && getProfilTechnicien()) || {};
   var valides = items.filter(function (it) { var r = relectureDe(it.inst); return r && r.ok; }).length;
-  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(m.clientSite || 'Mission') + '</button>';
+  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(missionNom(m)) + '</button>';
   h += '<div class="card"><h1>' + ICONS.check + ' Relecture de la mission</h1><p class="subtitle">Validez chaque installation ou laissez un commentaire au technicien. Renvoyez-lui ensuite la mission (fichier .json) : il la fusionne et voit vos remarques dans les fiches.</p>';
   if (m.relecture && m.relecture.statut === 'validee') h += '<div class="relecture-ok">' + ICONS.check + ' Relecture terminée par ' + escapeHtml(m.relecture.par) + ' le ' + escapeHtml(m.relecture.date) + '</div>';
   h += '<div class="relecture-compte">' + valides + ' / ' + items.length + ' installation(s) validée(s)</div></div>';

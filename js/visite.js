@@ -103,7 +103,7 @@ function materielMission(m) {
 function renderPreparation() {
   var m = getCurrentMission();
   if (!m) { state.view = 'home'; return renderHome(); }
-  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(m.clientSite || 'Mission') + '</button>';
+  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(missionNom(m)) + '</button>';
   h += '<div class="card"><h1>' + ICONS.clipboard + ' Préparer la visite</h1><p class="subtitle">Avant de partir du bureau : notes pratiques, matériel, appareils, étiquettes.</p></div>';
 
   h += '<div class="card"><div class="section-title">Notes pour la visite</div>' +

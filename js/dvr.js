@@ -255,7 +255,7 @@ function renderDvr() {
   if (!m) { state.view = 'home'; render(); return ''; }
   var dv = dvrData(m);
   var items = dvrItems(m);
-  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(m.clientSite || 'Mission') + '</button>';
+  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(missionNom(m)) + '</button>';
   h += '<div class="card"><h1>' + ICONS.clipboard + ' Valeurs de référence</h1>' +
     '<p class="subtitle">Relevé pour l’établissement du dossier de valeurs de référence (arrêté du 8 octobre 1987). SOCOTEC relève et propose ; le chef d’établissement valide et l’intègre à la notice d’instructions.</p></div>';
   h += '<div class="card dvr-regle"><b>Règle appliquée :</b> une valeur relevée n’est proposée comme référence que si le critère est satisfaisant. ' +

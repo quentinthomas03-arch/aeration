@@ -97,7 +97,9 @@ function debitMinSanitaires(d) {
   // R.4212-6 (**) : cabinet d'aisances, salle de bains ou de douches qui n'est pas à usage collectif
   // -> débit minimal limité à 15 m³/h (demande de Quentin du 2026-10-04 ; le relevé « Individuel ou
   // Collectif » n'était jusque-là pas pris en compte). Un local avec seulement des lavabos n'est pas visé.
-  if (d.individuel_collectif === 'Individuel' && (nbUrine > 0 || nbDouche > 0)) return 15;
+  // Seulement pour un local isolé (1 WC et/ou 1 douche au plus, retour terrain du 2026-10-05) : des
+  // équipements groupés relèvent du tableau (30 + 15 N), même si « Individuel » a été coché.
+  if (d.individuel_collectif === 'Individuel' && (nbUrine > 0 || nbDouche > 0) && nbUrine <= 1 && nbDouche <= 1) return 15;
 
   if (nbUrine === 0 && nbDouche === 0 && nbLavabos < 2) return 0;
   if (nbUrine === 0 && nbDouche === 1 && nbLavabos < 2) return 45;
@@ -115,7 +117,10 @@ function debitAirNeufMesure(d) {
   if (vt === 'Extraction') return num(d.debit_total_mesure);
   if (vt === 'Soufflage' || vt === 'Double flux') {
     var base = (vt === 'Double flux') ? num(d.debit_soufflage) : num(d.debit_total_mesure);
+    // Part d'air neuf non renseignée : tout l'air soufflé est compté comme air neuf (retour terrain du
+    // 2026-10-05 : un local bien alimenté était jugé sur son seul volume, donc non satisfaisant)
     var pct = num(d.pourcentage_air_neuf);
+    if (isNaN(pct) && base > 0) pct = 100;
     if (isNaN(base) || isNaN(pct)) return NaN;
     return base * (pct / 100);
   }
@@ -401,7 +406,9 @@ var CALC_RULES = {
         // explicitement répondu "Non" à entree_air_exterieur — champ ajouté après coup : sur un dossier
         // existant où il n'a jamais été demandé, on ne veut pas faire basculer l'avis en Non Satisfaisant
         // sur la seule base d'une question jamais posée ; on retombe alors sur le calcul débit/volume.
-        if (d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur === 'Non') return 'Non Satisfaisant';
+        // Seulement en extraction (retour terrain du 2026-10-05) : en soufflage ou double flux, l'air neuf
+        // est apporté mécaniquement, l'absence d'ouvrant ne compte pas — tout sortait non satisfaisant.
+        if (d.type_ventilation === 'Extraction' && d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur === 'Non') return 'Non Satisfaisant';
 
         var min = num(d.debit_min_air_neuf);
         var vt = d.type_ventilation;
@@ -501,7 +508,9 @@ var CALC_RULES = {
         // Ventilation mécanique (Extraction / Soufflage / Double flux) : une extraction sans aucune
         // entrée d'air (ouvrant ou entrée d'air dédiée) ne produit pas de renouvellement d'air réel.
         // N'est appliqué que si le technicien a explicitement répondu "Non" à entree_air_exterieur.
-        if (d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur === 'Non') return 'Non Satisfaisant';
+        // Seulement en extraction (retour terrain du 2026-10-05) : en soufflage ou double flux, l'air neuf
+        // est apporté mécaniquement, l'absence d'ouvrant ne compte pas — tout sortait non satisfaisant.
+        if (d.type_ventilation === 'Extraction' && d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur === 'Non') return 'Non Satisfaisant';
 
         var min = num(d.debit_min_air_neuf);
         var vt = d.type_ventilation;

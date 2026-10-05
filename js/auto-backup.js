@@ -15,8 +15,8 @@
 //    jamais appelé depuis le déclenchement automatique pour ne pas faire surgir un prompt navigateur
 //    hors contexte — seul un nouveau chooseAutoBackupFolder, initié par le technicien, peut ré-
 //    accorder l'accès).
-//  - Repli universel (mobile inclus) : téléchargement silencieux classique vers le dossier de
-//    téléchargements par défaut, via downloadBlob — déjà utilisé par l'export manuel.
+//  - Sans dossier choisi (mobile notamment) : aucune sauvegarde automatique — le repli par
+//    téléchargement ouvrait un .json à chaque installation terminée (retiré le 2026-10-05).
 //
 // Jamais de popup/alert à chaque sauvegarde (succès ou échec) : seul un indicateur discret
 // ("Dernière sauvegarde auto : il y a Xmin", accueil) reflète l'état, cf. renderAutoBackupIndicator.
@@ -120,18 +120,17 @@ function autoBackupFilename(m) {
 // Point d'entrée appelé après chaque installation marquée "Terminé" (js/installations.js,
 // js/wizard-engine.js, js/wizard-sanitaires.js). Ne bloque jamais la navigation : la vue a déjà
 // changé quand cette fonction s'exécute, tout ici se passe en tâche de fond.
+// Retour terrain du 2026-10-05 : le repli « téléchargement » ouvrait un fichier .json à chaque
+// installation terminée sur la tablette. La sauvegarde n'a donc lieu que dans le dossier choisi par le
+// technicien (ordinateur) ; sinon rien, la mission reste enregistrée dans l'appli.
 function scheduleAutoBackup() {
   var m = getCurrentMission();
   if (!m || typeof buildMissionExportBlob !== 'function') return;
   var filename = autoBackupFilename(m);
 
-  buildMissionExportBlob(m).then(function (built) {
-    return getVerifiedBackupDirHandle().then(function (dirHandle) {
-      if (!dirHandle) { downloadBlob(built.blob, filename); return; }
-      return writeToBackupDir(dirHandle, filename, built.blob).catch(function () {
-        downloadBlob(built.blob, filename); // dossier supprimé/permission perdue entre-temps
-      });
-    });
+  getVerifiedBackupDirHandle().then(function (dirHandle) {
+    if (!dirHandle) return Promise.reject(new Error('aucun dossier de sauvegarde'));
+    return buildMissionExportBlob(m).then(function (built) { return writeToBackupDir(dirHandle, filename, built.blob); });
   }).then(function () {
     saveData(AUTO_BACKUP_LAST_RUN_KEY, Date.now());
     refreshAutoBackupIndicator();

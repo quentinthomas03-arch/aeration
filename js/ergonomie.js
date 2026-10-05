@@ -214,7 +214,7 @@ function renderBilan() {
   items.forEach(function (it) { counts[bilanCategory(it)]++; });
   var total = items.length;
 
-  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(m.clientSite || 'Mission') + '</button>';
+  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(missionNom(m)) + '</button>';
   h += '<div class="card"><h1>' + ICONS.check + ' Bilan de la mission</h1><p class="subtitle">' + total + ' installation(s) · ' +
     escapeHtml(m.clientSite || '') + '</p></div>';
   if (!total) return h + '<div class="empty-state"><p>Aucune installation pour l’instant.</p></div>';

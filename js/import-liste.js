@@ -78,7 +78,7 @@ function renderImportListe() {
   var m = getCurrentMission();
   if (!m) { state.view = 'home'; return renderHome(); }
   var lignes = state.importListe || [];
-  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(m.clientSite || 'Mission') + '</button>';
+  var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(missionNom(m)) + '</button>';
   h += renderQuantitesRapides(m);
   h += '<div class="card"><h1>' + ICONS.list + ' Ou depuis un tableau Excel</h1>' +
     '<p class="subtitle">Colonnes : <b>Type d’installation</b> | Nombre | Bâtiment | Nom ou repère. Seul le type est obligatoire ; une ligne sans nombre crée une installation.</p>' +

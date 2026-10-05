@@ -18,7 +18,14 @@
 // Débit bouche par bouche
 // ————————————————————————————————————————————
 
-var AM_BOUCHES = { bureaux: ['debit_total_mesure', 'debit_soufflage', 'debit_extraction'], erp: ['debit_total_mesure', 'debit_soufflage', 'debit_extraction'], locaux_fumeurs: ['debit_extraction'] };
+//    Troisième mode (retour terrain du 2026-10-05) : « Dimensions de la bouche » — vitesse lue à
+//    l'anémomètre sur la bouche × surface (largeur × longueur, ou diamètre seul), dimensions gardées
+//    dans inst.data._bouchesDim = { cléDuChamp: [{ a: '20', b: '30' }, …] }, en parallèle des vitesses.
+
+var AM_BOUCHES = { bureaux: ['debit_total_mesure', 'debit_soufflage', 'debit_extraction'], erp: ['debit_total_mesure', 'debit_soufflage', 'debit_extraction'],
+  locaux_fumeurs: ['debit_extraction'], sanitaires: ['debit_mesure'], local_specifique: ['debit_air_neuf', 'debit_extraction_generale'] };
+// Champ de débit dont le nombre de bouches découle (une seule extraction ou un seul soufflage par local)
+var AM_CHAMP_NOMBRE_BOUCHES = ['debit_total_mesure', 'debit_mesure'];
 
 function amFr(v, dec) {
   return (Math.round(v * Math.pow(10, dec || 0)) / Math.pow(10, dec || 0)).toString().replace('.', ',');
@@ -39,30 +46,47 @@ function amBouchesListe(inst, key) {
 }
 
 var AM_CONE_K_KEY = 'aeration_cone_k_v1';
+// Cônes du parc : le nom inscrit sur le cône n'est pas son coefficient (débit = coefficient × vitesse)
+var AM_CONES_K = [{ nom: 'K35', k: '22' }, { nom: 'K75', k: '50' }, { nom: 'K120', k: '135' }];
 
 function amConeKRetenu() {
   try { return localStorage.getItem(AM_CONE_K_KEY) || ''; } catch (e) { return ''; }
 }
 
 function amBouchesMode(inst) {
-  return inst.data._bouchesMode === 'debit' ? 'debit' : 'cone';
+  var m = inst.data._bouchesMode;
+  return m === 'debit' || m === 'dim' ? m : 'cone';
 }
 
-// Débits des bouches (m³/h, NaN si vide) : K × vitesse au cône, ou débit saisi
-function amBouchesDebits(inst, liste) {
-  var cone = amBouchesMode(inst) === 'cone', k = num(inst.data._coneK);
-  return liste.map(function (v) {
+function amDims(inst, key) {
+  return (inst.data._bouchesDim && Array.isArray(inst.data._bouchesDim[key])) ? inst.data._bouchesDim[key] : [];
+}
+
+// Surface de passage de la bouche (m²) : largeur × longueur en cm, ou diamètre seul (bouche ronde)
+function amSurfaceBouche(dim) {
+  var a = num(dim && dim.a), b = num(dim && dim.b);
+  if (a > 0 && b > 0) return a * b / 10000;
+  if (a > 0) return Math.PI * Math.pow(a / 200, 2);
+  return NaN;
+}
+
+// Débits des bouches (m³/h, NaN si vide) : K × vitesse au cône, surface × vitesse, ou débit saisi
+function amBouchesDebits(inst, liste, key) {
+  var mode = amBouchesMode(inst), k = num(inst.data._coneK), dims = amDims(inst, key);
+  return liste.map(function (v, i) {
     var n = num(v);
     if (isNaN(n)) return NaN;
-    return cone ? (k > 0 ? k * n : NaN) : n;
+    if (mode === 'cone') return k > 0 ? k * n : NaN;
+    if (mode === 'dim') { var s = amSurfaceBouche(dims[i]); return s > 0 ? s * n * 3600 : NaN; }
+    return n;
   });
 }
 
 // Recalcule le total d'un champ (et le nombre de bouches) puis enregistre et redessine
 function amBouchesTotal(typeId, inst, key) {
   var liste = amBouchesListe(inst, key) || [];
-  var debits = amBouchesDebits(inst, liste).filter(function (v) { return !isNaN(v); });
-  if (key === 'debit_total_mesure' && debits.length && getInstallationType(typeId).fields.some(function (f) { return f.key === 'nombre_bouches'; })) inst.data.nombre_bouches = String(debits.length);
+  var debits = amBouchesDebits(inst, liste, key).filter(function (v) { return !isNaN(v); });
+  if (AM_CHAMP_NOMBRE_BOUCHES.indexOf(key) !== -1 && debits.length && getInstallationType(typeId).fields.some(function (f) { return f.key === 'nombre_bouches'; })) inst.data.nombre_bouches = String(debits.length);
   return debits.length ? amFr(debits.reduce(function (a, b) { return a + b; }, 0), 0) : '';
 }
 
@@ -97,14 +121,37 @@ function amBoucheSaisie(typeId, key, i, v) {
   amBouchesMaj(typeId, key, liste, false);
 }
 
+function amSetDims(inst, key, dims) {
+  if (!inst.data._bouchesDim || typeof inst.data._bouchesDim !== 'object') inst.data._bouchesDim = {};
+  inst.data._bouchesDim[key] = dims;
+}
+
+// Dimension d'une bouche (a : largeur ou diamètre, b : longueur, en cm)
+function amBoucheDim(typeId, key, i, quoi, v) {
+  var inst = getCurrentInstallation(typeId);
+  if (!inst) return;
+  var dims = amDims(inst, key).slice();
+  dims[i] = Object.assign({}, dims[i] || {});
+  dims[i][quoi] = String(v).trim();
+  amSetDims(inst, key, dims);
+  amBouchesMaj(typeId, key, (amBouchesListe(inst, key) || []).slice(), false);
+}
+
 function amBoucheAjouter(typeId, key) {
   var inst = getCurrentInstallation(typeId), liste = (amBouchesListe(inst, key) || []).slice();
+  // Les bouches d'un même local ont souvent les mêmes dimensions : celles de la précédente sont reprises
+  var dims = amDims(inst, key).slice();
+  dims[liste.length] = Object.assign({}, dims[liste.length - 1] || {});
+  amSetDims(inst, key, dims);
   liste.push('');
   amBouchesMaj(typeId, key, liste, true);
 }
 
 function amBoucheRetirer(typeId, key, i) {
   var inst = getCurrentInstallation(typeId), liste = (amBouchesListe(inst, key) || []).slice();
+  var dims = amDims(inst, key).slice();
+  dims.splice(i, 1);
+  amSetDims(inst, key, dims);
   liste.splice(i, 1);
   amBouchesMaj(typeId, key, liste, false);
 }
@@ -112,29 +159,41 @@ function amBoucheRetirer(typeId, key, i) {
 function amBouchesHtml(typeId, f, inst) {
   var liste = amBouchesListe(inst, f.key);
   if (!liste) {
-    return '<button type="button" class="today-btn" onclick="amBoucheAjouter(\'' + typeId + '\',\'' + f.key + '\');">Mesurer au cône, bouche par bouche</button>';
+    return '<button type="button" class="today-btn" onclick="amBoucheAjouter(\'' + typeId + '\',\'' + f.key + '\');">Mesurer bouche par bouche (cône ou dimensions)</button>';
   }
-  var cone = amBouchesMode(inst) === 'cone', k = num(inst.data._coneK);
-  var debits = amBouchesDebits(inst, liste), faibles = amBouchesFaibles(debits.map(function (v) { return isNaN(v) ? '' : String(v); }));
-  var h = '<div class="am-bouches"><div class="am-mode">' +
-    '<button type="button" class="cm-chip' + (cone ? ' actif' : '') + '" onclick="amBouchesReglage(\'' + typeId + '\',\'mode\',\'cone\');">Vitesse au cône</button>' +
-    '<button type="button" class="cm-chip' + (cone ? '' : ' actif') + '" onclick="amBouchesReglage(\'' + typeId + '\',\'mode\',\'debit\');">Débit direct</button></div>';
+  var mode = amBouchesMode(inst), cone = mode === 'cone', dim = mode === 'dim', k = num(inst.data._coneK), dims = amDims(inst, f.key);
+  var debits = amBouchesDebits(inst, liste, f.key), faibles = amBouchesFaibles(debits.map(function (v) { return isNaN(v) ? '' : String(v); }));
+  var chip = function (m, label) {
+    return '<button type="button" class="cm-chip' + (mode === m ? ' actif' : '') + '" onclick="amBouchesReglage(\'' + typeId + '\',\'mode\',\'' + m + '\');">' + label + '</button>';
+  };
+  var h = '<div class="am-bouches"><div class="am-mode">' + chip('cone', 'Vitesse au cône') + chip('dim', 'Dimensions de la bouche') + chip('debit', 'Débit direct') + '</div>';
   if (cone) {
-    h += '<label class="am-plaque-champ"><span>Coefficient K du cône</span><span class="calc-saisie"><input type="text" inputmode="decimal" class="input" value="' + escapeHtml(inst.data._coneK || '') + '" placeholder="ex. 36" onchange="amBouchesReglage(\'' + typeId + '\',\'k\',this.value);"><em>m³/h par m/s</em></span></label>';
-    if (!(k > 0)) h += '<div class="am-alerte">Saisissez le coefficient K de votre cône (sur le cône ou sa notice) : débit = K × vitesse.</div>';
+    // Les trois cônes du parc (retour terrain du 2026-10-05), et une saisie libre pour un cas particulier
+    var kCourant = String(inst.data._coneK || '').trim(), kStd = AM_CONES_K.some(function (c) { return c.k === kCourant; });
+    h += '<div class="am-plaque-champ"><span>Cône utilisé</span><div class="am-mode">' + AM_CONES_K.map(function (c) {
+      return '<button type="button" class="cm-chip' + (kCourant === c.k ? ' actif' : '') + '" onclick="amBouchesReglage(\'' + typeId + '\',\'k\',\'' + c.k + '\');">' + c.nom + ' <small>(coeff. ' + c.k + ')</small></button>';
+    }).join('') + '</div></div>';
+    h += '<label class="am-plaque-champ"><span>Autre coefficient (cas particulier)</span><span class="calc-saisie"><input type="text" inputmode="decimal" class="input" value="' + escapeHtml(kStd ? '' : (inst.data._coneK || '')) + '" placeholder="coefficient libre" onchange="amBouchesReglage(\'' + typeId + '\',\'k\',this.value);"><em>m³/h par m/s</em></span></label>';
+    if (!(k > 0)) h += '<div class="am-alerte">Choisissez votre cône (K35, K75, K120) ou saisissez son coefficient : débit = coefficient × vitesse.</div>';
   }
+  if (dim) h += '<div class="cm-src">Pour chaque bouche : largeur × longueur en cm (ou le diamètre seul pour une bouche ronde), puis la vitesse moyenne lue sur la bouche.</div>';
   liste.forEach(function (v, i) {
-    var faible = faibles.some(function (x) { return x.i === i; });
+    var faible = faibles.some(function (x) { return x.i === i; }), d = dims[i] || {};
     h += '<div class="am-bouche' + (faible ? ' faible' : '') + '"><span>Bouche ' + (i + 1) + '</span>' +
-      '<input type="text" inputmode="decimal" class="input am-bouche-input" data-k="' + f.key + '" value="' + escapeHtml(v) + '" placeholder="' + (cone ? 'm/s' : 'm³/h') + '" onchange="amBoucheSaisie(\'' + typeId + '\',\'' + f.key + '\',' + i + ',this.value);">' +
-      '<button type="button" class="am-retirer" aria-label="Retirer la bouche ' + (i + 1) + '" onclick="amBoucheRetirer(\'' + typeId + '\',\'' + f.key + '\',' + i + ');">✕</button>' +
-      (cone && !isNaN(debits[i]) ? '<span class="am-debit">= ' + amFr(debits[i]) + ' m³/h</span>' : '') + '</div>';
+      '<input type="text" inputmode="decimal" class="input am-bouche-input" data-k="' + f.key + '" value="' + escapeHtml(v) + '" placeholder="' + (mode === 'debit' ? 'm³/h' : 'm/s') + '" onchange="amBoucheSaisie(\'' + typeId + '\',\'' + f.key + '\',' + i + ',this.value);">' +
+      '<button type="button" class="am-retirer" aria-label="Retirer la bouche ' + (i + 1) + '" onclick="amBoucheRetirer(\'' + typeId + '\',\'' + f.key + '\',' + i + ');">✕</button>';
+    if (dim) {
+      h += '<span class="am-dims"><input type="text" inputmode="decimal" class="input" value="' + escapeHtml(d.a || '') + '" placeholder="largeur ou Ø (cm)" aria-label="Largeur ou diamètre de la bouche ' + (i + 1) + ' (cm)" onchange="amBoucheDim(\'' + typeId + '\',\'' + f.key + '\',' + i + ',\'a\',this.value);">' +
+        '<em>×</em><input type="text" inputmode="decimal" class="input" value="' + escapeHtml(d.b || '') + '" placeholder="longueur (cm)" aria-label="Longueur de la bouche ' + (i + 1) + ' (cm)" onchange="amBoucheDim(\'' + typeId + '\',\'' + f.key + '\',' + i + ',\'b\',this.value);"></span>';
+    }
+    h += (mode !== 'debit' && !isNaN(debits[i]) ? '<span class="am-debit">= ' + amFr(debits[i]) + ' m³/h</span>' : '') + '</div>';
   });
   h += '<button type="button" class="btn btn-gray btn-small" onclick="amBoucheAjouter(\'' + typeId + '\',\'' + f.key + '\');">' + ICONS.plus + ' Bouche suivante</button>';
   faibles.forEach(function (x) {
     h += '<div class="am-alerte">Bouche ' + (x.i + 1) + ' : ' + amFr(x.v) + ' m³/h, moins de la moitié des autres (médiane ' + amFr(x.med) + ' m³/h). Bouche obstruée, fermée ou déréglée ? À regarder avant de partir.</div>';
   });
-  return h + '<div class="cm-src">Le débit ci-dessus est la somme des bouches' + (cone ? ' (K × vitesse de chaque bouche)' : '') + '.</div></div>';
+  var formule = cone ? ' (K × vitesse de chaque bouche)' : dim ? ' (surface × vitesse × 3600 pour chaque bouche)' : '';
+  return h + '<div class="cm-src">Le débit ci-dessus est la somme des bouches' + formule + '.</div></div>';
 }
 
 // ————————————————————————————————————————————
