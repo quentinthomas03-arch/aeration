@@ -239,6 +239,10 @@ function getCurrentInstallation(typeId) {
   return (m && m.installations[typeId]) ? m.installations[typeId][state.currentInstIndex] : null;
 }
 
+// Couleurs des avis hors rapport (synthèse, compte rendu, index, plan, schémas) — mêmes valeurs que les
+// variables --status-* de js/main.css ; le rapport garde celles du format Rapso (js/export-pdf.js)
+var AVIS_TEINTES = { okTexte: '#166534', badTexte: '#B42318', okFond: '#16a34a', badFond: '#e5484d', warnFond: '#d97706' };
+
 function createEmptyMission() {
   var installations = {};
   INSTALLATION_TYPES.forEach(function (t) { installations[t.id] = []; });
@@ -407,7 +411,7 @@ var DUPLICATION_EXTRA_KEEP_STEPS = {
 
 function duplicationFieldKeys(typeId) {
   if (typeId === 'sanitaires') {
-    return ['batiment', 'repere', 'nom_usage', 'chambre_erp_individuelle', 'wc_urinoirs', 'douches',
+    return ['batiment', 'niveau', 'repere', 'nom_usage', 'chambre_erp_individuelle', 'wc_urinoirs', 'douches',
       'lavabos', 'individuel_collectif', 'nombre_bouches'];
   }
   var steps = (typeof WIZARD_STEPS !== 'undefined' && WIZARD_STEPS[typeId]) || [];

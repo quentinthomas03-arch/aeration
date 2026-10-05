@@ -17,7 +17,9 @@ function sanitairesFieldDef(key) {
 }
 
 function sanField(key, value) {
+  var info = typeof ficheSaisie === 'function' ? ficheSaisie('sanitaires', key, value) : null; // valeur remplacée : « Annuler » (js/fiche-plus.js)
   updateInstallationField('sanitaires', key, value);
+  if (info) ficheProposerAnnulation('sanitaires', key, info);
 }
 
 // _step (préfixe "_" = méta-donnée d'UI, jamais un champ de rapport, cf. site-overview.js) permet
@@ -33,7 +35,7 @@ function sanitairesPersistStep(step) {
 function sanitairesPrevStep() {
   if (state.currentStep > 0) { state.currentStep--; sanitairesPersistStep(state.currentStep); render(); return; }
   state.currentStep = 0;
-  state.view = 'type-list';
+  state.view = vueRetourFiche();
   render();
 }
 
@@ -43,7 +45,7 @@ function sanitairesNextStep() {
   // (js/wizard-engine.js) trouvé lors de l'audit du 2026-09-18.
   state.currentStep = 0;
   sanitairesPersistStep(0);
-  state.view = 'type-list';
+  state.view = vueRetourFiche();
   render();
   scheduleAutoBackup();
 }
@@ -56,8 +58,8 @@ function renderSanitairesWizard(m, t, inst) {
   }
   var step = state.currentStep;
 
-  var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
-    ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
+  var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=vueRetourFiche();state.currentStep=0;render();">' +
+    ICONS.arrowLeft + ' ' + escapeHtml(libelleRetourFiche(t)) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
   h += installationNomHtml(t, inst); // local / repère et bâtiment de la fiche ouverte
   if (typeof noteInstallationBandeauHtml === 'function') h += noteInstallationBandeauHtml(inst); // note de la visite (js/visite.js)
   if (typeof ncBandeauHtml === 'function') h += ncBandeauHtml('sanitaires', inst) + relectureBandeauHtml(inst); // non contrôlée, relecture (js/qualite.js)
@@ -72,7 +74,7 @@ function renderSanitairesWizard(m, t, inst) {
     SANITAIRES_STEP_LABELS.length + '</div><h2>' + getIcon(t.icon) + ' ' +
     escapeHtml(SANITAIRES_STEP_LABELS[step]) + '</h2></div>';
 
-  h += '<div class="card">';
+  h += '<div class="card' + (typeof etapeAnimClasse === 'function' ? etapeAnimClasse('sanitaires', step) : '') + '">';
   if (step === 0) h += renderSanStep1(inst);
   else if (step === 1) h += renderSanStep2(inst);
   else if (step === 2) h += renderSanStep3(inst);
@@ -111,9 +113,10 @@ function sanBigText(f, inst) {
 function sanBigNumber(f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
   var state = fieldState(f, inst);
-  return '<div class="field-big">' + fieldLabelWithTag(f, state) +
-    '<input type="text" inputmode="decimal" class="input-big state-' + state + '" value="' + escapeHtml(val) +
-    '" onchange="sanField(\'' + f.key + '\',this.value);">' + fieldHint(state) +
+  var champ = '<input type="text" inputmode="decimal" class="input-big state-' + state + '" value="' + escapeHtml(val) +
+    '" onchange="sanField(\'' + f.key + '\',this.value);">';
+  if (typeof ficheEstEntier === 'function' && ficheEstEntier(f)) champ = ficheStepper('sanitaires', f, champ); // − / + (js/fiche-plus.js)
+  return '<div class="field-big">' + fieldLabelWithTag(f, state) + champ + fieldHint(state) +
     (typeof aidesMesureHtml === 'function' ? aidesMesureHtml('sanitaires', f, inst) : '') + '</div>'; // bouches au cône ou aux dimensions (js/aides-mesure.js)
 }
 
@@ -152,7 +155,8 @@ function sanTextarea(f, inst) {
   var state = fieldState(f, inst);
   return '<div class="field-big">' + fieldLabelWithTag(f, state) +
     '<textarea class="input state-' + state + '" rows="4" onchange="sanField(\'' + f.key + '\',this.value);">' + escapeHtml(val) +
-    '</textarea>' + fieldHint(state) + phrasesTypesHtml('sanitaires', f) + '</div>';
+    '</textarea>' + fieldHint(state) + phrasesTypesHtml('sanitaires', f) +
+    (typeof ficheCommentaireMultiHtml === 'function' ? ficheCommentaireMultiHtml('sanitaires', f, inst) : '') + '</div>'; // js/fiche-plus.js
 }
 
 function sanComputedBadge(label, display) {
@@ -164,6 +168,7 @@ function sanComputedBadge(label, display) {
 function renderSanStep1(inst) {
   var h = '';
   h += sanBigText(sanitairesFieldDef('batiment'), inst);
+  if (sanitairesFieldDef('niveau')) h += sanBigText(sanitairesFieldDef('niveau'), inst);
   h += sanBigText(sanitairesFieldDef('repere'), inst);
   h += sanNativeSelect(sanitairesFieldDef('nom_usage'), inst);
   h += sanChoiceButtons(sanitairesFieldDef('chambre_erp_individuelle'), inst);
@@ -214,6 +219,7 @@ function renderSanStep4(inst) {
       escapeHtml(inst.data.debit_min_reglementaire) + ' m³/h</p>';
   }
   h += sanComputedBadge('Avis par rapport aux valeurs réglementaires', inst.data.avis);
+  if (typeof pourquoiAvisHtml === 'function') h += pourquoiAvisHtml('sanitaires', inst); // js/pourquoi-avis.js
   h += sanTextarea(sanitairesFieldDef('observation'), inst);
   return h;
 }

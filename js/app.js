@@ -24,11 +24,34 @@ function render() {
     case 'preparation': h = renderPreparation(); break;
     case 'import-liste': h = renderImportListe(); break;
     case 'valeurs-ref': h = renderValeursReference(); break;
+    case 'questionnaire': h = renderQuestionnaire(); break;
+    case 'saisie-tableau': h = renderSaisieTableau(); break;
+    case 'ordre-batiments': h = renderOrdreBatiments(); break;
+    case 'modifs-rapport': h = renderModifsRapport(); break;
     case 'relecture': h = renderRelecture(); break;
     case 'schema-editor': h = renderSchemaEditor(); break;
     default: h = renderHome();
   }
+  if (state.view === 'installation-form') {
+    if (state.manquesFiche && typeof manquesFicheHtml === 'function') h += manquesFicheHtml();
+  } else { state.manquesFiche = null; state.comMulti = null; state.ficheMenu = null; if (state.view !== 'verification-depart') state.parcoursManques = null; }
+  // Écran à l'horizontale : liste à gauche, fiche à droite (js/fiche-plus.js)
+  var divisee = typeof ficheVueDivisee === 'function' && ficheVueDivisee();
+  if (divisee) h = '<div class="fp-split">' + ficheListeLateraleHtml() + '<div class="fp-fiche">' + h + '</div></div>';
   document.getElementById('app').innerHTML = h;
+  // Saisie en tableau : page élargie sur tablette (js/saisie-tableau.js)
+  if (document.body && document.body.classList) document.body.classList.toggle('vue-large', state.view === 'saisie-tableau' || divisee);
+  if (divisee) { var lat = document.querySelector('.fp-liste'), act = lat && lat.querySelector('.actif'); if (act) lat.scrollTop = act.offsetTop - lat.clientHeight / 2; }
+  // Retour d'une fiche ouverte depuis la vue d'ensemble : même position dans la liste (js/site-overview.js)
+  if (state.view === 'mission-detail' && typeof state._overviewScroll === 'number') {
+    var y = state._overviewScroll;
+    state._overviewScroll = null;
+    window.scrollTo(0, y);
+  }
+  if (typeof planRestaurerScroll === 'function') planRestaurerScroll(); // plan zoomé (js/plans.js)
+  if (state.view === 'installation-form' || state.view === 'saisie-tableau') {
+    Array.prototype.forEach.call(document.querySelectorAll('#app input[type="text"]:not([enterkeyhint])'), function (el) { el.setAttribute('enterkeyhint', 'next'); });
+  }
   if (typeof hydratePhotoThumbnails === 'function') hydratePhotoThumbnails();
   if (state.view === 'profil-technicien' && typeof initVisaPad === 'function') initVisaPad(); // visa (js/finitions.js)
   if (typeof hydrateStorageIndicator === 'function') hydrateStorageIndicator();
@@ -132,7 +155,7 @@ window.addEventListener('pagehide', flushPendingInput);
 // Bouton retour Android
 window.addEventListener('popstate', function (event) {
   event.preventDefault();
-  if (state.view === 'installation-form') state.view = 'type-list';
+  if (state.view === 'installation-form') state.view = vueRetourFiche();
   else if (state.view === 'type-list') state.view = 'mission-detail';
   else if (state.view === 'add-installation-picker') state.view = 'mission-detail';
   else if (state.view === 'site-overview-group') state.view = 'mission-detail';
@@ -142,7 +165,7 @@ window.addEventListener('popstate', function (event) {
   else if (state.view === 'dvr') state.view = 'mission-detail';
   else if (state.view === 'a-propos') state.view = 'home';
   else if (state.view === 'preparation') state.view = 'mission-detail';
-  else if (state.view === 'import-liste' || state.view === 'valeurs-ref') state.view = 'mission-detail';
+  else if (state.view === 'import-liste' || state.view === 'valeurs-ref' || state.view === 'questionnaire' || state.view === 'saisie-tableau' || state.view === 'ordre-batiments' || state.view === 'modifs-rapport') state.view = 'mission-detail';
   else if (state.view === 'relecture') state.view = 'mission-detail';
   else if (state.view === 'schema-editor') state.view = 'mission-form';
   else if (state.view === 'import-conflict') state.view = 'home';

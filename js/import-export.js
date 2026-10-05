@@ -55,6 +55,7 @@ function shareOrExportMission(id) {
         'le partage direct entre appareils n’est pas garanti au-delà de 40-50 Mo selon le téléphone.\n\n' +
         'Le fichier va être téléchargé — transférez-le ensuite manuellement (câble, cloud...).');
       downloadBlob(built.blob, built.filename);
+      if (typeof marquerSauvegarde === 'function') marquerSauvegarde(m); // rappel de sauvegarde (js/sauvegarde.js)
       return;
     }
 
@@ -66,7 +67,9 @@ function shareOrExportMission(id) {
     var pending = { blob: built.blob, filename: built.filename, mime: 'application/json', draft: draft };
 
     if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: draft.subject, text: draft.body }).catch(function (err) {
+      navigator.share({ files: [file], title: draft.subject, text: draft.body }).then(function () {
+        if (typeof marquerSauvegarde === 'function') marquerSauvegarde(m);
+      }).catch(function (err) {
         if (err && err.name === 'AbortError') return; // annulé par l'utilisateur, rien à faire
         // Préparation trop longue (photos) : le navigateur exige un nouveau toucher -> bandeau « Envoyer »
         if (err && err.name === 'NotAllowedError' && typeof offerFileShare === 'function') { offerFileShare(built.blob, built.filename, 'application/json', draft); return; }
@@ -76,6 +79,7 @@ function shareOrExportMission(id) {
     }
     // Ordinateur : fichier téléchargé + brouillon de mail (Outlook) à compléter avec la pièce jointe
     if (typeof fallbackMailWithDownload === 'function') fallbackMailWithDownload(pending); else downloadBlob(built.blob, built.filename);
+    if (typeof marquerSauvegarde === 'function') marquerSauvegarde(m);
   }).catch(function (err) {
     alert('Erreur lors de la préparation de l’export :\n\n' + err.message);
   });

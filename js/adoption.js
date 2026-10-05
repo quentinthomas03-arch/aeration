@@ -4,10 +4,83 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.67';
+var APP_VERSION = '1.84';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.84', date: '05/10/2026', items: [
+    'Plan du site : « Ajouter un plan » accepte un PDF du client ; chaque page devient un plan, nommé d’après le niveau quand il est indiqué (RDC, R+1, sous-sol…).'
+  ] },
+  { version: '1.83', date: '05/10/2026', items: [
+    'Rapport des gros sites : photos préparées une à une et réduites à la taille utile (PDF environ trois fois plus léger, mémoire de la tablette épargnée), avec l’avancement affiché (« Préparation des photos 40 / 180 », puis mise en page).'
+  ] },
+  { version: '1.82', date: '05/10/2026', items: [
+    'Données protégées : l’appli demande au navigateur de ne pas les effacer quand l’appareil manque de place.',
+    'Accueil : rappel « Copie de sauvegarde conseillée » pour une mission modifiée et non envoyée depuis 6 h, avec un bouton pour l’envoyer (mail, OneDrive…).'
+  ] },
+  { version: '1.81', date: '05/10/2026', items: [
+    'Plus rapide sur les gros sites : « Compléter à la suite » ne recalcule plus la vérification à chaque saisie.'
+  ] },
+  { version: '1.80', date: '05/10/2026', items: [
+    '« Vérifier avant de partir » : doublons possibles (même type, même bâtiment, même nom).',
+    '« Pour la prochaine visite » : notes proposées d’après la visite (non contrôlées, à revoir, bouches faibles), ajoutées d’un toucher aux notes reprises l’an prochain.'
+  ] },
+  { version: '1.79', date: '05/10/2026', items: [
+    '« Vérifier avant de partir » : installations non satisfaisantes sans observation, à rédiger avant le rapport.',
+    'Photos de la mission en un zip (menu « ⋯ ») : un dossier par bâtiment, photos nommées bâtiment – local – n°.',
+    'Double flux : déséquilibre marqué entre soufflage et extraction signalé (indication technique).',
+    'Modifications depuis la version précédente du rapport (menu « ⋯ ») : avis et valeurs changés, installations ajoutées ou retirées, en PDF.'
+  ] },
+  { version: '1.78', date: '05/10/2026', items: [
+    'Haut de fiche allégé : flèches ‹ › et un seul bouton ⋯ (calculette, dupliquer, en série, à revoir, plan).',
+    'Passage d’une étape à l’autre avec un léger glissement ; couleurs des avis harmonisées entre l’appli et les documents.'
+  ] },
+  { version: '1.77', date: '05/10/2026', items: [
+    'Rapport : index des installations en dernière annexe (ordre alphabétique, bâtiment, niveau, n° sur le plan, avis, page).',
+    'Synthèse par bâtiment pour le client (menu « ⋯ ») : PDF à part du rapport, bilan par bâtiment et points non satisfaisants.'
+  ] },
+  { version: '1.76', date: '05/10/2026', items: [
+    '« Vérifier avant de partir » › « Compléter à la suite » : ouvre chaque fiche incomplète sur la case qui manque, puis passe à la suivante.',
+    'Valeur déjà saisie remplacée ou effacée : un bandeau « Annuler » permet de la retrouver.'
+  ] },
+  { version: '1.75', date: '05/10/2026', items: [
+    '« Terminé » signale les cases encore vides : un toucher amène à l’étape, ou « Terminer quand même ».',
+    'Boutons − / + pour l’effectif, les WC, douches, lavabos et le nombre de bouches.',
+    'Commentaire appliqué à d’autres fiches du même type (cases à cocher, « Tout le bâtiment »), ajouté à la suite d’un commentaire existant, annulable.',
+    'Tablette ou téléphone à l’horizontale : liste des installations à gauche, fiche à droite.'
+  ] },
+  { version: '1.74', date: '05/10/2026', items: [
+    'Touche Entrée : enregistre la valeur et passe à la case suivante, puis à l’étape suivante (s’arrête sur les boutons de choix à remplir, jamais sur « Terminé »). Aussi dans le tableau.',
+    'Dans chaque bâtiment, les installations sont rangées par ordre alphabétique (Bureau 2 avant Bureau 10).',
+    'Recherche : Entrée ouvre la fiche quand la recherche désigne une seule installation (« 104 » → Bureau 104).'
+  ] },
+  { version: '1.73', date: '05/10/2026', items: [
+    'Flèches ‹ › en haut de chaque fiche : fiche précédente ou suivante, dans l’ordre de la liste.',
+    'Ordre de visite des bâtiments (menu « ⋯ » de la mission) : la vue d’ensemble, « Suivante » et le plan suivent l’ordre choisi.',
+    'Bilan : « Reste à faire par bâtiment », un toucher ouvre le bâtiment dans la vue d’ensemble.'
+  ] },
+  { version: '1.72', date: '05/10/2026', items: [
+    'Saisie en tableau des bureaux, ERP et sanitaires (lien « Tableau » de la vue d’ensemble) : une ligne par local, saisie à la suite, avis mis à jour à chaque valeur.',
+    'Niveau / étage dans l’identification de chaque installation ; la vue d’ensemble range un bâtiment par niveau.',
+    '« Continuer » en tête de la vue d’ensemble : la dernière fiche ouverte, en un toucher.',
+    '« Marquer à revoir » sur une fiche : filtre « À revoir » et rappel avant de partir.',
+    '« En série » : plusieurs copies d’une installation, numérotées à la suite (Bureau 101 → 102, 103…).',
+    '« Voir sur le plan » depuis une fiche placée.'
+  ] },
+  { version: '1.71', date: '05/10/2026', items: [
+    'Questionnaire client avant la visite (menu « ⋯ » de la mission) : un Excel tiré de la mission (effectif des locaux, valeurs de référence, % d’air neuf, remarques, questions sur le site) ; rempli par le client puis importé, chaque réponse est proposée avec une case à cocher.'
+  ] },
+  { version: '1.70', date: '05/10/2026', items: [
+    'Plan : zoom (− / + / Ajuster) en gardant sa position, épingles filtrées par les compteurs et la recherche, placement à la chaîne bâtiment par bâtiment avec « Passer ».'
+  ] },
+  { version: '1.69', date: '05/10/2026', items: [
+    'Vue d’ensemble : les compteurs (À faire, En cours, Non satisf., Terminé) filtrent la liste d’un toucher ; un second toucher affiche tout.',
+    'Grands bâtiments : installations rangées par type, dépliables sur place (plus d’écran « Voir tout »).',
+    'Une fiche ouverte depuis la vue d’ensemble y revient, à la même position dans la liste.'
+  ] },
+  { version: '1.68', date: '05/10/2026', items: [
+    '« Pourquoi cet avis ? » sous l’avis de chaque installation : ce qui a décidé le résultat, en clair (débit et minimum, volume qui compense, absence d’ouvrant, règle des 15 m³/h en sanitaires…).'
+  ] },
   { version: '1.67', date: '05/10/2026', items: [
     'Mesure au cône : choisissez votre cône K35 (coeff. 22), K75 (coeff. 50) ou K120 (coeff. 135) en un geste ; un coefficient libre reste possible pour un cas particulier.'
   ] },

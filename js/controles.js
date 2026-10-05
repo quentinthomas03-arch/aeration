@@ -53,7 +53,8 @@ function isN1Field(typeId, key) {
 function plausibilityHintHtml(typeId, f, value) {
   if (isN1Field(typeId, f.key)) return '';
   var issue = plausibilityIssue(f, value);
-  return issue ? '<div class="field-hint field-hint-warn">' + ICONS.zap + ' ' + escapeHtml(issue.message) + ' — vérifier</div>' : '';
+  return (issue ? '<div class="field-hint field-hint-warn">' + ICONS.zap + ' ' + escapeHtml(issue.message) + ' — vérifier</div>' : '') +
+    (typeof equilibreHintHtml === 'function' ? equilibreHintHtml(typeId, f) : ''); // équilibre double flux (js/rapport-plus.js)
 }
 
 // === Dates ===
@@ -123,6 +124,7 @@ function installationAnomalies(t, inst, mission) {
     if (reasons.length) push(avisField, 'Avis « Satisfaisant » alors que non satisfaisant : ' + reasons.join(', '));
   }
   if (typeof mesuresAnomalies === 'function') out = out.concat(mesuresAnomalies(t, inst)); // points aberrants, mesures proches du seuil (js/mesures.js)
+  if (typeof equilibreAnomalies === 'function') out = out.concat(equilibreAnomalies(t, inst)); // équilibre double flux (js/rapport-plus.js)
   if (typeof relectureAnomalies === 'function') out = out.concat(relectureAnomalies(t, inst)); // commentaires de relecture (js/qualite.js)
   return out;
 }

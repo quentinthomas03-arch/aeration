@@ -17,7 +17,9 @@ function gwFieldDef(typeId, key) {
 }
 
 function gwField(typeId, key, value) {
+  var info = typeof ficheSaisie === 'function' ? ficheSaisie(typeId, key, value) : null; // valeur remplacée : « Annuler » (js/fiche-plus.js)
   updateInstallationField(typeId, key, value);
+  if (info) ficheProposerAnnulation(typeId, key, info);
 }
 
 function gwToggleMulti(typeId, key, option) {
@@ -50,9 +52,10 @@ function gwBigText(typeId, f, inst) {
 function gwBigNumber(typeId, f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
   var st = fieldState(f, inst);
-  return '<div class="field-big">' + fieldLabelWithTag(f, st) +
-    '<input type="text" inputmode="decimal" class="input-big state-' + st + '" value="' + escapeHtml(val) +
-    '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + fieldHint(st) +
+  var champ = '<input type="text" inputmode="decimal" class="input-big state-' + st + '" value="' + escapeHtml(val) +
+    '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">';
+  if (typeof ficheEstEntier === 'function' && ficheEstEntier(f)) champ = ficheStepper(typeId, f, champ); // − / + (js/fiche-plus.js)
+  return '<div class="field-big">' + fieldLabelWithTag(f, st) + champ + fieldHint(st) +
     plausibilityHintHtml(typeId, f, val) + gwN1Hint(typeId, f.key, inst) +
     (typeof fieldAssistHtml === 'function' ? fieldAssistHtml(typeId, f, inst) : '') +
     (typeof aidesMesureHtml === 'function' ? aidesMesureHtml(typeId, f, inst) : '') + '</div>'; // bouches, tour du conduit (js/aides-mesure.js)
@@ -109,7 +112,8 @@ function gwTextarea(typeId, f, inst) {
     '<textarea class="input state-' + st + '" rows="4" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' +
     escapeHtml(val) + '</textarea>' + fieldHint(st) +
     (typeof constatBoutonHtml === 'function' ? constatBoutonHtml(typeId, f, inst) : '') + // constat rédigé (js/constat.js)
-    phrasesTypesHtml(typeId, f) + '</div>';
+    phrasesTypesHtml(typeId, f) +
+    (typeof ficheCommentaireMultiHtml === 'function' ? ficheCommentaireMultiHtml(typeId, f, inst) : '') + '</div>'; // js/fiche-plus.js
 }
 
 // Rappel N-1 (js/installations-schema.js N1_COMPARISON_FIELDS) : petit texte sous le champ "mesure
@@ -135,8 +139,10 @@ function gwN1Hint(typeId, key, inst) {
 }
 
 function gwComputedBadge(typeId, f, inst) {
+  var avisKey = typeof resolveAvisFieldKey === 'function' ? resolveAvisFieldKey(getInstallationType(typeId)) : null;
   return '<div class="field-big">' + computedLabelWithTag(f.label) + computedValueHtml(inst.data[f.key]) +
-    gwN1Hint(typeId, f.key, inst) + '</div>';
+    gwN1Hint(typeId, f.key, inst) +
+    (f.key === avisKey && typeof pourquoiAvisHtml === 'function' ? pourquoiAvisHtml(typeId, inst) : '') + '</div>'; // js/pourquoi-avis.js
 }
 
 // Grille de points / liste de chargeurs / photo : pas encore repensés en tap-friendly (chantier
@@ -239,8 +245,16 @@ function gwPrevStep(typeId) {
   var prev = gwWalkToVisible(typeId, inst, state.currentStep - 1, -1);
   if (prev >= 0) { state.currentStep = prev; gwPersistStep(typeId, prev); render(); return; }
   state.currentStep = 0;
-  state.view = 'type-list';
+  state.view = vueRetourFiche();
   render();
+}
+
+// Classe d'animation quand l'étape affichée change (vers l'avant ou l'arrière), pas à chaque saisie
+function etapeAnimClasse(typeId, step) {
+  var cle = typeId + ':' + state.currentInstIndex, prec = state._etapeVue;
+  state._etapeVue = { cle: cle, step: step };
+  if (!prec || prec.cle !== cle || prec.step === step) return '';
+  return step > prec.step ? ' etape-avance' : ' etape-recule';
 }
 
 function renderGenericWizard(m, t, inst) {
@@ -263,8 +277,8 @@ function renderGenericWizard(m, t, inst) {
   var posInVisible = visibleIdx.indexOf(step);
   if (posInVisible === -1) posInVisible = 0;
 
-  var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=\'type-list\';state.currentStep=0;render();">' +
-    ICONS.arrowLeft + ' ' + escapeHtml(t.label) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
+  var h = '<div class="wizard-header-row"><button class="back-btn" onclick="state.view=vueRetourFiche();state.currentStep=0;render();">' +
+    ICONS.arrowLeft + ' ' + escapeHtml(libelleRetourFiche(t)) + '</button>' + duplicateButtonHtml(t.id, state.currentInstIndex) + '</div>';
   h += installationNomHtml(t, inst); // local / repère et bâtiment de la fiche ouverte
   if (typeof noteInstallationBandeauHtml === 'function') h += noteInstallationBandeauHtml(inst); // note de la visite (js/visite.js)
   if (typeof ncBandeauHtml === 'function') h += ncBandeauHtml(t.id, inst) + relectureBandeauHtml(inst); // non contrôlée, relecture (js/qualite.js)
@@ -292,7 +306,7 @@ function renderGenericWizard(m, t, inst) {
   }
   h += '</div><h2>' + getIcon(t.icon) + ' ' + escapeHtml(steps[step].title) + '</h2></div>';
 
-  h += '<div class="card">';
+  h += '<div class="card' + etapeAnimClasse(t.id, step) + '">';
   if (typeof conditionsMesureHtml === 'function') h += conditionsMesureHtml(t.id, steps, step, inst); // conditions de mesure (js/conditions-mesure.js)
   gwStepFields(t.id, steps[step]).forEach(function (f) { h += gwRenderField(t.id, f, inst); });
   h += '</div>';

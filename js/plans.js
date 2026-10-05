@@ -44,7 +44,27 @@ function currentPlan(m) {
 // Vue « Plan » de la vue d'ensemble
 // ————————————————————————————————————————————
 
-function renderPlanView(m, items) {
+// Sites à 200 installations (ergonomie du 2026-10-05) :
+//  - zoom (boutons − / + / Ajuster) : le plan s'agrandit dans un cadre que l'on fait défiler au doigt,
+//    les épingles gardent leur taille ; position et zoom conservés d'un rendu à l'autre ;
+//  - les compteurs-filtres et la recherche de la vue d'ensemble s'appliquent aussi aux épingles ;
+//  - placement à la chaîne par bâtiment : on choisit un bâtiment, l'appli propose ses installations à
+//    placer une par une (« Passer » pour en laisser une de côté).
+var PLAN_ZOOMS = [1, 1.5, 2, 3, 4];
+
+function planCle(it) { return it.type.id + ':' + it.idx; }
+
+function planBatimentDe(it) {
+  var d = it.inst.data || {}, b = String(d.batiment || '').trim() || 'Sans bâtiment', n = String(d.niveau || '').trim();
+  return n ? b + ' · ' + n : b;
+}
+
+// Installations à placer, dans l'ordre de la vue d'ensemble, limitées au bâtiment choisi
+function planAPlacer(m, bat) {
+  return overviewOrderedItems(m).filter(function (it) { return !it.inst.data._plan && (!bat || planBatimentDe(it) === bat); });
+}
+
+function renderPlanView(m, items, visibles) {
   var plans = missionPlans(m);
   var h = '';
   if (!plans.length) {
@@ -54,36 +74,70 @@ function renderPlanView(m, items) {
   }
   var plan = currentPlan(m);
   state.planCourant = plan.id;
-  var placed = planPlacedItems(m, plan.id);
   var placing = state.planPlacement && state.planPlacement.planId === plan.id;
+  var cles = visibles ? visibles.map(planCle) : null;
+  var placedAll = planPlacedItems(m, plan.id);
+  // En placement, toutes les épingles restent visibles (on place par rapport aux autres)
+  var placed = (placing || !cles) ? placedAll : placedAll.filter(function (p) { return cles.indexOf(planCle(p.it)) !== -1; });
+  var zoom = PLAN_ZOOMS.indexOf(state.planZoom) !== -1 ? state.planZoom : 1;
 
   h += '<div class="plan-tabs">';
   plans.forEach(function (p) {
-    h += '<button type="button" class="home-filter' + (p.id === plan.id ? ' active' : '') + '" onclick="state.planCourant=\'' + p.id + '\';state.planPlacement=null;render();">' + escapeHtml(p.nom) + '</button>';
+    h += '<button type="button" class="home-filter' + (p.id === plan.id ? ' active' : '') + '" onclick="state.planCourant=\'' + p.id + '\';state.planPlacement=null;state.planScroll=null;render();">' + escapeHtml(p.nom) + '</button>';
   });
   h += planAddButtonHtml('home-filter plan-add') + '</div>';
 
-  h += '<div class="plan-stage' + (placing ? ' placing' : '') + '" onclick="planStageClick(event,\'' + plan.id + '\');">';
+  h += '<div class="plan-zoom-bar"><button type="button" class="btn btn-gray btn-small" aria-label="Dézoomer" onclick="planZoomer(-1);"' + (zoom === 1 ? ' disabled' : '') + '>−</button>' +
+    '<span class="plan-zoom-val">' + (zoom === 1 ? 'Plan entier' : '× ' + String(zoom).replace('.', ',')) + '</span>' +
+    '<button type="button" class="btn btn-gray btn-small" aria-label="Zoomer" onclick="planZoomer(1);"' + (zoom === PLAN_ZOOMS[PLAN_ZOOMS.length - 1] ? ' disabled' : '') + '>+</button>' +
+    (zoom > 1 ? '<button type="button" class="btn btn-gray btn-small" onclick="planZoomer(0);">Ajuster</button>' : '') + '</div>';
+
+  h += '<div class="plan-viewport" id="plan-viewport" onscroll="planMemoriserScroll(this);">';
+  // Beaucoup d'épingles en vue entière : épingles réduites (taille normale dès le zoom × 2)
+  var dense = placed.length > 60 && zoom < 2;
+  h += '<div class="plan-stage' + (placing ? ' placing' : '') + (dense ? ' plan-dense' : '') + '" style="width:' + (zoom * 100) + '%;" onclick="planStageClick(event,\'' + plan.id + '\');">';
   h += plan.photoId ? '<img class="plan-img" alt="" data-photo-src="' + escapeHtml(plan.photoId) + '">' : '<img class="plan-img" alt="" src="' + planImageSrc(plan) + '">';
   placed.forEach(function (p) {
-    var sel = placing && state.planPlacement.key === p.it.type.id + ':' + p.it.idx;
+    var sel = placing ? state.planPlacement.key === planCle(p.it) : state.planFocus === planCle(p.it);
     h += '<button type="button" class="plan-pin ' + p.it.status.cls + (sel ? ' selected' : '') + '" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%;" ' +
       'title="' + escapeHtml(p.it.type.label + ' — ' + overviewRowTitle(p.it)) + '" onclick="event.stopPropagation();planPinClick(\'' + p.it.type.id + '\',' + p.it.idx + ',\'' + plan.id + '\');">' + p.n + '</button>';
   });
-  h += '</div>';
+  h += '</div></div>';
 
   if (placing) {
-    var cible = items.filter(function (it) { return it.type.id + ':' + it.idx === state.planPlacement.key; })[0];
-    h += '<div class="plan-placing-bar">' + (cible ? 'Touchez le plan à l’emplacement de : <b>' + escapeHtml(cible.type.label + ' — ' + overviewRowTitle(cible)) + '</b>' : 'Choisissez une installation à placer') + '</div>';
+    var pp = state.planPlacement, bat = pp.bat || '';
+    var toutes = planAPlacer(m, '');
+    var restantes = planAPlacer(m, bat);
+    var cible = items.filter(function (it) { return planCle(it) === pp.key; })[0];
+    // Bâtiments qui ont encore des installations à placer
+    var parBat = {};
+    toutes.forEach(function (it) { var b = planBatimentDe(it); parBat[b] = (parBat[b] || 0) + 1; });
+    var bats = Object.keys(parBat); // dans l'ordre de la vue d'ensemble (ordre de visite)
+    if (bats.length > 1) {
+      h += '<div class="plan-bats"><button type="button" class="home-filter' + (!bat ? ' active' : '') + '" onclick="planChoisirBatiment(\'\');">Tous (' + toutes.length + ')</button>';
+      bats.forEach(function (b) {
+        h += '<button type="button" class="home-filter' + (bat === b ? ' active' : '') + '" onclick="planChoisirBatiment(\'' + escapeHtml(jsSafeStr(b)) + '\');">' + escapeHtml(b) + ' (' + parBat[b] + ')</button>';
+      });
+      h += '</div>';
+    }
+    if (cible) {
+      h += '<div class="plan-placing-bar"><div>Touchez le plan à l’emplacement de :</div><b>' + escapeHtml(cible.type.label + ' — ' + overviewRowTitle(cible)) + '</b>' +
+        (cible.inst.data.batiment ? '<div class="subtitle">' + escapeHtml(cible.inst.data.batiment) + '</div>' : '') +
+        (!cible.inst.data._plan && restantes.length > 1 ? '<button type="button" class="btn btn-gray btn-small" onclick="planPasser();">Passer</button>' : '') + '</div>';
+    } else {
+      h += '<div class="plan-placing-bar">' + (restantes.length ? 'Choisissez une installation à placer' : 'Toutes les installations' + (bat ? ' de ' + escapeHtml(bat) : '') + ' sont placées.') + '</div>';
+    }
+    h += '<p class="subtitle plan-info">' + restantes.length + ' à placer' + (bat ? ' dans ce bâtiment' : '') + '. Touchez une épingle pour la déplacer.</p>';
     h += '<select class="input" onchange="state.planPlacement.key=this.value;render();">';
-    var nonPlacees = items.filter(function (it) { return !(it.inst.data._plan); });
     var opt = function (it, suffixe) {
-      var k = it.type.id + ':' + it.idx;
-      return '<option value="' + k + '"' + (k === state.planPlacement.key ? ' selected' : '') + '>' + escapeHtml(it.type.label + ' — ' + overviewRowTitle(it) + (it.inst.data.batiment ? ' (' + it.inst.data.batiment + ')' : '') + suffixe) + '</option>';
+      var k = planCle(it);
+      return '<option value="' + k + '"' + (k === pp.key ? ' selected' : '') + '>' + escapeHtml(it.type.label + ' — ' + overviewRowTitle(it) + (!bat && it.inst.data.batiment ? ' (' + it.inst.data.batiment + ')' : '') + suffixe) + '</option>';
     };
+    var dansBat = items.filter(function (it) { return !bat || planBatimentDe(it) === bat; });
+    var nonPlacees = dansBat.filter(function (it) { return !it.inst.data._plan; });
+    var deja = dansBat.filter(function (it) { return it.inst.data._plan; });
     h += '<option value="">—</option>';
     if (nonPlacees.length) h += '<optgroup label="À placer (' + nonPlacees.length + ')">' + nonPlacees.map(function (it) { return opt(it, ''); }).join('') + '</optgroup>';
-    var deja = items.filter(function (it) { return it.inst.data._plan; });
     if (deja.length) h += '<optgroup label="Déjà placées (déplacer)">' + deja.map(function (it) { return opt(it, ' ✓'); }).join('') + '</optgroup>';
     h += '</select>';
     if (typeof creationRapideHtml === 'function') h += creationRapideHtml(m, 'plan', m.typesSelectionnes || []);
@@ -91,13 +145,67 @@ function renderPlanView(m, items) {
     if (cible && cible.inst.data._plan) h += '<button class="btn btn-gray btn-small" onclick="planRetirer();">Retirer du plan</button>';
     h += '<button class="btn btn-primary btn-small" onclick="state.planPlacement=null;render();">' + ICONS.check + ' Terminer le placement</button></div>';
   } else {
-    h += '<p class="subtitle plan-info">' + placed.length + ' installation(s) placée(s) sur ce plan sur ' + items.length + '. Touchez une épingle pour ouvrir sa fiche.</p>';
+    var filtreActif = cles && cles.length !== items.length;
+    h += '<p class="subtitle plan-info">' + (filtreActif ? placed.length + ' épingle(s) affichée(s) avec ce filtre, sur ' + placedAll.length + ' placée(s).'
+      : placedAll.length + ' installation(s) placée(s) sur ce plan sur ' + items.length + '.') + ' Touchez une épingle pour ouvrir sa fiche.</p>';
     h += '<div class="row plan-actions">';
     h += '<button class="btn btn-primary btn-small" onclick="planDemarrerPlacement(\'' + plan.id + '\');">' + PLAN_ICON + ' Placer des installations</button>';
     h += '<button class="btn btn-gray btn-small" onclick="planRenommer(\'' + plan.id + '\');">' + ICONS.edit + ' Renommer</button>';
     h += '<button class="btn btn-gray btn-small" onclick="planSupprimer(\'' + plan.id + '\');">' + ICONS.trash + ' Supprimer</button></div>';
   }
   return h + (placing ? '' : planSchemasBlock(m));
+}
+
+// Zoom : sens -1 / +1, 0 pour revenir au plan entier ; le centre de la vue reste au même endroit
+function planZoomer(sens) {
+  var z = PLAN_ZOOMS.indexOf(state.planZoom) !== -1 ? state.planZoom : 1;
+  var i = PLAN_ZOOMS.indexOf(z), nz = sens === 0 ? 1 : PLAN_ZOOMS[Math.max(0, Math.min(PLAN_ZOOMS.length - 1, i + sens))];
+  var vp = document.getElementById('plan-viewport');
+  if (vp && vp.scrollWidth) {
+    var cx = (vp.scrollLeft + vp.clientWidth / 2) / vp.scrollWidth, cy = (vp.scrollTop + vp.clientHeight / 2) / vp.scrollHeight;
+    state.planScroll = { cx: cx, cy: cy };
+  }
+  state.planZoom = nz;
+  render();
+}
+
+function planMemoriserScroll(vp) {
+  if (!vp.scrollWidth) return;
+  state.planScroll = { cx: (vp.scrollLeft + vp.clientWidth / 2) / vp.scrollWidth, cy: (vp.scrollTop + vp.clientHeight / 2) / vp.scrollHeight };
+}
+
+// Appelé après chaque rendu (js/app.js) : remet le plan zoomé à la même position. L'image peut ne pas
+// être encore chargée (photo en IndexedDB) : on recommence à son chargement.
+function planRestaurerScroll() {
+  var vp = document.getElementById('plan-viewport'), s = state.planScroll;
+  if (!vp || !s) return;
+  var appliquer = function () {
+    vp.scrollLeft = Math.max(0, s.cx * vp.scrollWidth - vp.clientWidth / 2);
+    vp.scrollTop = Math.max(0, s.cy * vp.scrollHeight - vp.clientHeight / 2);
+  };
+  appliquer();
+  var img = vp.querySelector('.plan-img');
+  if (img && !img.complete) img.addEventListener('load', appliquer, { once: true });
+}
+
+function planChoisirBatiment(bat) {
+  var m = getCurrentMission(), pp = state.planPlacement;
+  if (!pp) return;
+  pp.bat = bat;
+  var premiere = planAPlacer(m, bat)[0];
+  pp.key = premiere ? planCle(premiere) : '';
+  render();
+}
+
+// Laisser de côté l'installation proposée : on passe à la suivante du bâtiment (en boucle)
+function planPasser() {
+  var m = getCurrentMission(), pp = state.planPlacement;
+  if (!pp) return;
+  var liste = planAPlacer(m, pp.bat || '');
+  var i = liste.map(planCle).indexOf(pp.key);
+  var suivante = liste[(i + 1) % liste.length];
+  pp.key = suivante ? planCle(suivante) : '';
+  render();
 }
 
 // Raccourci vers les schémas de réseau (js/schemas.js), aussi accessibles depuis les données de la mission
@@ -111,14 +219,13 @@ function planSchemasBlock(m) {
 
 function planAddButtonHtml(cls) {
   return '<label class="' + cls + ' plan-add-label">' + ICONS.plus + ' Ajouter un plan' +
-    '<input type="file" accept="image/*" style="display:none;" onchange="planAjouter(this);"></label>';
+    '<input type="file" accept="image/*,application/pdf,.pdf" style="display:none;" onchange="planAjouter(this);"></label>';
 }
 
 function planDemarrerPlacement(planId) {
   var m = getCurrentMission();
-  var items = overviewOrderedItems(m);
-  var premiere = items.filter(function (it) { return !it.inst.data._plan; })[0];
-  state.planPlacement = { planId: planId, key: premiere ? premiere.type.id + ':' + premiere.idx : '' };
+  var premiere = planAPlacer(m, '')[0];
+  state.planPlacement = { planId: planId, bat: '', key: premiere ? planCle(premiere) : '' };
   render();
 }
 
@@ -142,8 +249,8 @@ function planStageClick(ev, planId) {
   inst.data._plan = { id: planId, x: Math.round(x * 10000) / 10000, y: Math.round(y * 10000) / 10000 };
   if (typeof touchInstallation === 'function') touchInstallation(inst);
   persistMissions();
-  var suivante = overviewOrderedItems(m).filter(function (it) { return !it.inst.data._plan; })[0];
-  p.key = suivante ? suivante.type.id + ':' + suivante.idx : '';
+  var suivante = planAPlacer(m, p.bat || '')[0];
+  p.key = suivante ? planCle(suivante) : '';
   render();
 }
 
@@ -169,6 +276,7 @@ function planAjouter(input) {
   input.value = '';
   if (!file) return;
   var m = getCurrentMission();
+  if (/pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)) { planAjouterPdf(file, m); return; } // plans du client en PDF
   planCompresser(file).then(function (blob) {
     var photoId = generatePhotoId();
     return savePhotoBlob(photoId, blob).then(function () {
@@ -181,6 +289,65 @@ function planAjouter(input) {
       render();
     });
   }).catch(function (err) { alert('Impossible d’ajouter le plan :\n\n' + err.message); });
+}
+
+// Plans fournis en PDF par le client (2026-10-05) : chaque page devient un plan (20 pages au plus),
+// nommée d'après le niveau lu dans la page quand il y figure (RDC, R+1, sous-sol, étage 2…).
+var PLAN_PDF_MAX_PAGES = 20;
+var PLAN_NIVEAU_RE = /(rez[\s-]*de[\s-]*chauss[ée]e|\bRDC\b|\bR\s?[+-]\s?\d+\b|sous[\s-]*sol(?:\s*-?\d+)?|niveau\s*-?\d+|\b\d+\s*(?:er|e|ème)\s*[ée]tage|[ée]tage\s*\d+|\bcombles?\b|\btoiture(?:[\s-]terrasse)?\b)/i;
+
+function planNomDepuisTexte(txt) {
+  var mm = String(txt || '').match(PLAN_NIVEAU_RE);
+  if (!mm) return '';
+  var s = mm[1].replace(/\s+/g, ' ').trim();
+  if (/^rez/i.test(s)) return 'RDC';
+  if (/^r\s?[+-]/i.test(s)) return s.replace(/\s/g, '').toUpperCase();
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+function planAjouterPdf(file, m) {
+  var prog = typeof rapportProgres === 'function' ? rapportProgres : function () {};
+  var fin = typeof rapportProgresFin === 'function' ? rapportProgresFin : function () {};
+  prog('Lecture du plan PDF…');
+  ensureLib('pdfjs').then(function () { return file.arrayBuffer(); }).then(function (buf) {
+    return pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise;
+  }).then(function (doc) {
+    var n = Math.min(doc.numPages, PLAN_PDF_MAX_PAGES), plans = missionPlans(m), crees = [], vus = {};
+    var page = function (i) {
+      if (i > n) return null;
+      prog('Import du plan : page ' + i + ' / ' + n + '…');
+      return doc.getPage(i).then(function (pg) {
+        var vp1 = pg.getViewport({ scale: 1 }), scale = PLAN_MAX_DIMENSION / Math.max(vp1.width, vp1.height);
+        var vp = pg.getViewport({ scale: scale }), c = document.createElement('canvas');
+        c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height); // fond blanc (PDF transparents)
+        return Promise.all([pg.render({ canvasContext: ctx, viewport: vp }).promise, pg.getTextContent()]).then(function (r) {
+          var txt = r[1].items.map(function (it) { return it.str; }).join(' ');
+          return new Promise(function (ok, ko) { c.toBlob(function (b) { if (b) ok({ blob: b, txt: txt }); else ko(new Error('Conversion de la page ' + i + ' échouée')); }, 'image/jpeg', 0.82); });
+        });
+      }).then(function (res) {
+        var photoId = generatePhotoId();
+        return savePhotoBlob(photoId, res.blob).then(function () {
+          var nom = planNomDepuisTexte(res.txt) || (n === 1 ? (plans.length ? 'Plan ' + (plans.length + 1) : 'Plan du site') : 'Plan page ' + i);
+          if (vus[nom]) nom += ' (page ' + i + ')';
+          vus[nom] = true;
+          var plan = { id: 'pl_' + generateId() + '_' + i, nom: nom, photoId: photoId };
+          plans.push(plan); crees.push(plan);
+          return page(i + 1);
+        });
+      });
+    };
+    return page(1).then(function () {
+      fin();
+      if (!crees.length) return;
+      state.planCourant = crees[0].id;
+      state.overviewMode = 'plan';
+      persistMissions();
+      render();
+      if (doc.numPages > PLAN_PDF_MAX_PAGES) alert('Le PDF compte ' + doc.numPages + ' pages : les ' + PLAN_PDF_MAX_PAGES + ' premières ont été importées.');
+    });
+  }).catch(function (err) { fin(); alert('Impossible d’importer ce PDF :\n\n' + err.message); });
 }
 
 // Comme compressImageFile (js/photos.js), mais en plus grand : un plan doit rester lisible

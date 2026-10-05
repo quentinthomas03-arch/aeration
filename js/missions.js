@@ -5,6 +5,7 @@ function renderHome() {
     renderStorageIndicatorPlaceholder() +
     (typeof renderAutoBackupFolderIndicator === 'function' ? renderAutoBackupFolderIndicator() : '') +
     (typeof renderAutoBackupIndicator === 'function' ? renderAutoBackupIndicator() : '') + '</div>';
+  if (typeof rappelSauvegardeHtml === 'function') h += rappelSauvegardeHtml(); // copie de sauvegarde conseillée (js/sauvegarde.js)
   if (typeof renderNouveautesCard === 'function') h += renderNouveautesCard();
   h += '<button class="btn btn-primary" onclick="createMission();">' + ICONS.plus + ' Nouvelle mission</button>';
   h += '<button class="btn btn-gray" onclick="triggerImportMission();" style="margin-top:8px;">' + ICONS.upload + ' Reprendre une mission en cours (.json)</button>';

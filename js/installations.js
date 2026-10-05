@@ -40,12 +40,17 @@ function renderMissionDetail() {
       item('state.view=\'select-installations\';render();', ICONS.list, 'Sélection des installations') +
       (typeof renderImportListe === 'function' ? item('state.importListe=null;state.view=\'import-liste\';render();', ICONS.upload, 'Créer les installations par quantités (ou Excel)') : '') +
       item('state.view=\'preparation\';render();', ICONS.clipboard, 'Préparer la visite (notes, matériel)') +
+      (typeof renderOrdreBatiments === 'function' ? item('state.view=\'ordre-batiments\';render();', ICONS.list, 'Ordre de visite des bâtiments') : '') +
+      (typeof renderQuestionnaire === 'function' ? item('state.qc=null;state.qcInfo=\'\';state.view=\'questionnaire\';render();', ICONS.clipboard, 'Questionnaire client (avant la visite)') : '') +
       (typeof renderValeursReference === 'function' ? item('state.vrPropositions=null;state.vrInfo=\'\';state.view=\'valeurs-ref\';render();', ICONS.upload, 'Importer les valeurs de référence du client') : '') +
       item('state.view=\'verification-depart\';render();', ICONS.check, 'Vérifier avant de partir') +
       (typeof calculetteOuvrir === 'function' ? item('render();calculetteOuvrir();', ICONS.calc, 'Calculette') : '') +
       item('render();shareRapportPdf();', ICONS.upload, 'Envoyer le rapport (mail, Teams…)') +
       item('state.view=\'compte-rendu\';render();', ICONS.edit, 'Compte rendu de fin de visite') +
+      (typeof exportSyntheseBatiments === 'function' ? item('render();exportSyntheseBatiments();', ICONS.download, 'Synthèse par bâtiment pour le client (PDF à part)') : '') +
       item('render();exportSyntheseExcel();', ICONS.list, 'Exporter la synthèse (Excel)') +
+      (typeof exporterPhotosZip === 'function' ? item('render();exporterPhotosZip();', ICONS.download, 'Photos de la mission (zip, rangées par bâtiment)') : '') +
+      (typeof renderModifsRapport === 'function' ? item('state.view=\'modifs-rapport\';render();', ICONS.list, 'Modifications depuis la version précédente du rapport') : '') +
       (m.dvr && m.dvr.actif ? item('state.view=\'dvr\';render();', ICONS.clipboard, 'Relevé des valeurs de référence') : '') +
       item('render();envoyerRapportEtMission();', ICONS.upload, 'Envoyer par mail : rapport PDF + mission (Outlook)') +
       item('render();shareOrExportMission(' + m.id + ');', ICONS.download, 'Transférer la mission seule (fichier .json)') +
@@ -80,7 +85,7 @@ function renderTypeList() {
     // (le bâtiment) donnait le même nom à 15 bureaux d'un même bâtiment (retour terrain du 2026-10-05)
     var title = overviewRowTitle({ type: t, inst: inst, idx: idx });
     var bat = inst.data.batiment;
-    h += '<div class="nav-item" onclick="state.currentInstIndex=' + idx + ';state.currentStep=0;state.view=\'installation-form\';render();">';
+    h += '<div class="nav-item" onclick="state.retourVue=\'type-list\';state.currentInstIndex=' + idx + ';state.currentStep=0;state.view=\'installation-form\';render();">';
     h += '<div class="nav-icon">' + getIcon(t.icon) + '</div>';
     h += '<div style="flex:1;"><div style="font-weight:600;">' + escapeHtml(title) + '</div>' +
       (bat && bat !== title ? '<div class="subtitle">' + escapeHtml(bat) + '</div>' : '') + '</div>';
@@ -89,15 +94,20 @@ function renderTypeList() {
   });
 
   h += '<button class="btn btn-primary" onclick="addInstallation(\'' + t.id + '\');">' + ICONS.plus + ' Ajouter</button>';
+  if (typeof tbTypePossible === 'function' && tbTypePossible(t.id) && list.length) h += '<button class="btn btn-gray" onclick="ouvrirTableau(\'' + t.id + '\');">' + ICONS.list + ' Saisie en tableau</button>';
   return h;
 }
 
 // Nom de la fiche ouverte (référence du local, repère…) et son bâtiment, sous l'en-tête de saisie
 function installationNomHtml(t, inst) {
-  if (!inst || !hasRealInstallationData(inst.data)) return '';
-  var nom = overviewRowTitle({ type: t, inst: inst, idx: state.currentInstIndex }), bat = inst.data.batiment;
+  if (!inst) return '';
+  var actions = (typeof parcoursBandeauHtml === 'function' ? parcoursBandeauHtml() : '') + // compléter à la suite (js/fiche-plus.js)
+    (typeof gsLigneFicheHtml === 'function' ? gsLigneFicheHtml(t, inst) : ''); // js/grands-sites.js
+  if (!hasRealInstallationData(inst.data)) return actions;
+  var nom = overviewRowTitle({ type: t, inst: inst, idx: state.currentInstIndex });
+  var bat = [inst.data.batiment, inst.data.niveau].filter(Boolean).join(' · ');
   return '<div class="subtitle" style="margin:-4px 0 8px;font-weight:600;">' + escapeHtml(nom) +
-    (bat && bat !== nom ? ' · ' + escapeHtml(bat) : '') + '</div>';
+    (bat && bat !== nom ? ' · ' + escapeHtml(bat) : '') + '</div>' + actions;
 }
 
 function addInstallation(typeId) {
@@ -105,6 +115,7 @@ function addInstallation(typeId) {
   if (!m.installations[typeId]) m.installations[typeId] = [];
   m.installations[typeId].push({ id: generateId(), data: {} });
   persistMissions();
+  state.retourVue = state.view === 'type-list' ? 'type-list' : 'mission-detail';
   state.currentTypeId = typeId;
   state.currentInstIndex = m.installations[typeId].length - 1;
   state.currentStep = 0;
@@ -162,10 +173,13 @@ function renderUndoToastRoot() {
 // Bouton "Dupliquer" de l'écran de détail (chantier "duplication rapide") — même action que la
 // ligne de la vue d'ensemble (js/site-overview.js), partagée par les 3 rendus d'écran de saisie
 // (wizard générique, wizard sanitaires dédié, rendu à plat de repli).
+// Haut de fiche allégé (2026-10-05) : flèches fiche précédente / suivante et un seul bouton ⋯ qui ouvre
+// les actions (calculette, dupliquer, en série, à revoir, plan) — js/grands-sites.js gsMenuFicheHtml
 function duplicateButtonHtml(typeId, idx) {
-  return '<span class="wizard-actions">' + (typeof calculetteBoutonHtml === 'function' ? calculetteBoutonHtml() : '') + // calculette (js/calculette.js)
-    '<button type="button" class="btn btn-gray btn-small" title="Dupliquer cette installation" ' +
-    'onclick="duplicateInstallation(\'' + typeId + '\',' + idx + ');">' + ICONS.copy + ' Dupliquer</button></span>';
+  var t = getInstallationType(typeId), ouvert = state.ficheMenu === typeId + ':' + idx;
+  return '<span class="wizard-actions">' + (typeof gsVoisinesHtml === 'function' && t ? gsVoisinesHtml(t) : '') +
+    '<button type="button" class="btn btn-gray btn-small fiche-plus-btn' + (ouvert ? ' active' : '') + '" aria-label="Actions de la fiche" aria-expanded="' + ouvert + '" ' +
+    'onclick="state.ficheMenu=state.ficheMenu===\'' + typeId + ':' + idx + '\'?null:\'' + typeId + ':' + idx + '\';render();">' + (typeof MORE_ICON !== 'undefined' ? MORE_ICON : '⋯') + '</button></span>';
 }
 
 // Duplication rapide (chantier "forte volumétrie") : reprend les champs de configuration de la
@@ -182,7 +196,7 @@ function duplicateInstallation(typeId, idx) {
   if (!m || !t || !list || !list[idx]) return;
 
   var data = buildInstallationDataForDuplicate(typeId, list[idx].data || {});
-  var nameField = t.fields.find(function (f) { return f.type === 'text' && f.key !== 'batiment'; });
+  var nameField = t.fields.find(function (f) { return f.type === 'text' && f.key !== 'batiment' && f.key !== 'niveau'; });
   if (nameField) {
     var base = data[nameField.key] || '';
     data[nameField.key] = (base ? base + ' ' : '') + '(copie)';
@@ -238,6 +252,7 @@ function renderInstallationForm() {
   if (!m || !t) { state.view = 'home'; render(); return ''; }
   var inst = m.installations[t.id][state.currentInstIndex];
   if (!inst) { state.view = 'type-list'; render(); return ''; }
+  if (typeof gsMemoriserFiche === 'function') gsMemoriserFiche(m, t.id, inst); // « Reprendre où j'en étais »
 
   // Chantier "ergonomie de saisie terrain" (2026-08) : sanitaires garde son wizard dédié (premier
   // jet validé sur le terrain avant généralisation) ; les autres types passent au fur et à mesure

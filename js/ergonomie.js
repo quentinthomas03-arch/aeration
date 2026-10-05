@@ -135,17 +135,82 @@ function nextInstallationLabel(next) {
 
 // Fin du parcours de saisie (bouton « Terminé » ou « Suivante ») : étape remise à 0 et sauvegarde
 // automatique (js/auto-backup.js), puis installation suivante ou retour à la liste.
-function finishInstallation(typeId, goNext) {
+// Vue d'où la fiche a été ouverte : vue d'ensemble (avec sa position) ou liste du type (2026-10-05)
+function vueRetourFiche() {
+  return ['mission-detail', 'saisie-tableau', 'verification-depart'].indexOf(state.retourVue) !== -1 ? state.retourVue : 'type-list';
+}
+
+function libelleRetourFiche(t) {
+  var v = vueRetourFiche();
+  return v === 'mission-detail' ? 'Vue d’ensemble' : v === 'saisie-tableau' ? 'Tableau' : v === 'verification-depart' ? 'Vérification' : t.label;
+}
+
+function finishInstallation(typeId, goNext, force) {
   var m = getCurrentMission();
   var inst = m && m.installations[typeId] && m.installations[typeId][state.currentInstIndex];
+  // Cases obligatoires encore vides : signalées avant de quitter la fiche (js/fiche-plus.js)
+  if (!force && inst && typeof ficheManques === 'function') {
+    var manques = ficheManques(typeId, inst);
+    if (manques.length) { state.manquesFiche = { typeId: typeId, goNext: !!goNext, list: manques }; render(); return; }
+  }
   var next = goNext ? nextInstallationTarget(typeId) : null;
   if (inst) { inst.data._step = 0; persistMissions(); }
+  if (state.parcoursManques && typeof parcoursSuivante === 'function') { parcoursSuivante(); return; } // compléter à la suite
   state.currentStep = 0;
   if (typeof scheduleAutoBackup === 'function') scheduleAutoBackup();
   if (next) { openOverviewInstallation(next.type.id, next.idx); window.scrollTo(0, 0); return; }
-  state.view = 'type-list';
+  state.view = vueRetourFiche();
   render();
 }
+
+// Touche Entrée dans une fiche ou le tableau (demande de Quentin du 2026-10-05) : enregistre la valeur
+// et passe à la case suivante ; après la dernière case d'une étape, passe à l'étape suivante (jamais
+// « Terminé »). S'il reste plus bas des boutons de choix (Oui / Non…), l'écran défile jusqu'à eux.
+var ENTREE_TYPES_EXCLUS = ['checkbox', 'radio', 'file', 'button', 'submit', 'hidden', 'range', 'color'];
+
+function entreeChamps() {
+  var root = document.getElementById('app');
+  if (!root) return [];
+  return Array.prototype.filter.call(root.querySelectorAll('input, select'), function (el) {
+    return !el.disabled && el.offsetParent !== null && ENTREE_TYPES_EXCLUS.indexOf(String(el.type || '').toLowerCase()) === -1 &&
+      !el.closest('.wizard-step-header'); // sélecteur d'étape : pas une case de saisie
+  });
+}
+
+function entreeSuivante(ev) {
+  if (ev.key !== 'Enter' || ev.isComposing || ev.shiftKey) return;
+  var el = ev.target;
+  if (!el || !el.matches || !el.matches('input, select')) return;
+  if (state.view !== 'installation-form' && state.view !== 'saisie-tableau') return;
+  if (ENTREE_TYPES_EXCLUS.indexOf(String(el.type || '').toLowerCase()) !== -1) return;
+  ev.preventDefault();
+  var i = entreeChamps().indexOf(el);
+  el.blur(); // enregistre la valeur (onchange) ; l'écran est redessiné aussitôt, de façon synchrone
+  var l2 = entreeChamps(), ici = i === -1 ? null : l2[i], suiv = i === -1 ? null : l2[i + 1];
+  // Boutons de choix (Oui / Non…) entre cette case et la suivante : on s'y arrête, sans changer d'étape
+  var choix = ici ? Array.prototype.filter.call(document.querySelectorAll('#app .choice-grid'), function (g) {
+    return (ici.compareDocumentPosition(g) & 4) && !g.querySelector('.selected') && (!suiv || (g.compareDocumentPosition(suiv) & 4));
+  })[0] : null;
+  if (choix) { choix.scrollIntoView({ block: 'center' }); return; }
+  if (suiv) {
+    suiv.focus();
+    if (suiv.tagName === 'INPUT' && suiv.select) suiv.select();
+    return;
+  }
+  // Dernière case : des choix restent à faire plus bas ? sinon étape suivante
+  var reste = ici ? Array.prototype.filter.call(document.querySelectorAll('#app .choice-grid'), function (g) {
+    return (ici.compareDocumentPosition(g) & 4) && !g.querySelector('.selected');
+  })[0] : null;
+  if (reste) { reste.scrollIntoView({ block: 'center' }); return; }
+  if (state.view !== 'installation-form') return;
+  var btn = document.querySelector('#app .wizard-nav .btn-primary');
+  if (!btn || /Terminé/.test(btn.textContent)) return;
+  btn.click();
+  var l3 = entreeChamps();
+  if (l3[0]) l3[0].focus();
+}
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') document.addEventListener('keydown', entreeSuivante);
 
 function finishButtonHtml(typeId) {
   return '<button class="btn btn-primary" onclick="finishInstallation(\'' + typeId + '\', false);">' + ICONS.check + ' Terminé</button>';
@@ -225,6 +290,8 @@ function renderBilan() {
       '<span class="bilan-legend-label">' + cat.label + '</span><span class="bilan-legend-n">' + counts[cat.key] + '</span></div>';
   });
   h += '</div></div>';
+
+  if (typeof gsResteParBatimentHtml === 'function') h += gsResteParBatimentHtml(items); // reste à faire par bâtiment (js/grands-sites.js)
 
   // Par type : barre empilée
   var byType = {};

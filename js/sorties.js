@@ -120,6 +120,7 @@ function envoyerRapportEtMission() {
       return;
     }
     offerFilesShare(files, missionTransfertMailDraft(m, files[1].filename, files[0].filename));
+    if (typeof marquerSauvegarde === 'function') marquerSauvegarde(m); // rappel de sauvegarde (js/sauvegarde.js)
   }).catch(function (err) { alert('Erreur lors de la préparation du mail.\n' + err.message); });
 }
 
@@ -346,7 +347,7 @@ function compteRenduDocDefinition(m, logo) {
 
   content.push({ text: 'Synthèse', bold: true, fontSize: 11, color: BLUE, margin: [0, 0, 0, 6] });
   content.push({ text: [items.length + ' installation(s) contrôlée(s) : ', { text: counts.ok + ' satisfaisante(s)', bold: true }, ', ',
-    { text: counts.bad + ' non satisfaisante(s)', bold: true, color: counts.bad ? '#B42318' : '#333' },
+    { text: counts.bad + ' non satisfaisante(s)', bold: true, color: counts.bad ? AVIS_TEINTES.badTexte : '#333' },
     counts.na ? ', ' + counts.na + ' sans objet' : '', counts.open ? ', ' + counts.open + ' encore à compléter' : '', '.'], fontSize: 10, margin: [0, 0, 0, 12] });
 
   if (bad.length) {

@@ -1432,10 +1432,14 @@ function pdfBuildRapportDocDefinition(m) {
       content = content.concat(pdfSectionDividerPage(group.titre, PDF_ASSETS.dividers[group.key], '5.' + groupNum + ' ' + group.sommaireTitre, group));
     }
     content.push({ text: '', pageBreak: 'before' });
-    content = content.concat(pdfBuildAnnexeForType(t, list));
+    // Repères de page des fiches pour l'index des installations (js/index-synthese.js)
+    content = content.concat(typeof pdfAnnexeAvecAncres === 'function' ? pdfAnnexeAvecAncres(t, list) : pdfBuildAnnexeForType(t, list));
   });
-  // Dernière annexe : documents joints (js/documents-joints.js)
-  if (typeof pdfBuildDocsJointsAnnexe === 'function') content = content.concat(pdfBuildDocsJointsAnnexe(m, '5.' + (nbSections + 1) + ' DOCUMENTS JOINTS'));
+  // Documents joints (js/documents-joints.js)
+  var docsJoints = typeof pdfBuildDocsJointsAnnexe === 'function' ? pdfBuildDocsJointsAnnexe(m, '5.' + (nbSections + 1) + ' DOCUMENTS JOINTS') : [];
+  content = content.concat(docsJoints);
+  // Dernière annexe : index des installations par ordre alphabétique (js/index-synthese.js)
+  if (typeof pdfBuildIndexInstallations === 'function') content = content.concat(pdfBuildIndexInstallations(m, '5.' + (nbSections + (docsJoints.length ? 2 : 1)) + ' INDEX DES INSTALLATIONS'));
 
   // Images répétées (logo sur chaque page, schémas, photos d'intercalaires) : déclarées une seule fois
   // dans "images" et référencées par clé — pdfmake intégrerait sinon une copie par occurrence (+500 Ko
@@ -1486,12 +1490,40 @@ function pdfFetchAsDataUrl(path) {
 function exportRapportPdf() {
   var m = getCurrentMission();
   if (!m) { alert('Aucune mission sélectionnée'); return; }
+  rapportProgres('Préparation du rapport…');
   buildRapportPdf(m).then(function (r) { r.pdf.download(r.filename); })
-    .catch(function (err) { alert('Erreur lors de l’export PDF.\n' + err.message); });
+    .catch(function (err) { rapportProgresFin(); alert('Erreur lors de l’export PDF.\n' + err.message); });
 }
 
 // Construit le rapport (images chargées, mise en page pdfmake) sans le télécharger : utilisé par
 // l'export (download) et par l'envoi (getBlob + partage natif, js/sorties.js).
+// Message d'avancement pendant la préparation du rapport (photos, puis mise en page). La mise en page
+// pdfmake bloque l'écran : on laisse le temps au message de s'afficher avant de la lancer.
+var _rapportProgresEl = null;
+function rapportProgres(txt) {
+  if (typeof document === 'undefined' || !document.body || !document.body.appendChild) return;
+  if (!_rapportProgresEl) { _rapportProgresEl = document.createElement('div'); _rapportProgresEl.className = 'sw-update-banner lib-loading'; document.body.appendChild(_rapportProgresEl); }
+  _rapportProgresEl.innerHTML = '<span>' + txt + '</span>';
+}
+function rapportProgresFin() {
+  if (_rapportProgresEl && _rapportProgresEl.parentNode) _rapportProgresEl.parentNode.removeChild(_rapportProgresEl);
+  _rapportProgresEl = null;
+}
+function rapportPdfAvecProgres(pdf, nb) {
+  ['download', 'getBlob', 'getBuffer', 'getBase64', 'getDataUrl'].forEach(function (meth) {
+    if (typeof pdf[meth] !== 'function') return;
+    var orig = pdf[meth].bind(pdf);
+    pdf[meth] = function () {
+      var args = Array.prototype.slice.call(arguments), cbIdx = meth === 'download' ? 1 : 0, cb = args[cbIdx];
+      rapportProgres('Mise en page du rapport' + (nb > 80 ? ' (' + nb + ' installations, cela peut prendre une minute)' : '') + '…');
+      args[cbIdx] = function () { rapportProgresFin(); if (typeof cb === 'function') return cb.apply(this, arguments); };
+      if (meth === 'download' && typeof args[0] !== 'string') args[0] = undefined;
+      setTimeout(function () { try { orig.apply(null, args); } catch (e) { rapportProgresFin(); throw e; } }, 60);
+    };
+  });
+  return pdf;
+}
+
 function buildRapportPdf(m) {
   return ensureLib('pdf')
     .then(function () { return (typeof buildPlanComposites === 'function') ? buildPlanComposites(m) : {}; })
@@ -1502,7 +1534,8 @@ function buildRapportPdf(m) {
         (typeof buildSchemaComposites === 'function') ? buildSchemaComposites(m) : {}
       ]);
     })
-    .then(function (r) { PDF_ASSETS.docs = r[0]; PDF_ASSETS.schemas = r[1]; return buildRapportPdfLoaded(m); });
+    .then(function (r) { PDF_ASSETS.docs = r[0]; PDF_ASSETS.schemas = r[1]; return buildRapportPdfLoaded(m); })
+    .then(function (res) { if (typeof rapportMemoriserVersion === 'function') rapportMemoriserVersion(m); return res; }); // versions du rapport (js/rapport-plus.js)
 }
 
 function buildRapportPdfLoaded(m) {
@@ -1511,7 +1544,7 @@ function buildRapportPdfLoaded(m) {
   var sectionImageCounts = SECTION_GROUPS.map(function (g) { return g.images.length; });
   SECTION_GROUPS.forEach(function (g) { sectionImagePaths = sectionImagePaths.concat(g.images); });
 
-  return Promise.all([resolveMissionPhotos(m), pdfFetchAsDataUrl(LOGO_PATH), pdfFetchAsDataUrl(BANNER_PATH), pdfFetchAsDataUrl(CTA_SCHEMA_PATH), pdfFetchAsDataUrl(SORBONNE_SCHEMA_PATH)].concat(sectionImagePaths.map(pdfFetchAsDataUrl)).concat(Object.keys(METHODO_IMAGES).map(function (k) { return pdfFetchAsDataUrl(METHODO_IMAGES[k]); })))
+  return Promise.all([resolveMissionPhotos(m, function (n, total) { rapportProgres('Préparation des photos ' + n + ' / ' + total + '…'); }), pdfFetchAsDataUrl(LOGO_PATH), pdfFetchAsDataUrl(BANNER_PATH), pdfFetchAsDataUrl(CTA_SCHEMA_PATH), pdfFetchAsDataUrl(SORBONNE_SCHEMA_PATH)].concat(sectionImagePaths.map(pdfFetchAsDataUrl)).concat(Object.keys(METHODO_IMAGES).map(function (k) { return pdfFetchAsDataUrl(METHODO_IMAGES[k]); })))
     .then(function (bufs) {
       var resolvedM = bufs[0];
       PDF_ASSETS.logo = bufs[1];
@@ -1528,7 +1561,8 @@ function buildRapportPdfLoaded(m) {
       Object.keys(METHODO_IMAGES).forEach(function (k) { PDF_ASSETS.methodo[k] = bufs[cursor++]; });
       var docDefinition = pdfBuildRapportDocDefinition(resolvedM);
       var rawName = (m.clientSite || 'Mission').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç\s-]/g, '').trim();
-      return { pdf: pdfMake.createPdf(docDefinition), filename: rawName + '_controle_aeration.pdf' };
+      rapportProgresFin();
+      return { pdf: rapportPdfAvecProgres(pdfMake.createPdf(docDefinition), overviewOrderedItems(m).length), filename: rawName + '_controle_aeration.pdf' };
     });
 }
 

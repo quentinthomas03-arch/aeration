@@ -151,20 +151,41 @@ function migrateLegacyPhotos() {
 // chaîne base64 exploitable directement — seule la façon dont l'octet est obtenu change (résolution
 // IndexedDB au lieu d'une lecture directe du champ). Ne mute jamais la mission réelle : travaille sur
 // un clone, et ne garde que la 1re photo (pdfFichePhotoBox n'affiche qu'une seule image par installation).
-function resolveMissionPhotos(m) {
+// Gros sites (2026-10-05) : les photos sont préparées une par une (et non toutes à la fois) et réduites à
+// la taille utile du cadre du rapport (PHOTO_PDF_MAX px) — la mémoire de la tablette ne sature plus et le
+// PDF est nettement plus léger. onProgress(n, total) informe de l'avancement.
+var PHOTO_PDF_MAX = 800, PHOTO_PDF_QUALITE = 0.7;
+
+function reduirePourPdf(blob) {
+  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined' || !document.createElement) return blobToDataUrl(blob);
+  return createImageBitmap(blob).then(function (img) {
+    var s = Math.min(1, PHOTO_PDF_MAX / Math.max(img.width, img.height));
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.width * s)); c.height = Math.max(1, Math.round(img.height * s));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    if (img.close) img.close();
+    return c.toDataURL('image/jpeg', PHOTO_PDF_QUALITE);
+  }).catch(function () { return blobToDataUrl(blob); });
+}
+
+function resolveMissionPhotos(m, onProgress) {
   var clone = JSON.parse(JSON.stringify(m));
-  var jobs = [];
+  var aFaire = [];
   forEachInstallationPhotoField(clone, function (inst) {
     var photos = Array.isArray(inst.data.photo) ? inst.data.photo : [];
     if (!photos.length) { inst.data.photo = ''; return; }
-    jobs.push(
-      getPhotoBlob(photos[0].id)
-        .then(function (blob) { return blob ? blobToDataUrl(blob) : null; })
-        .then(function (dataUrl) { inst.data.photo = dataUrl || ''; })
-        .catch(function () { inst.data.photo = ''; })
-    );
+    aFaire.push({ inst: inst, id: photos[0].id });
   });
-  return Promise.all(jobs).then(function () { return clone; });
+  var n = 0;
+  return aFaire.reduce(function (p, x) {
+    return p.then(function () {
+      if (onProgress) onProgress(++n, aFaire.length);
+      return getPhotoBlob(x.id)
+        .then(function (blob) { return blob ? reduirePourPdf(blob) : null; })
+        .then(function (dataUrl) { x.inst.data.photo = dataUrl || ''; })
+        .catch(function () { x.inst.data.photo = ''; });
+    });
+  }, Promise.resolve()).then(function () { return clone; });
 }
 
 // Export/transfert JSON (js/import-export.js) : embarque les photos en base64 À CÔTÉ de la

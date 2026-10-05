@@ -206,7 +206,8 @@ function computeVerification(m) {
       notStarted: notStarted,
       missing: notStarted || nc ? [] : verifMissingFields(it.type, it.inst),
       ecarts: notStarted || nc ? [] : verifEcarts(it.type, it.inst),
-      anomalies: notStarted || nc ? [] : installationAnomalies(it.type, it.inst, m)
+      anomalies: notStarted || nc ? [] : installationAnomalies(it.type, it.inst, m),
+      aRevoir: !!(it.inst.data && it.inst.data._aRevoir) // marque posée sur la fiche (js/grands-sites.js)
     };
   });
 
@@ -241,7 +242,7 @@ function renderVerificationDepart() {
   if (!m) { state.view = 'home'; render(); return ''; }
   var v = computeVerification(m);
   var aCompleter = v.items.filter(function (x) { return x.notStarted || x.missing.length; });
-  var avecEcart = v.items.filter(function (x) { return x.ecarts.length || x.anomalies.length; });
+  var avecEcart = v.items.filter(function (x) { return x.ecarts.length || x.anomalies.length || x.aRevoir; });
 
   var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' Vue d’ensemble</button>';
   h += '<div class="card"><h1>' + ICONS.check + ' Vérifier avant de partir</h1>' +
@@ -261,20 +262,30 @@ function renderVerificationDepart() {
     h += '</div>';
   }
 
+  var nParcours = typeof parcoursCompte === 'function' ? parcoursCompte(m, v) : 0;
+  if (nParcours) {
+    h += '<button type="button" class="btn btn-primary" onclick="parcoursDemarrer();">Compléter à la suite (' + nParcours + ' fiche(s))</button>'; // js/fiche-plus.js
+  }
+  if (typeof observationsARedigerHtml === 'function') h += observationsARedigerHtml(m); // observations à rédiger (js/rapport-plus.js)
+  if (typeof doublonsHtml === 'function') h += doublonsHtml(m); // doublons possibles (js/rapport-plus.js)
   if (typeof harmonisationHtml === 'function') h += harmonisationHtml(m); // noms de bâtiments (js/qualite.js)
 
-  if (!aCompleter.length && !avecEcart.length && !v.missionIssues.length) {
+  if (!aCompleter.length && !avecEcart.length && !v.missionIssues.length && !(typeof observationsARediger === 'function' && observationsARediger(m).length) &&
+    !(typeof doublonsPossibles === 'function' && doublonsPossibles(m).length)) {
     h += '<div class="card verif-ok">' + ICONS.check + ' Tout est complet. Vous pouvez quitter le site.</div>';
-    return h;
+    return h + (typeof memoireHtml === 'function' ? memoireHtml(m) : ''); // notes pour la visite suivante (js/rapport-plus.js)
   }
 
   v.items.forEach(function (x) {
-    if (!x.notStarted && !x.missing.length && !x.ecarts.length && !x.anomalies.length) return;
+    if (!x.notStarted && !x.missing.length && !x.ecarts.length && !x.anomalies.length && !x.aRevoir) return;
     var it = x.it;
     h += '<div class="card verif-card">';
     h += '<div class="verif-head" onclick="openVerificationTarget(\'' + it.type.id + '\',' + it.idx + ',null);">' +
       '<div><div class="overview-row-kicker">' + escapeHtml(it.type.label) + '</div>' +
       '<div class="overview-row-title">' + escapeHtml(verifInstallationTitle(it)) + '</div></div>' + ICONS.chevronRight + '</div>';
+    if (x.aRevoir) {
+      h += '<div class="verif-line verif-line-bad" onclick="openVerificationTarget(\'' + it.type.id + '\',' + it.idx + ',null);">Marquée « à revoir »</div>';
+    }
     if (x.notStarted) {
       h += '<div class="verif-line verif-line-warn" onclick="openVerificationTarget(\'' + it.type.id + '\',' + it.idx + ',null);">Installation non commencée</div>';
     }
@@ -297,7 +308,7 @@ function renderVerificationDepart() {
     }
     h += '</div>';
   });
-  return h;
+  return h + (typeof memoireHtml === 'function' ? memoireHtml(m) : ''); // notes pour la visite suivante (js/rapport-plus.js)
 }
 
 // Ouvre l'installation directement sur l'étape du champ manquant : _step est la même méta-donnée

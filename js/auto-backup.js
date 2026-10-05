@@ -133,6 +133,7 @@ function scheduleAutoBackup() {
     return buildMissionExportBlob(m).then(function (built) { return writeToBackupDir(dirHandle, filename, built.blob); });
   }).then(function () {
     saveData(AUTO_BACKUP_LAST_RUN_KEY, Date.now());
+    if (typeof marquerSauvegarde === 'function') marquerSauvegarde(m); // rappel de sauvegarde (js/sauvegarde.js)
     refreshAutoBackupIndicator();
   }).catch(function (err) {
     console.log('[auto-backup] échec silencieux :', err && err.message);
