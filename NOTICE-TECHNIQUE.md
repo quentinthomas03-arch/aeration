@@ -26,7 +26,7 @@ puis ouvrir `http://localhost:8129`.
 node outils/tests/run.js
 ```
 
-45 tests, environ 12 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
+50 tests, environ 13 secondes, code de sortie 1 au moindre échec. Ils chargent les scripts dans l'ordre
 d'`index.html`, sans navigateur, et vérifient la mission de démonstration, le rapport PDF, le compte rendu,
 l'export Excel, le relevé de valeurs de référence, les contrôles, la fusion, le plan du site, les schémas
 de réseau, les documents joints, les étiquettes QR, les objectifs avant mesure, et les calculs face au Rapso.
@@ -113,6 +113,11 @@ d'un tiers ne peut pas exécuter de code, et la conversion ne dépend pas de l'a
 | `import-liste.js` | Créer les installations par quantités (tableau) ou depuis un tableau Excel collé / importé, modèle Excel |
 | `qualite.js` | Installation non contrôlée (motif), contre-visite, harmonisation des noms de bâtiments, relecture (validation, commentaires, « Rapport vérifié par ») |
 | `finitions.js` | Positions des points de mesure sous les grilles (aires égales en conduit rond, rectangles égaux sinon), étiquette QR à l'unité et case de départ, visa du technicien (profil, page de garde, compte rendu) |
+| `conditions-mesure.js` | Conditions de mesure en haut de l'étape de mesure des captages (arrêté du 8/10/1987 art. 4) ; incertitude de la mesure en conduit selon la distance à la singularité et le schéma de points (INRS PR 49), distance gardée dans `_ld` |
+| `aides-mesure.js` | Mesure au cône bouche par bouche (K du cône × vitesse, total de la pièce, bouche faible), diamètre depuis le tour du conduit, données de la plaque (débit nominal, facteur K, Q = K√Δp) ; métadonnées `_bouches`, `_bouchesMode`, `_coneK`, `_nominal`, `_k`, `_kdp` |
+| `constat.js` | Constat rédigé à partir des mesures (objectifs de js/seuils.js, états défavorables, bouches faibles), bouton sous le champ d'observation des installations non satisfaisantes |
+| `import-rapport-pdf.js` | Reprise du rapport PDF du contrôle précédent : lecture du texte (pdf.js), tableaux de synthèse « Conclusion sur… » (une ligne par avis), fiches d'annexe en complément, débits N-1 (cellule = surface × vitesse × 3600) ; résultat dans l'aperçu de js/import-liste.js |
+| `valeurs-reference.js` | Import du dossier de valeurs de référence du client (Excel, CSV, PDF) : rapprochement installation (noms, titres de bloc) et champ « ref » de js/dvr.js (unité, mots de l'intitulé), propositions à cocher |
 
 ## Données
 

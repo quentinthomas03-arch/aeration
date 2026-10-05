@@ -39,6 +39,7 @@ function renderMissionDetail() {
       item('state.view=\'select-installations\';render();', ICONS.list, 'Sélection des installations') +
       (typeof renderImportListe === 'function' ? item('state.importListe=null;state.view=\'import-liste\';render();', ICONS.upload, 'Créer les installations par quantités (ou Excel)') : '') +
       item('state.view=\'preparation\';render();', ICONS.clipboard, 'Préparer la visite (notes, matériel)') +
+      (typeof renderValeursReference === 'function' ? item('state.vrPropositions=null;state.vrInfo=\'\';state.view=\'valeurs-ref\';render();', ICONS.upload, 'Importer les valeurs de référence du client') : '') +
       item('state.view=\'verification-depart\';render();', ICONS.check, 'Vérifier avant de partir') +
       (typeof calculetteOuvrir === 'function' ? item('render();calculetteOuvrir();', ICONS.calc, 'Calculette') : '') +
       item('render();shareRapportPdf();', ICONS.upload, 'Envoyer le rapport (mail, Teams…)') +

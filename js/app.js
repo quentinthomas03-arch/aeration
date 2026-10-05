@@ -23,6 +23,7 @@ function render() {
     case 'a-propos': h = renderAPropos(); break;
     case 'preparation': h = renderPreparation(); break;
     case 'import-liste': h = renderImportListe(); break;
+    case 'valeurs-ref': h = renderValeursReference(); break;
     case 'relecture': h = renderRelecture(); break;
     case 'schema-editor': h = renderSchemaEditor(); break;
     default: h = renderHome();
@@ -141,7 +142,7 @@ window.addEventListener('popstate', function (event) {
   else if (state.view === 'dvr') state.view = 'mission-detail';
   else if (state.view === 'a-propos') state.view = 'home';
   else if (state.view === 'preparation') state.view = 'mission-detail';
-  else if (state.view === 'import-liste') state.view = 'mission-detail';
+  else if (state.view === 'import-liste' || state.view === 'valeurs-ref') state.view = 'mission-detail';
   else if (state.view === 'relecture') state.view = 'mission-detail';
   else if (state.view === 'schema-editor') state.view = 'mission-form';
   else if (state.view === 'import-conflict') state.view = 'home';

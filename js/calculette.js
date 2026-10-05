@@ -7,9 +7,10 @@
 //    (air sec, pression atmosphérique normale)
 //  - Renouvellement d'air : débit / volume (vol/h), ou débit pour un taux donné
 //  - Air neuf minimal par occupant (R4222-6) : 25 / 30 / 45 / 60 m³/h selon le local
+//  - Débit d'après le facteur K du ventilateur : Q = K × √Δp
 
 var CALC_ONGLETS = [
-  { k: 'debit', nom: 'Débit' }, { k: 'pitot', nom: 'Pitot' }, { k: 'renouv', nom: 'Vol/h' }, { k: 'airneuf', nom: 'Air neuf' }
+  { k: 'debit', nom: 'Débit' }, { k: 'pitot', nom: 'Pitot' }, { k: 'renouv', nom: 'Vol/h' }, { k: 'airneuf', nom: 'Air neuf' }, { k: 'facteurk', nom: 'K' }
 ];
 var CALC_R4222_6 = [
   { v: 25, nom: 'Bureaux, locaux sans travail physique' },
@@ -49,6 +50,8 @@ function calculetteOuvrir() {
     h += calcChamp('calc-pd', 'Pression dynamique', 'Pa') + calcChamp('calc-t', 'Température de l’air', '°C', '20');
   } else if (o === 'renouv') {
     h += calcChamp('calc-q', 'Débit', 'm³/h') + calcChamp('calc-vol', 'Volume du local', 'm³') + calcChamp('calc-taux', 'ou taux visé', 'vol/h');
+  } else if (o === 'facteurk') {
+    h += calcChamp('calc-k', 'Facteur K (plaque ou notice)', '') + calcChamp('calc-dp', 'Pression lue à la prise du ventilateur', 'Pa');
   } else {
     h += calcChamp('calc-eff', 'Effectif', 'pers.');
     h += '<div class="calc-cats">' + CALC_R4222_6.map(function (c, i) {
@@ -75,6 +78,7 @@ function calcResultats(o, val) {
     if (!isNaN(val.taux)) out.push({ l: 'Débit pour ' + calcFr(val.taux, 1) + ' vol/h', r: calcFr(val.taux * val.vol, 0) + ' m³/h' });
     return out;
   }
+  if (o === 'facteurk') return [{ l: 'Débit (Q = K × √Δp)', r: calcFr(val.k * Math.sqrt(val.dp), 0) + ' m³/h', fort: true }];
   return [{ l: 'Air neuf minimal (R4222-6)', r: calcFr(val.eff * val.cat, 0) + ' m³/h', fort: true }];
 }
 
@@ -85,6 +89,7 @@ function calcMaj() {
   if (o === 'debit') { val = { v: calcNum('calc-v'), d1: calcNum('calc-d1'), d2: calcNum('calc-d2'), rond: (document.getElementById('calc-rond') || {}).checked }; var d2 = document.getElementById('calc-d2'); if (d2) d2.closest('.calc-champ').style.opacity = val.rond ? '0.45' : '1'; }
   else if (o === 'pitot') val = { pd: calcNum('calc-pd'), t: calcNum('calc-t') };
   else if (o === 'renouv') val = { q: calcNum('calc-q'), vol: calcNum('calc-vol'), taux: calcNum('calc-taux') };
+  else if (o === 'facteurk') val = { k: calcNum('calc-k'), dp: calcNum('calc-dp') };
   else {
     var c = document.querySelector('input[name="calc-cat"]:checked');
     val = { eff: calcNum('calc-eff'), cat: c ? parseFloat(c.value) : 25 };

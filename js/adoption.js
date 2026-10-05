@@ -4,10 +4,28 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.60';
+var APP_VERSION = '1.64';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.64', date: '04/10/2026', items: [
+    'Rapport précédent importé : les débits mesurés l’an dernier (CTA, extracteurs, hottes, captages) deviennent les valeurs N-1 des installations créées, avec l’historique.',
+    'Importer le dossier de valeurs de référence du client (Excel, CSV ou PDF), menu « ⋯ » de la mission : chaque valeur est rapprochée de son installation et de son champ, vous cochez ce que vous reprenez.',
+    'Constat rédigé aussi pour « Impossible de se prononcer » : valeurs de référence absentes et dossier à demander au chef d’établissement.'
+  ] },
+  { version: '1.63', date: '04/10/2026', items: [
+    'Installation non satisfaisante : « Rédiger le constat à partir des mesures » écrit l’observation (mesure et objectif, état défavorable, bouche faible), à relire et compléter.',
+    'Nouveau client : importez le rapport PDF du contrôle précédent dans « Créer les installations » ; l’appli y repère les installations (type, bâtiment, local) et vous relisez la liste avant de créer.'
+  ] },
+  { version: '1.62', date: '04/10/2026', items: [
+    'Mesure au cône bouche par bouche (bureaux, ERP, locaux fumeurs) : saisissez la vitesse de chaque bouche, l’appli applique le K du cône (retenu d’une visite à l’autre), fait le total de la pièce et signale une bouche nettement plus faible que les autres.',
+    'Diamètre d’un conduit rond calculé depuis son tour, mesuré au mètre ruban (isolant déduit).',
+    'Sous la photo de la plaque : débit nominal (débit mesuré en % du nominal) et facteur K du ventilateur (Q = K × √Δp). Facteur K aussi dans la calculette.'
+  ] },
+  { version: '1.61', date: '04/10/2026', items: [
+    'Conditions de mesure en haut de l’étape de mesure des installations de captage : points caractéristiques, mouvements d’air perturbateurs (arrêté du 8 octobre 1987, art. 4).',
+    'Mesure en conduit : choisissez la distance au coude ou au registre en amont, l’appli estime l’erreur maximale du schéma de points et indique celui qui reste sous 5 % (INRS, PR 49).'
+  ] },
   { version: '1.60', date: '04/10/2026', items: [
     'Positions des points de mesure sous les grilles : profondeur depuis la paroi dans un conduit rond (méthode des aires égales), distances aux bords pour un conduit rectangulaire ou une hotte.',
     'Étiquette QR d’une seule installation depuis sa fiche, et choix de la case de départ pour finir une planche déjà entamée.',

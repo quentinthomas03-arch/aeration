@@ -54,7 +54,8 @@ function gwBigNumber(typeId, f, inst) {
     '<input type="text" inputmode="decimal" class="input-big state-' + st + '" value="' + escapeHtml(val) +
     '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + fieldHint(st) +
     plausibilityHintHtml(typeId, f, val) + gwN1Hint(typeId, f.key, inst) +
-    (typeof fieldAssistHtml === 'function' ? fieldAssistHtml(typeId, f, inst) : '') + '</div>';
+    (typeof fieldAssistHtml === 'function' ? fieldAssistHtml(typeId, f, inst) : '') +
+    (typeof aidesMesureHtml === 'function' ? aidesMesureHtml(typeId, f, inst) : '') + '</div>'; // bouches, tour du conduit (js/aides-mesure.js)
 }
 
 // Boutons larges (2 colonnes max) : select/toggle à choix restreint (≤4 options).
@@ -106,7 +107,9 @@ function gwTextarea(typeId, f, inst) {
   var st = fieldState(f, inst);
   return '<div class="field-big">' + fieldLabelWithTag(f, st) +
     '<textarea class="input state-' + st + '" rows="4" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' +
-    escapeHtml(val) + '</textarea>' + fieldHint(st) + phrasesTypesHtml(typeId, f) + '</div>';
+    escapeHtml(val) + '</textarea>' + fieldHint(st) +
+    (typeof constatBoutonHtml === 'function' ? constatBoutonHtml(typeId, f, inst) : '') + // constat rédigé (js/constat.js)
+    phrasesTypesHtml(typeId, f) + '</div>';
 }
 
 // Rappel N-1 (js/installations-schema.js N1_COMPARISON_FIELDS) : petit texte sous le champ "mesure
@@ -289,6 +292,7 @@ function renderGenericWizard(m, t, inst) {
   h += '</div><h2>' + getIcon(t.icon) + ' ' + escapeHtml(steps[step].title) + '</h2></div>';
 
   h += '<div class="card">';
+  if (typeof conditionsMesureHtml === 'function') h += conditionsMesureHtml(t.id, steps, step, inst); // conditions de mesure (js/conditions-mesure.js)
   gwStepFields(t.id, steps[step]).forEach(function (f) { h += gwRenderField(t.id, f, inst); });
   h += '</div>';
 
@@ -308,6 +312,7 @@ function renderGenericWizard(m, t, inst) {
   if (typeof histoCarteHtml === 'function') h += histoCarteHtml(t.id, inst); // historique (js/bilans.js)
   if (typeof bilanCtaCarteHtml === 'function') h += bilanCtaCarteHtml(t.id, inst); // bilan d'air neuf de la CTA
   if (typeof plaqueHtml === 'function') h += plaqueHtml(t.id, inst); // photo de la plaque (js/plaque.js)
+  if (typeof plaqueDonneesHtml === 'function') h += plaqueDonneesHtml(t.id, inst); // débit nominal, facteur K (js/aides-mesure.js)
   if (typeof ncChampHtml === 'function') h += ncChampHtml(t.id, inst); // installation non contrôlée (js/qualite.js)
   if (typeof etiquetteFicheHtml === 'function') h += etiquetteFicheHtml(t.id, inst); // étiquette QR à l'unité (js/finitions.js)
   if (typeof noteInstallationChampHtml === 'function') h += noteInstallationChampHtml(t.id, inst); // note pour la prochaine visite

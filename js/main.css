@@ -979,3 +979,43 @@ textarea.input { font-family: inherit; line-height: 1.4; }
 .positions-table td { padding: 3px 10px 3px 0; border-top: 1px solid var(--border-subtle); }
 .etiquette-btn { margin-top: 12px; width: auto; }
 .etiquette-btn svg { width: 14px; height: 14px; }
+
+/* === Conditions de mesure (js/conditions-mesure.js) === */
+.conditions-mesure { margin: 0 0 12px; border: 1px solid var(--border-subtle); border-left: 4px solid #0082DE; border-radius: 12px; padding: 8px 12px; }
+.conditions-mesure summary { cursor: pointer; font-weight: 700; font-size: 14px; color: #005499; }
+.conditions-mesure ul { margin: 6px 0 2px; padding-left: 18px; font-size: 14px; line-height: 1.4; }
+.conditions-mesure li { margin: 3px 0; }
+.cm-src { font-size: 11px; color: var(--text-muted, #64748b); margin-top: 2px; }
+.cm-conduit { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-subtle); }
+.cm-q { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.cm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cm-chip { min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border-subtle); background: var(--card-bg, #fff); font-size: 14px; font-weight: 600; color: var(--text-dark); }
+.cm-chip.actif { background: #0082DE; border-color: #0082DE; color: #fff; }
+.cm-res { margin-top: 8px; font-size: 14px; padding: 6px 10px; border-radius: 8px; background: #eef6fd; color: #0c1220; }
+.cm-res.ok { background: #e8f6ec; }
+.cm-res.alerte { background: #fdf0e6; }
+
+/* === Aides de mesure (js/aides-mesure.js) === */
+.am-bouches { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.am-bouche { display: grid; grid-template-columns: 74px 1fr 40px; gap: 8px; align-items: center; font-size: 14px; font-weight: 600; }
+.am-bouche .input { min-height: 44px; font-size: 17px; font-variant-numeric: tabular-nums; }
+.am-bouche.faible .input { border-color: #d97706; background: #fdf0e6; }
+.am-retirer { min-height: 44px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--card-bg, #fff); color: var(--text-dark); font-size: 15px; }
+.am-alerte { font-size: 13px; padding: 6px 10px; border-radius: 8px; background: #fdf0e6; color: #0c1220; }
+.am-plaque summary { cursor: pointer; font-weight: 700; font-size: 14px; color: #005499; }
+.am-plaque-champ { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; font-size: 14px; font-weight: 600; }
+.am-plaque-champ .calc-saisie { display: flex; align-items: center; gap: 8px; }
+.am-plaque-champ .input { min-height: 44px; font-size: 17px; flex: 1; }
+.am-plaque-champ em { font-style: normal; color: var(--text-muted, #64748b); min-width: 36px; }
+.am-mode { display: flex; gap: 6px; flex-wrap: wrap; }
+.am-debit { grid-column: 2 / -1; margin-top: -4px; font-size: 13px; font-weight: 600; color: var(--text-muted, #64748b); font-variant-numeric: tabular-nums; }
+
+/* === Import du rapport PDF précédent (js/import-rapport-pdf.js) === */
+.import-liste-info { margin: 10px 0 0; font-size: 14px; padding: 8px 10px; border-radius: 8px; background: #eef6fd; }
+.liste-retirer { min-width: 36px; min-height: 36px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--card-bg, #fff); color: var(--text-dark); }
+/* === Constat rédigé (js/constat.js) === */
+.constat-btn { margin-top: 6px; }
+
+/* === Valeurs de référence du client (js/valeurs-reference.js) === */
+.vr-table td:first-child { width: 32px; }
+.vr-table input[type=checkbox] { width: 22px; height: 22px; }

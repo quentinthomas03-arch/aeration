@@ -86,6 +86,10 @@ function renderImportListe() {
     '<label class="btn btn-gray btn-small">' + ICONS.upload + ' Importer un fichier (.xlsx, .csv)<input type="file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="listeLireFichier(this);"></label></div></div>';
   h += '<div class="card"><label class="label" for="liste-coller">Ou collez ici les lignes copiées dans Excel</label>' +
     '<textarea class="input" id="liste-coller" rows="5" placeholder="Sorbonne&#9;3&#9;Bâtiment C&#10;Hotte&#9;2&#9;Bâtiment B&#10;CTA&#9;1&#9;Toiture&#9;CTA-01" oninput="state.importListe=listeDepuisTexte(this.value);listeMajApercu();">' + escapeHtml(state.importListeTexte || '') + '</textarea></div>';
+  h += '<div class="card"><h1>' + ICONS.upload + ' Ou depuis le rapport du contrôle précédent</h1>' +
+    '<p class="subtitle">Nouveau client : importez le rapport PDF de l’an dernier, même d’un autre organisme. L’appli y repère les installations (type, bâtiment, local) ; vous relisez la liste avant de créer. Le fichier reste sur l’appareil.</p>' +
+    '<label class="btn btn-gray btn-small">' + ICONS.upload + ' Importer le rapport PDF<input type="file" accept="application/pdf,.pdf" style="display:none;" onchange="listeLireRapportPdf(this);"></label>' +
+    (state.importListeInfo ? '<p class="import-liste-info">' + escapeHtml(state.importListeInfo) + '</p>' : '') + '</div>';
   h += '<div id="liste-apercu">' + listeApercuHtml(m, lignes) + '</div>';
   return h;
 }
@@ -93,15 +97,22 @@ function renderImportListe() {
 function listeApercuHtml(m, lignes) {
   if (!lignes.length) return '';
   var ok = lignes.filter(function (l) { return l.type; }), total = ok.reduce(function (s, l) { return s + l.nb; }, 0);
-  var h = '<div class="card"><div class="section-title">Aperçu</div><table class="liste-table"><thead><tr><th>Type reconnu</th><th>Nb</th><th>Bâtiment</th><th>Nom</th></tr></thead><tbody>';
-  lignes.forEach(function (l) {
-    h += '<tr class="' + (l.type ? '' : 'liste-ko') + '"><td>' + (l.type ? escapeHtml(l.type.label) : '✗ « ' + escapeHtml(l.texte) + ' » non reconnu') + '</td><td>' + l.nb + '</td><td>' + escapeHtml(l.bat) + '</td><td>' + escapeHtml(l.nom) + '</td></tr>';
+  var h = '<div class="card"><div class="section-title">Aperçu</div><table class="liste-table"><thead><tr><th>Type reconnu</th><th>Nb</th><th>Bâtiment</th><th>Nom</th><th></th></tr></thead><tbody>';
+  lignes.forEach(function (l, i) {
+    h += '<tr class="' + (l.type ? '' : 'liste-ko') + '"><td>' + (l.type ? escapeHtml(l.type.label) : '✗ « ' + escapeHtml(l.texte) + ' » non reconnu') + '</td><td>' + l.nb + '</td><td>' + escapeHtml(l.bat) + '</td><td>' + escapeHtml(l.nom) + (l.n1 ? '<div class="subtitle">N-1 : ' + escapeHtml(String(l.n1).replace('.', ',')) + ' m³/h</div>' : '') + '</td>' +
+      '<td><button type="button" class="liste-retirer" aria-label="Retirer la ligne" onclick="listeRetirerLigne(' + i + ');">✕</button></td></tr>';
   });
   h += '</tbody></table>';
   if (ok.length < lignes.length) h += '<p class="subtitle">Les lignes non reconnues seront ignorées : corrigez le type (voir la feuille « Types possibles » du modèle).</p>';
   h += '<label class="doc-check"><input type="checkbox" id="liste-devis" checked> Reprendre ces quantités comme quantités prévues au devis</label>';
   h += '<button type="button" class="btn btn-primary"' + (total ? '' : ' disabled') + ' onclick="listeCreer();">' + ICONS.check + ' Créer ' + total + ' installation' + (total > 1 ? 's' : '') + '</button></div>';
   return h;
+}
+
+function listeRetirerLigne(i) {
+  if (!state.importListe) return;
+  state.importListe.splice(i, 1);
+  listeMajApercu();
 }
 
 function listeMajApercu() {
@@ -175,7 +186,9 @@ function listeCreerLignes(lignes, devis) {
     var deja = (m.installations[l.type.id] || []).length;
     for (var i = 1; i <= l.nb; i++) {
       var nom = l.nom ? (l.nb > 1 ? l.nom + ' ' + i : l.nom) : 'n°' + (deja + i);
-      creationRapideCreer(m, l.type, nom, l.bat);
+      var cle = creationRapideCreer(m, l.type, nom, l.bat);
+      // Valeurs de l'an dernier lues dans le rapport précédent (js/import-rapport-pdf.js)
+      if (l.data && l.nb === 1 && cle) { var inst = m.installations[l.type.id][parseInt(cle.split(':')[1], 10)]; Object.keys(l.data).forEach(function (k) { inst.data[k] = JSON.parse(JSON.stringify(l.data[k])); }); }
       total++;
     }
     parType[l.type.id] = (parType[l.type.id] || 0) + l.nb;
@@ -188,6 +201,7 @@ function listeCreerLignes(lignes, devis) {
   persistMissions();
   state.importListe = null;
   state.importListeTexte = '';
+  state.importListeInfo = '';
   state.view = 'mission-detail';
   render();
   alert(total + ' installation(s) créée(s) (' + Object.keys(parType).length + ' type(s)).' + (devis ? '\n\nQuantités reprises comme quantités prévues au devis.' : ''));
