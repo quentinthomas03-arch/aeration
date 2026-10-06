@@ -295,9 +295,9 @@ var INSTALLATION_TYPES = [
       { key: 'chambre_erp_individuelle', label: 'Chambre individuelle dans ERP (débit limité à 15 m³/h)', type: 'select', options: ['Oui', 'Non'] },
 
       { key: 'section_equipement', label: 'Type d\u2019équipement', type: 'section' },
-      { key: 'wc_urinoirs', label: 'WC / Urinoirs', type: 'number', showIf: { key: 'chambre_erp_individuelle', equals: 'Non' } },
-      { key: 'douches', label: 'Douches', type: 'number', showIf: { key: 'chambre_erp_individuelle', equals: 'Non' } },
-      { key: 'lavabos', label: 'Lavabos', type: 'number', showIf: { key: 'chambre_erp_individuelle', equals: 'Non' } },
+      { key: 'wc_urinoirs', label: 'WC / Urinoirs', type: 'number', optional: true, videZero: true, showIf: { key: 'chambre_erp_individuelle', equals: 'Non' } },
+      { key: 'douches', label: 'Douches', type: 'number', optional: true, videZero: true, showIf: { key: 'chambre_erp_individuelle', equals: 'Non' } },
+      { key: 'lavabos', label: 'Lavabos', type: 'number', optional: true, videZero: true, showIf: { key: 'chambre_erp_individuelle', equals: 'Non' } },
       { key: 'individuel_collectif', label: 'Individuel ou Collectif', type: 'select', options: ['Individuel', 'Collectif'] },
 
       { key: 'section_extraction', label: 'Extraction', type: 'section' },

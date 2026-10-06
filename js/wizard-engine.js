@@ -40,12 +40,18 @@ function gwToggleMulti(typeId, key, option) {
 function gwBigText(typeId, f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
   var st = fieldState(f, inst);
+  var setter = function (v) { return 'gwField(\'' + typeId + '\',\'' + f.key + '\',' + v + ');'; };
+  // Niveau : liste RDC, R+1… ; bâtiment : bâtiments déjà saisis proposés (js/grands-sites.js)
+  if (f.key === 'niveau' && typeof gsNiveauSelectHtml === 'function') {
+    return '<div class="field-big">' + fieldLabelWithTag(f, st) + gsNiveauSelectHtml(f, inst, setter) + fieldHint(st) + '</div>';
+  }
+  var suggestions = f.key === 'batiment' && typeof gsBatimentsSuggestionsHtml === 'function' ? gsBatimentsSuggestionsHtml(inst, setter) : '';
   var today = (isVisitDateField(f) && val !== todayFr())
     ? todayButtonHtml('gwField(\'' + typeId + '\',\'' + f.key + '\',todayFr());') : '';
   return '<div class="field-big">' + fieldLabelWithTag(f, st) +
     '<input type="text" class="input-text-big state-' + st + '" value="' + escapeHtml(val) +
     '"' + (isVisitDateField(f) ? ' inputmode="numeric" placeholder="jj/mm/aaaa"' : '') +
-    ' onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + today + fieldHint(st) +
+    ' onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">' + today + suggestions + fieldHint(st) +
     appareilsRepriseHtml(typeId, f, inst) + '</div>';
 }
 

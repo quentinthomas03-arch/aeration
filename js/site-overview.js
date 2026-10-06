@@ -472,6 +472,8 @@ function renderSiteOverview(m) {
   var h = (typeof gsReprendreHtml === 'function') ? gsReprendreHtml(m) : ''; // reprendre où j'en étais (js/grands-sites.js)
   h += (typeof notesSiteCarteHtml === 'function') ? notesSiteCarteHtml(m) : ''; // notes de visite (js/visite.js)
   h += (typeof renderQrScanBouton === 'function') ? renderQrScanBouton(m) : ''; // étiquettes QR (js/qr.js)
+  // En haut (retour terrain du 2026-10-06) : on ajoute une installation dès l'arrivée, sans redescendre la liste
+  h += '<button class="btn btn-primary" onclick="state.view=\'add-installation-picker\';render();">' + ICONS.plus + ' Ajouter une installation</button>';
   h += renderOverviewCounters(items);
   h += renderOverviewSearch();
   h += renderOverviewToggle();
@@ -483,8 +485,6 @@ function renderSiteOverview(m) {
       (f ? '<button type="button" class="btn btn-gray btn-small" onclick="setOverviewFiltre(\'' + f.k + '\');">Tout afficher</button>' : '') + '</div>';
   }
   groups.forEach(function (g) { h += renderOverviewGroup(g, mode, focus); });
-  h += '<button class="btn btn-primary mt-8" onclick="state.view=\'add-installation-picker\';render();">' +
-    ICONS.plus + ' Ajouter une installation</button>';
   return h;
 }
 

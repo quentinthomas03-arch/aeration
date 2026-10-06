@@ -79,6 +79,9 @@ function renderTypeList() {
   var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(missionNom(m)) + '</button>';
   h += '<div class="card"><h1>' + getIcon(t.icon) + ' ' + escapeHtml(t.label) + '</h1><p class="subtitle">' + list.length + ' installation(s)</p></div>';
   if (typeof renderEdReferenceBadge === 'function') h += renderEdReferenceBadge(t.id);
+  // Boutons en haut de la liste (retour terrain du 2026-10-06), pas sous les installations
+  h += '<button class="btn btn-primary" onclick="addInstallation(\'' + t.id + '\');">' + ICONS.plus + ' Ajouter</button>';
+  if (typeof tbTypePossible === 'function' && tbTypePossible(t.id) && list.length) h += '<button class="btn btn-gray" onclick="ouvrirTableau(\'' + t.id + '\');">' + ICONS.list + ' Saisie en tableau</button>';
 
   list.forEach(function (inst, idx) {
     // Référence du local / repère / équipement, et le bâtiment en dessous : le premier champ texte
@@ -93,8 +96,6 @@ function renderTypeList() {
     h += '</div>';
   });
 
-  h += '<button class="btn btn-primary" onclick="addInstallation(\'' + t.id + '\');">' + ICONS.plus + ' Ajouter</button>';
-  if (typeof tbTypePossible === 'function' && tbTypePossible(t.id) && list.length) h += '<button class="btn btn-gray" onclick="ouvrirTableau(\'' + t.id + '\');">' + ICONS.list + ' Saisie en tableau</button>';
   return h;
 }
 
@@ -323,8 +324,9 @@ function fieldState(f, inst) {
 // bandeau répétant "Renseigné" en toutes lettres sous le champ — évite le double signal redondant
 // tout en restant repérable en un coup d'œil (retour utilisateur du 19/09/2026).
 function fieldLabelWithTag(f, state) {
+  // videZero : case vide = 0 (nombre d'équipements des sanitaires), pas « optionnel »
   var tag = (state === 'optional-empty' || state === 'optional-filled')
-    ? '<span class="field-tag field-tag-optional">optionnel</span>' : '';
+    ? '<span class="field-tag field-tag-optional">' + (f.videZero ? 'vide = 0' : 'optionnel') + '</span>' : '';
   var marker = '';
   if (state === 'required-filled') marker = '<span class="field-label-marker field-label-marker-done">' + ICONS.check + '</span>';
   else if (state === 'required-empty') marker = '<span class="field-label-marker field-label-marker-empty"></span>';

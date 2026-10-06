@@ -363,13 +363,15 @@ function importRapsoLoaded(buf, fileName) {
 }
 
 // ————————————————————————————————————————————
-// Mission de démonstration (présentation de l'appli, formation) : site FICTIF « INDUSTRIE EXEMPLE »,
-// 23 installations sur 13 types avec des mesures réalistes (reprises de missions réelles, tout texte
-// identifiant remplacé), plus un bureau identifié mais non mesuré pour montrer la saisie en direct.
+// Mission de démonstration (présentation de l'appli, formation) : site FICTIF « INDUSTRIE EXEMPLE ».
+// Depuis le 2026-10-06, démo complète : 65 installations sur les 23 types (niveaux, série de bureaux,
+// mesures au cône, double flux, sanitaires individuels et collectifs, installation non contrôlée,
+// marques « à revoir », notes de visite), générée par outils/demo/generer-demo-complete.js à partir de
+// la démo de base (assets/demo/mission-demo.json, gardée pour les tests automatiques).
 // Chargée comme une mission neuve à chaque fois (nouveaux id) : on peut la modifier, la supprimer et
 // la recharger sans conflit. Fichier embarqué dans le cache hors ligne (sw.js).
 // ————————————————————————————————————————————
-var DEMO_MISSION_PATH = 'assets/demo/mission-demo.json';
+var DEMO_MISSION_PATH = 'assets/demo/mission-demo-complete.json';
 
 function loadDemoMission() {
   fetch(DEMO_MISSION_PATH).then(function (r) {

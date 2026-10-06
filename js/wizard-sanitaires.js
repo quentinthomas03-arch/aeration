@@ -105,16 +105,21 @@ function renderSanitairesWizard(m, t, inst) {
 function sanBigText(f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
   var state = fieldState(f, inst);
+  var setter = function (v) { return 'sanField(\'' + f.key + '\',' + v + ');'; };
+  if (f.key === 'niveau' && typeof gsNiveauSelectHtml === 'function') {
+    return '<div class="field-big">' + fieldLabelWithTag(f, state) + gsNiveauSelectHtml(f, inst, setter) + fieldHint(state) + '</div>';
+  }
   return '<div class="field-big">' + fieldLabelWithTag(f, state) +
     '<input type="text" class="input-text-big state-' + state + '" value="' + escapeHtml(val) +
-    '" onchange="sanField(\'' + f.key + '\',this.value);">' + fieldHint(state) + '</div>';
+    '" onchange="sanField(\'' + f.key + '\',this.value);">' +
+    (f.key === 'batiment' && typeof gsBatimentsSuggestionsHtml === 'function' ? gsBatimentsSuggestionsHtml(inst, setter) : '') + fieldHint(state) + '</div>';
 }
 
 function sanBigNumber(f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
   var state = fieldState(f, inst);
-  var champ = '<input type="text" inputmode="decimal" class="input-big state-' + state + '" value="' + escapeHtml(val) +
-    '" onchange="sanField(\'' + f.key + '\',this.value);">';
+  var champ = '<input type="text" inputmode="decimal" class="input-big state-' + state + '" value="' + escapeHtml(val) + '"' +
+    (f.videZero ? ' placeholder="0"' : '') + ' onchange="sanField(\'' + f.key + '\',this.value);">';
   if (typeof ficheEstEntier === 'function' && ficheEstEntier(f)) champ = ficheStepper('sanitaires', f, champ); // − / + (js/fiche-plus.js)
   return '<div class="field-big">' + fieldLabelWithTag(f, state) + champ + fieldHint(state) +
     (typeof aidesMesureHtml === 'function' ? aidesMesureHtml('sanitaires', f, inst) : '') + '</div>'; // bouches au cône ou aux dimensions (js/aides-mesure.js)

@@ -4,10 +4,23 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.84';
+var APP_VERSION = '1.88';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.88', date: '06/10/2026', items: [
+    'Sanitaires : WC / urinoirs, douches et lavabos laissés vides comptent pour 0 ; ils ne sont plus signalés « à saisir » ni manquants.'
+  ] },
+  { version: '1.87', date: '06/10/2026', items: [
+    'Bâtiment : les bâtiments déjà saisis dans la mission sont proposés sous la case, en un toucher.',
+    'Niveau : liste RDC, R+1 à R+5, puis R-1 à R-3 et Toiture, avec « Autre… » pour un cas particulier.'
+  ] },
+  { version: '1.86', date: '06/10/2026', items: [
+    '« Ajouter une installation » est en haut de la vue d’ensemble (et « Ajouter » en haut de la liste d’un type) : plus besoin de redescendre toute la liste.'
+  ] },
+  { version: '1.85', date: '06/10/2026', items: [
+    'Mission de démonstration complète : 65 installations sur les 23 types, avec niveaux, série de bureaux, mesures au cône, double flux, installation non contrôlée, marques « à revoir » et notes de visite.'
+  ] },
   { version: '1.84', date: '05/10/2026', items: [
     'Plan du site : « Ajouter un plan » accepte un PDF du client ; chaque page devient un plan, nommé d’après le niveau quand il est indiqué (RDC, R+1, sous-sol…).'
   ] },

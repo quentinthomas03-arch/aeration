@@ -33,6 +33,42 @@ var GS_REVOIR_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 function gsNiveau(it) { return String((it.inst.data && it.inst.data.niveau) || '').trim(); }
 
 // ————————————————————————————————————————————
+// Saisie du bâtiment et du niveau (retour terrain du 2026-10-06)
+// ————————————————————————————————————————————
+
+// Niveaux proposés : les étages d'abord, les sous-sols ensuite (plus rares), puis la toiture
+var NIVEAUX_LISTE = ['RDC', 'R+1', 'R+2', 'R+3', 'R+4', 'R+5', 'R-1', 'R-2', 'R-3', 'Toiture'];
+
+// setter(valeur) -> code JS de l'enregistrement (gwField pour les fiches, sanField pour les sanitaires)
+function gsNiveauSelectHtml(f, inst, setter) {
+  var val = String(inst.data[f.key] || '').trim(), opts = NIVEAUX_LISTE.slice();
+  if (val && opts.indexOf(val) === -1) opts.push(val); // valeur saisie autrement (mezzanine…) gardée
+  var appel = setter('this.value');
+  return '<select class="input-text-big" onchange="if(this.value===\'__autre\'){var v=prompt(\'Niveau (ex. Mezzanine, R+1 bis) :\',\'\');this.value=\'\';if(v!==null&&v.trim()){' + setter('v.trim()') + '}}else{' + appel + '}">' +
+    '<option value=""' + (val ? '' : ' selected') + '>—</option>' +
+    opts.map(function (o) { return '<option' + (o === val ? ' selected' : '') + '>' + escapeHtml(o) + '</option>'; }).join('') +
+    '<option value="__autre">Autre…</option></select>';
+}
+
+// Bâtiments déjà saisis dans la mission, le plus utilisé d'abord (8 au plus), hors valeur actuelle
+function gsBatimentsConnus(inst) {
+  var m = getCurrentMission(), n = {}, actuel = String((inst && inst.data.batiment) || '').trim();
+  if (!m) return [];
+  Object.keys(m.installations || {}).forEach(function (t) {
+    (m.installations[t] || []).forEach(function (x) { var b = String((x.data && x.data.batiment) || '').trim(); if (b && b !== actuel) n[b] = (n[b] || 0) + 1; });
+  });
+  return Object.keys(n).sort(function (a, b) { return (n[b] - n[a]) || a.localeCompare(b, 'fr', { numeric: true }); }).slice(0, 8);
+}
+
+function gsBatimentsSuggestionsHtml(inst, setter) {
+  var liste = gsBatimentsConnus(inst);
+  if (!liste.length) return '';
+  return '<div class="bat-suggestions">' + liste.map(function (b) {
+    return '<button type="button" class="gs-chip" onclick="' + escapeHtml(setter("'" + jsSafeStr(b) + "'")) + '">' + escapeHtml(b) + '</button>';
+  }).join('') + '</div>';
+}
+
+// ————————————————————————————————————————————
 // Reprendre où j'en étais
 // ————————————————————————————————————————————
 
