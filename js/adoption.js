@@ -4,10 +4,13 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.88';
+var APP_VERSION = '1.89';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.89', date: '06/10/2026', items: [
+    'Plan du site : zoomez en pinçant à deux doigts, le point sous les doigts reste en place (Ctrl + molette sur PC). Les boutons − / + restent disponibles.'
+  ] },
   { version: '1.88', date: '06/10/2026', items: [
     'Sanitaires : WC / urinoirs, douches et lavabos laissés vides comptent pour 0 ; ils ne sont plus signalés « à saisir » ni manquants.'
   ] },

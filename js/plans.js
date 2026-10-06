@@ -45,12 +45,29 @@ function currentPlan(m) {
 // ————————————————————————————————————————————
 
 // Sites à 200 installations (ergonomie du 2026-10-05) :
-//  - zoom (boutons − / + / Ajuster) : le plan s'agrandit dans un cadre que l'on fait défiler au doigt,
-//    les épingles gardent leur taille ; position et zoom conservés d'un rendu à l'autre ;
+//  - zoom (pincement à deux doigts, Ctrl + molette / pavé tactile sur PC, ou boutons − / + / Ajuster) :
+//    le plan s'agrandit dans un cadre que l'on fait défiler au doigt, les épingles gardent leur taille ;
+//    position et zoom conservés d'un rendu à l'autre ;
 //  - les compteurs-filtres et la recherche de la vue d'ensemble s'appliquent aussi aux épingles ;
 //  - placement à la chaîne par bâtiment : on choisit un bâtiment, l'appli propose ses installations à
 //    placer une par une (« Passer » pour en laisser une de côté).
-var PLAN_ZOOMS = [1, 1.5, 2, 3, 4];
+// Paliers des boutons ; le pincement donne n'importe quelle valeur entre le premier et le dernier
+// (× 6 sur un téléphone ≈ la résolution de l'image, PLAN_MAX_DIMENSION)
+var PLAN_ZOOMS = [1, 1.5, 2, 3, 4, 6];
+var PLAN_ZOOM_MAX = PLAN_ZOOMS[PLAN_ZOOMS.length - 1];
+
+function planZoomBorne(z) {
+  z = Number(z);
+  return isFinite(z) ? Math.max(1, Math.min(PLAN_ZOOM_MAX, z)) : 1;
+}
+
+function planZoomBarHtml(zoom) {
+  return '<div class="plan-zoom-bar" id="plan-zoom-bar"><button type="button" class="btn btn-gray btn-small" aria-label="Dézoomer" onclick="planZoomer(-1);"' + (zoom <= 1 ? ' disabled' : '') + '>−</button>' +
+    '<span class="plan-zoom-val">' + (zoom <= 1 ? 'Plan entier' : '× ' + String(Math.round(zoom * 10) / 10).replace('.', ',')) + '</span>' +
+    '<button type="button" class="btn btn-gray btn-small" aria-label="Zoomer" onclick="planZoomer(1);"' + (zoom >= PLAN_ZOOM_MAX ? ' disabled' : '') + '>+</button>' +
+    (zoom > 1 ? '<button type="button" class="btn btn-gray btn-small" onclick="planZoomer(0);">Ajuster</button>' : '') +
+    '<span class="plan-zoom-astuce">Pincez pour zoomer</span></div>';
+}
 
 function planCle(it) { return it.type.id + ':' + it.idx; }
 
@@ -79,7 +96,7 @@ function renderPlanView(m, items, visibles) {
   var placedAll = planPlacedItems(m, plan.id);
   // En placement, toutes les épingles restent visibles (on place par rapport aux autres)
   var placed = (placing || !cles) ? placedAll : placedAll.filter(function (p) { return cles.indexOf(planCle(p.it)) !== -1; });
-  var zoom = PLAN_ZOOMS.indexOf(state.planZoom) !== -1 ? state.planZoom : 1;
+  var zoom = planZoomBorne(state.planZoom);
 
   h += '<div class="plan-tabs">';
   plans.forEach(function (p) {
@@ -87,15 +104,12 @@ function renderPlanView(m, items, visibles) {
   });
   h += planAddButtonHtml('home-filter plan-add') + '</div>';
 
-  h += '<div class="plan-zoom-bar"><button type="button" class="btn btn-gray btn-small" aria-label="Dézoomer" onclick="planZoomer(-1);"' + (zoom === 1 ? ' disabled' : '') + '>−</button>' +
-    '<span class="plan-zoom-val">' + (zoom === 1 ? 'Plan entier' : '× ' + String(zoom).replace('.', ',')) + '</span>' +
-    '<button type="button" class="btn btn-gray btn-small" aria-label="Zoomer" onclick="planZoomer(1);"' + (zoom === PLAN_ZOOMS[PLAN_ZOOMS.length - 1] ? ' disabled' : '') + '>+</button>' +
-    (zoom > 1 ? '<button type="button" class="btn btn-gray btn-small" onclick="planZoomer(0);">Ajuster</button>' : '') + '</div>';
+  h += planZoomBarHtml(zoom);
 
   h += '<div class="plan-viewport" id="plan-viewport" onscroll="planMemoriserScroll(this);">';
   // Beaucoup d'épingles en vue entière : épingles réduites (taille normale dès le zoom × 2)
   var dense = placed.length > 60 && zoom < 2;
-  h += '<div class="plan-stage' + (placing ? ' placing' : '') + (dense ? ' plan-dense' : '') + '" style="width:' + (zoom * 100) + '%;" onclick="planStageClick(event,\'' + plan.id + '\');">';
+  h += '<div class="plan-stage' + (placing ? ' placing' : '') + (dense ? ' plan-dense' : '') + '" data-nb-pins="' + placed.length + '" style="width:' + Math.round(zoom * 100) + '%;" onclick="planStageClick(event,\'' + plan.id + '\');">';
   h += plan.photoId ? '<img class="plan-img" alt="" data-photo-src="' + escapeHtml(plan.photoId) + '">' : '<img class="plan-img" alt="" src="' + planImageSrc(plan) + '">';
   placed.forEach(function (p) {
     var sel = placing ? state.planPlacement.key === planCle(p.it) : state.planFocus === planCle(p.it);
@@ -157,9 +171,11 @@ function renderPlanView(m, items, visibles) {
 }
 
 // Zoom : sens -1 / +1, 0 pour revenir au plan entier ; le centre de la vue reste au même endroit
+// Après un pincement, palier suivant / précédent par rapport à la valeur courante
 function planZoomer(sens) {
-  var z = PLAN_ZOOMS.indexOf(state.planZoom) !== -1 ? state.planZoom : 1;
-  var i = PLAN_ZOOMS.indexOf(z), nz = sens === 0 ? 1 : PLAN_ZOOMS[Math.max(0, Math.min(PLAN_ZOOMS.length - 1, i + sens))];
+  var z = planZoomBorne(state.planZoom), nz = 1;
+  if (sens > 0) nz = PLAN_ZOOMS.filter(function (v) { return v > z + 0.01; })[0] || PLAN_ZOOM_MAX;
+  else if (sens < 0) nz = PLAN_ZOOMS.filter(function (v) { return v < z - 0.01; }).pop() || 1;
   var vp = document.getElementById('plan-viewport');
   if (vp && vp.scrollWidth) {
     var cx = (vp.scrollLeft + vp.clientWidth / 2) / vp.scrollWidth, cy = (vp.scrollTop + vp.clientHeight / 2) / vp.scrollHeight;
@@ -167,6 +183,74 @@ function planZoomer(sens) {
   }
   state.planZoom = nz;
   render();
+}
+
+// Zoom sans re-rendu (pincement, molette) : le point du plan sous (px, py) — coordonnées écran — reste
+// sous le doigt. On agit directement sur la largeur du plan et le défilement du cadre ; pas de render()
+// pour ne pas recharger l'image à chaque mouvement.
+function planZoomVers(vp, z, px, py, ancre) {
+  var stage = vp.querySelector('.plan-stage');
+  if (!stage) return;
+  z = planZoomBorne(z);
+  var r = vp.getBoundingClientRect(), ox = px - r.left, oy = py - r.top;
+  // ancre : position relative (0..1) dans le plan du point à garder sous le doigt
+  if (!ancre) ancre = { x: (vp.scrollLeft + ox) / (vp.scrollWidth || 1), y: (vp.scrollTop + oy) / (vp.scrollHeight || 1) };
+  stage.style.width = (z * 100) + '%';
+  var nb = parseInt(stage.getAttribute('data-nb-pins'), 10) || 0;
+  stage.classList.toggle('plan-dense', nb > 60 && z < 2);
+  vp.scrollLeft = Math.max(0, ancre.x * vp.scrollWidth - ox);
+  vp.scrollTop = Math.max(0, ancre.y * vp.scrollHeight - oy);
+  state.planZoom = z;
+  planMemoriserScroll(vp);
+}
+
+// Fin de geste : met à jour la barre de zoom (libellé, boutons) sans re-rendre la page
+function planZoomBarMaj() {
+  var bar = document.getElementById('plan-zoom-bar');
+  if (bar) bar.outerHTML = planZoomBarHtml(planZoomBorne(state.planZoom));
+}
+
+// Pincement à deux doigts dans le cadre du plan. Le défilement à un doigt reste celui du navigateur
+// (touch-action: pan-x pan-y) ; le zoom de la page entière est bloqué sur le plan.
+function planInitGestes(vp) {
+  if (vp._planGestes) return;
+  vp._planGestes = true;
+  var g = null, raf = 0, dernier = null;
+  var dist = function (t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1; };
+  var milieu = function (t) { return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 }; };
+  vp.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 2) return;
+    var c = milieu(e.touches), r = vp.getBoundingClientRect();
+    g = { d0: dist(e.touches), z0: planZoomBorne(state.planZoom),
+      ancre: { x: (vp.scrollLeft + c.x - r.left) / (vp.scrollWidth || 1), y: (vp.scrollTop + c.y - r.top) / (vp.scrollHeight || 1) } };
+  }, { passive: true });
+  vp.addEventListener('touchmove', function (e) {
+    if (!g || e.touches.length !== 2) return;
+    e.preventDefault();
+    // l'ancre suit le milieu des deux doigts : on peut zoomer et se déplacer dans le même geste
+    dernier = { z: g.z0 * dist(e.touches) / g.d0, c: milieu(e.touches) };
+    if (!raf) raf = requestAnimationFrame(function () {
+      raf = 0;
+      if (g && dernier) planZoomVers(vp, dernier.z, dernier.c.x, dernier.c.y, g.ancre);
+    });
+  }, { passive: false });
+  var fin = function (e) {
+    if (!g || e.touches.length >= 2) return;
+    g = null; dernier = null;
+    state._planPincementFin = Date.now(); // le doigt restant ne doit pas poser une épingle
+    planZoomBarMaj();
+  };
+  vp.addEventListener('touchend', fin);
+  vp.addEventListener('touchcancel', fin);
+  // PC : Ctrl + molette, ou pincement du pavé tactile (que le navigateur traduit en Ctrl + molette)
+  var tempo = 0;
+  vp.addEventListener('wheel', function (e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    planZoomVers(vp, planZoomBorne(state.planZoom) * Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY);
+    clearTimeout(tempo);
+    tempo = setTimeout(planZoomBarMaj, 150);
+  }, { passive: false });
 }
 
 function planMemoriserScroll(vp) {
@@ -178,6 +262,7 @@ function planMemoriserScroll(vp) {
 // être encore chargée (photo en IndexedDB) : on recommence à son chargement.
 function planRestaurerScroll() {
   var vp = document.getElementById('plan-viewport'), s = state.planScroll;
+  if (vp) planInitGestes(vp);
   if (!vp || !s) return;
   var appliquer = function () {
     vp.scrollLeft = Math.max(0, s.cx * vp.scrollWidth - vp.clientWidth / 2);
@@ -240,6 +325,7 @@ function planInstFromKey(m, key) {
 function planStageClick(ev, planId) {
   var p = state.planPlacement;
   if (!p || p.planId !== planId || !p.key) return;
+  if (state._planPincementFin && Date.now() - state._planPincementFin < 400) return;
   var m = getCurrentMission(), inst = planInstFromKey(m, p.key);
   if (!inst) return;
   var img = ev.currentTarget.querySelector('.plan-img');

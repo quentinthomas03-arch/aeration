@@ -676,12 +676,14 @@ textarea.input { font-family: inherit; line-height: 1.4; }
 .plan-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .plan-add-label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
 .plan-add-label svg { width: 13px; height: 13px; }
-.plan-viewport { overflow: auto; max-height: 70vh; border-radius: 12px; border: 1px solid var(--border-subtle); background: #fff; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.plan-viewport { touch-action: pan-x pan-y; overflow: auto; max-height: 70vh; border-radius: 12px; border: 1px solid var(--border-subtle); background: #fff; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .plan-stage { position: relative; background: #fff; touch-action: pan-x pan-y; }
 .plan-zoom-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .plan-zoom-bar .btn { margin: 0; min-width: 44px; font-size: 18px; font-weight: 700; }
 .plan-zoom-bar .btn:disabled { opacity: .4; }
 .plan-zoom-val { min-width: 84px; text-align: center; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.plan-zoom-astuce { margin-left: auto; font-size: 12px; color: var(--text-muted); }
+@media (pointer: fine) { .plan-zoom-astuce { display: none; } }
 .plan-bats { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 2px; -webkit-overflow-scrolling: touch; }
 .plan-bats .home-filter { white-space: nowrap; flex-shrink: 0; }
 .plan-placing-bar .btn { margin: 8px 0 0; }
