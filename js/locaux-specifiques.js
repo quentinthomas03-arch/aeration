@@ -135,6 +135,50 @@ var TYPE_LOCAL_SPECIFIQUE = {
   ]
 };
 
+// Contrôle semestriel du recyclage (refonte du 2026-10-07) — sources :
+//  - arrêté du 8 octobre 1987, art. 4.1 (dossier de valeurs de référence, compléments recyclage) et
+//    4.2 b (au minimum tous les six mois : concentration dans les gaines de recyclage ou à leur sortie,
+//    contrôle de tous les systèmes de surveillance) ;
+//  - Code du travail R4222-9, R4222-14 (air efficacement épuré, même nature de pollution, atmosphère
+//    sous les VLEP), R4222-16 (surveillance obligatoire), R4222-17 (médecin du travail, CSE), R4222-10 ;
+//  - INRS ED 6008 (2023), chap. 1 § 2 : concentration de chaque polluant dans les conduits de recyclage
+//    au plus le cinquième de sa valeur limite ; recyclage en période de chauffage ou de climatisation
+//    seulement, dérivation vers l'extérieur, polluants tous connus (conditions « recommandées », tenues à
+//    part de l'avis réglementaire).
+// Mesure en gaine : photomètre à lecture directe (DustTrak DRX, canaux PM1, PM2,5, RESP, PM10, TOTAL)
+// ou gravimétrie. Photomètre : RESP retenu pour la fraction alvéolaire, TOTAL pour la fraction
+// inhalable (majorant), multipliés par le facteur de correction s'il y en a un.
+var RC_PSES = 'Poussières sans effet spécifique';
+var RC_AGENT = 'Poussières avec agent(s) à effet spécifique';
+var RC_GAZ = 'Gaz ou vapeurs';
+var RC_NATURES_AGENT = [RC_AGENT, RC_GAZ, 'Poussières de bois', 'Autres poussières à effet spécifique', 'Autres polluants (gaz, vapeurs)'];
+var RC_PHOTOMETRE = 'Photomètre à lecture directe (DustTrak)';
+var RC_GRAVI = 'Prélèvement et analyse gravimétrique';
+var RC_FRACTIONS = ['Inhalable', 'Alvéolaire', 'Gaz / vapeur'];
+var RC_TESTS = ['Testés : alarme ou signal déclenché', 'Testés : un système ne réagit pas', 'Non testés', 'Aucun système de surveillance'];
+var RC_SI_AGENT = { key: 'nature_polluant', in: RC_NATURES_AGENT };
+var RC_SI_PHOTO = { key: 'methode_mesure', in: ['', RC_PHOTOMETRE, 'Appareil à lecture directe'] };
+var RC_SI_AUTRE_METHODE = { key: 'methode_mesure', in: [RC_GRAVI, 'Autre méthode', 'Prélèvement et analyse gravimétrique'] };
+
+// Nature du polluant, anciennes valeurs comprises (fiches d'avant la refonte)
+function rcNature(d) {
+  var n = d.nature_polluant || '';
+  if (n === 'Poussières de bois' || n === 'Autres poussières à effet spécifique') return RC_AGENT;
+  if (n === 'Autres polluants (gaz, vapeurs)') return RC_GAZ;
+  return n;
+}
+function rcPhotometre(d) { return !d.methode_mesure || d.methode_mesure === RC_PHOTOMETRE || d.methode_mesure === 'Appareil à lecture directe'; }
+function rcPoussieres(d) { var n = rcNature(d); return n === RC_PSES || n === RC_AGENT; }
+
+function rcAgentFields(i, optional) {
+  var p = 'agent' + i;
+  return [
+    { key: p + '_nom', label: 'Agent ' + i + ' (substance)', type: 'text', showIf: RC_SI_AGENT, optional: optional },
+    { key: p + '_vlep', label: 'Agent ' + i + ' — VLEP 8 h (mg/m³)', type: 'number', showIf: RC_SI_AGENT, optional: optional },
+    { key: p + '_fraction', label: 'Agent ' + i + ' — fraction comparée', type: 'select', options: RC_FRACTIONS, showIf: RC_SI_AGENT, optional: optional }
+  ];
+}
+
 var TYPE_RECYCLAGE = {
   id: 'recyclage', label: 'Recyclage de l’air (contrôle semestriel)', icon: 'merge', implemented: true,
   fields: [
@@ -144,27 +188,69 @@ var TYPE_RECYCLAGE = {
     { key: 'date_controle', label: 'Date de Contrôle', type: 'text' },
     { key: 'photo', label: 'Photo', type: 'photo' },
 
-    { key: 'section_polluant', label: 'Polluant et recyclage (R4222-14)', type: 'section' },
-    { key: 'nature_polluant', label: 'Nature du polluant', type: 'select',
-      options: ['Poussières sans effet spécifique', 'Poussières de bois', 'Autres poussières à effet spécifique', 'Autres polluants (gaz, vapeurs)'] },
-    { key: 'polluant_precision', label: 'Précision (substance, procédé)', type: 'text', optional: true },
+    { key: 'section_fonctionnement', label: 'Fonctionnement du recyclage (R4222-9, R4222-14, R4222-17)', type: 'section' },
     { key: 'destination', label: 'L’air épuré est renvoyé', type: 'select', options: ['Dans le même local', 'Vers d’autres locaux', 'Vers un local à pollution non spécifique'] },
     { key: 'meme_nature', label: 'Pollution de même nature dans tous les locaux concernés', type: 'toggle', options: ['Oui', 'Non'],
       showIf: { key: 'destination', equals: 'Vers d’autres locaux' } },
     { key: 'avis_destination', label: 'Avis destination de l’air recyclé', type: 'computed' },
+    { key: 'information_medecin_cse', label: 'Conditions du recyclage portées à la connaissance du médecin du travail et du CSE (R4222-17)', type: 'select',
+      options: ['Oui', 'Non', 'Non vérifié'] },
 
-    { key: 'section_epuration', label: 'Épuration et surveillance', type: 'section' },
+    { key: 'section_reco', label: 'Conditions recommandées par l’INRS (ED 6008)', type: 'section' },
+    { key: 'periode_recyclage', label: 'Période de recyclage', type: 'select', options: ['Seulement en période de chauffage ou de climatisation', 'Toute l’année', 'Non connue'] },
+    { key: 'derivation_exterieur', label: 'Rejet direct à l’extérieur possible (dérivation), notamment en cas de panne de l’épuration', type: 'select', options: ['Oui', 'Non', 'Non vérifié'] },
+    { key: 'polluants_connus', label: 'Tous les polluants émis sont identifiés', type: 'select', options: ['Oui', 'Non', 'Non vérifié'] },
+    { key: 'avis_recommandations', label: 'Avis conditions recommandées (ED 6008)', type: 'computed' },
+
+    { key: 'section_polluant', label: 'Polluants et valeurs limites', type: 'section' },
+    { key: 'nature_polluant', label: 'Nature de la pollution recyclée', type: 'select', options: [RC_PSES, RC_AGENT, RC_GAZ] }
+  ].concat(rcAgentFields(1, false), rcAgentFields(2, true), [
+
+    { key: 'section_epuration', label: 'Épuration', type: 'section' },
     { key: 'type_epurateur', label: 'Système d’épuration', type: 'select',
       options: ['Filtre à manches', 'Filtre à cartouches', 'Filtre à poches / plans', 'Électrofiltre', 'Cyclone', 'Autre'] },
     { key: 'efficacite_constructeur', label: 'Efficacité annoncée par le constructeur', type: 'text', optional: true },
+    { key: 'efficacite_granulo', label: 'Efficacité par tranches granulométriques fournie (poussières)', type: 'select', options: ['Oui', 'Non'], optional: true },
     { key: 'perte_charge', label: 'Perte de charge relevée (Pa)', type: 'number', optional: true },
+    { key: 'perte_charge_max', label: 'Perte de charge maximale admissible (constructeur ou dossier, Pa)', type: 'number', optional: true },
+    { key: 'avis_perte_charge', label: 'Avis perte de charge', type: 'computed' },
     { key: 'etat_epurateur', label: 'État du système d’épuration', type: 'select', options: ['Bon état', 'Colmaté / encrassé', 'Fuite ou défaut constaté'] },
+
+    { key: 'section_surveillance', label: 'Systèmes de surveillance (R4222-16 ; arrêté du 8 octobre 1987, art. 4.2 b)', type: 'section' },
     { key: 'systemes_surveillance', label: 'Systèmes de surveillance en place', type: 'checkbox-group',
-      options: ['Pressostat / alarme de colmatage', 'Mesure de concentration en continu', 'Contrôle visuel du rejet', 'Aucun'] },
-    { key: 'surveillance_etat', label: 'Contrôle des systèmes de surveillance (obligatoires, R4222-16)', type: 'select',
-      options: ['Systèmes contrôlés et fonctionnels', 'Système défaillant', 'Aucun système de surveillance'] },
-    { key: 'information_medecin_cse', label: 'Conditions du recyclage portées à la connaissance du médecin du travail et du CSE (R4222-17)', type: 'select',
-      options: ['Oui', 'Non', 'Non vérifié'] },
+      options: ['Pressostat / alarme de colmatage', 'Détecteur de poussières en continu (sortie de filtre)', 'Contrôle visuel du rejet', 'Aucun'] },
+    { key: 'surveillance_test', label: 'Test de fonctionnement des systèmes de surveillance', type: 'select', options: RC_TESTS },
+    { key: 'surveillance_test_methode', label: 'Méthode de test (ex. simulation de colmatage)', type: 'text', optional: true,
+      showIf: { key: 'surveillance_test', in: [RC_TESTS[0], RC_TESTS[1]] } },
+    { key: 'surveillance_etalonnage', label: 'Dernier étalonnage ou vérification du capteur (date, intervenant)', type: 'text', optional: true },
+    { key: 'avis_surveillance', label: 'Avis systèmes de surveillance', type: 'computed' },
+
+    { key: 'section_mesure', label: 'Concentration dans l’air recyclé — conditions de mesure (art. 4.2 b)', type: 'section' },
+    { key: 'methode_mesure', label: 'Méthode de mesure', type: 'select', options: [RC_PHOTOMETRE, RC_GRAVI, 'Autre méthode'] },
+    { key: 'point_mesure_gaine', label: 'Point de mesure', type: 'select', options: ['Dans la gaine de recyclage', 'À la sortie de l’épurateur, dans un écoulement canalisé', 'Autre (préciser en observation)'] },
+    { key: 'regime_mesure', label: 'Fonctionnement pendant la mesure', type: 'select', options: ['Procédé en production, recyclage en service', 'Recyclage en service, procédé à l’arrêt', 'Autre (préciser en observation)'] },
+    { key: 'heure_debut', label: 'Début de la mesure (hh:mm)', type: 'text' },
+    { key: 'heure_fin', label: 'Fin de la mesure (hh:mm)', type: 'text' },
+    { key: 'duree_mesure', label: 'Durée de la mesure (min)', type: 'computed' },
+
+    { key: 'section_resultats', label: 'Concentration dans l’air recyclé — résultats', type: 'section' },
+    { key: 'dt_total', label: 'Moyenne canal TOTAL (mg/m³)', type: 'number', showIf: RC_SI_PHOTO },
+    { key: 'dt_pm10', label: 'Moyenne canal PM10 (mg/m³)', type: 'number', optional: true, showIf: RC_SI_PHOTO },
+    { key: 'dt_resp', label: 'Moyenne canal RESP — PM4 (mg/m³)', type: 'number', showIf: RC_SI_PHOTO },
+    { key: 'dt_pm25', label: 'Moyenne canal PM2,5 (mg/m³)', type: 'number', optional: true, showIf: RC_SI_PHOTO },
+    { key: 'dt_pm1', label: 'Moyenne canal PM1 (mg/m³)', type: 'number', optional: true, showIf: RC_SI_PHOTO },
+    { key: 'dt_facteur', label: 'Facteur de correction photométrique (vide = 1, aucun étalonnage)', type: 'number', optional: true, showIf: RC_SI_PHOTO },
+    { key: 'grav_inhalable', label: 'Concentration, fraction inhalable (mg/m³)', type: 'number', showIf: RC_SI_AUTRE_METHODE },
+    { key: 'grav_alveolaire', label: 'Concentration, fraction alvéolaire (mg/m³)', type: 'number', optional: true, showIf: RC_SI_AUTRE_METHODE },
+    { key: 'agent1_conc', label: 'Agent 1 — concentration mesurée (mg/m³, vide = fraction de poussières retenue)', type: 'number', optional: true, showIf: RC_SI_AGENT },
+    { key: 'agent2_conc', label: 'Agent 2 — concentration mesurée (mg/m³, vide = fraction de poussières retenue)', type: 'number', optional: true, showIf: RC_SI_AGENT },
+    { key: 'conc_inhalable_gaine', label: 'Concentration retenue, fraction inhalable (mg/m³)', type: 'computed' },
+    { key: 'conc_alveolaire_gaine', label: 'Concentration retenue, fraction alvéolaire (mg/m³)', type: 'computed' },
+    { key: 'conc_inhalable_gaine_n1', label: 'Fraction inhalable — contrôle précédent (mg/m³)', type: 'number', optional: true },
+    { key: 'conc_alveolaire_gaine_n1', label: 'Fraction alvéolaire — contrôle précédent (mg/m³)', type: 'number', optional: true },
+    { key: 'avis_cinquieme', label: 'Avis : concentrations au plus égales au 1/5 de la VLEP (INRS ED 6008)', type: 'computed' },
+    { key: 'ref_gaine', label: 'Valeur de référence du dossier (fraction inhalable, mg/m³, « / » si aucune)', type: 'text' },
+    { key: 'avis_gaine', label: 'Avis concentration / valeur de référence', type: 'computed' },
 
     { key: 'section_debits', label: 'Débits et air neuf (R4222-11)', type: 'section' },
     { key: 'debit_recycle', label: 'Débit d’air recyclé (m³/h)', type: 'number' },
@@ -177,26 +263,17 @@ var TYPE_RECYCLAGE = {
     { key: 'debit_min_air_neuf', label: 'Débit minimal d’air neuf (R4222-6, m³/h)', type: 'computed' },
     { key: 'avis_air_neuf', label: 'Avis air neuf / minimum réglementaire', type: 'computed' },
 
-    { key: 'section_gaine', label: 'Concentration dans l’air recyclé (art. 4, contrôle semestriel)', type: 'section' },
-    { key: 'conc_gaine', label: 'Concentration mesurée dans la gaine de recyclage ou à sa sortie (mg/m³)', type: 'number' },
-    { key: 'fraction_gaine', label: 'Fraction mesurée', type: 'select', options: ['Fraction inhalable', 'Fraction alvéolaire', 'Autre'] },
-    { key: 'methode_mesure', label: 'Méthode de mesure', type: 'select', options: ['Prélèvement et analyse gravimétrique', 'Appareil à lecture directe'] },
-    { key: 'ref_gaine', label: 'Valeur de référence (dossier de valeurs de référence, mg/m³, « / » si aucune)', type: 'text' },
-    { key: 'avis_gaine', label: 'Avis concentration / valeur de référence', type: 'computed' },
-
-    { key: 'section_atmosphere', label: 'Atmosphère du local (R4222-10, R4222-14)', type: 'section' },
+    { key: 'section_atmosphere', label: 'Atmosphère du local, si mesurée (R4222-10, R4222-14)', type: 'section' },
     { key: 'conc_inhalable', label: 'Concentration en poussières, fraction inhalable (mg/m³)', type: 'number', optional: true },
     { key: 'conc_alveolaire', label: 'Concentration en poussières, fraction alvéolaire (mg/m³)', type: 'number', optional: true },
-    { key: 'mesure_8h', label: 'Mesure représentative d’une moyenne sur 8 heures', type: 'toggle', options: ['Oui', 'Non'] },
-    { key: 'vlep', label: 'VLEP 8 h du polluant (mg/m³), si poussières ou polluant à effet spécifique', type: 'number', optional: true,
-      showIf: { key: 'nature_polluant', in: ['Poussières de bois', 'Autres poussières à effet spécifique', 'Autres polluants (gaz, vapeurs)'] } },
+    { key: 'mesure_8h', label: 'Mesure représentative d’une moyenne sur 8 heures', type: 'toggle', options: ['Oui', 'Non'], optional: true },
     { key: 'avis_atmosphere', label: 'Avis atmosphère du local', type: 'computed' },
 
     { key: 'section_conclusion', label: 'Conclusion', type: 'section' },
     { key: 'avis', label: 'Avis par rapport à la réglementation', type: 'computed' },
     { key: 'prochain_controle', label: 'Prochain contrôle semestriel avant le', type: 'computed' },
     { key: 'observation', label: 'Observation', type: 'textarea' }
-  ]
+  ])
 };
 
 // ————————————————————————————————————————————
@@ -239,6 +316,56 @@ var CALC_LOCAL_SPECIFIQUE = [
     } }
 ];
 
+// Heure saisie « 8:36 », « 08h36 », « 0836 » -> minutes depuis minuit
+function rcMinutes(s) {
+  var m = /^\s*(\d{1,2})\s*[:hH.]?\s*(\d{2})\s*$/.exec(String(s || ''));
+  if (!m) return NaN;
+  var h = parseInt(m[1], 10), mn = parseInt(m[2], 10);
+  return (h > 23 || mn > 59) ? NaN : h * 60 + mn;
+}
+
+// Facteur de correction photométrique : vide ou invalide = 1
+function rcFacteur(d) { var f = num(d.dt_facteur); return (isNaN(f) || f <= 0) ? 1 : f; }
+
+// Concentration retenue pour une fraction, anciennes fiches comprises (une seule valeur conc_gaine)
+function rcConcFraction(d, fraction) {
+  var v;
+  if (rcPhotometre(d)) v = num(fraction === 'Inhalable' ? d.dt_total : d.dt_resp) * rcFacteur(d);
+  else v = num(fraction === 'Inhalable' ? d.grav_inhalable : d.grav_alveolaire);
+  if (isNaN(v) && d.conc_gaine !== undefined && d.conc_gaine !== '') {
+    var alv = d.fraction_gaine === 'Fraction alvéolaire';
+    if ((fraction === 'Alvéolaire') === alv) v = num(d.conc_gaine);
+  }
+  return v;
+}
+
+// Lignes de comparaison au 1/5 de la VLEP : poussières (R4222-10) puis agents à effet spécifique
+function rcLignesLimites(d) {
+  var lignes = [];
+  if (rcPoussieres(d)) {
+    lignes.push({ nom: 'Poussières, fraction inhalable', vlep: R4222_10_INHALABLE, conc: num(d.conc_inhalable_gaine), n1: num(d.conc_inhalable_gaine_n1), source: 'R4222-10' });
+    lignes.push({ nom: 'Poussières, fraction alvéolaire', vlep: R4222_10_ALVEOLAIRE, conc: num(d.conc_alveolaire_gaine), n1: num(d.conc_alveolaire_gaine_n1), source: 'R4222-10' });
+  }
+  if (RC_NATURES_AGENT.indexOf(d.nature_polluant || '') !== -1) {
+    [1, 2].forEach(function (i) {
+      var p = 'agent' + i, nom = String(d[p + '_nom'] || (i === 1 ? d.polluant_precision || (d.nature_polluant === 'Poussières de bois' ? 'Poussières de bois' : '') : '')).trim();
+      // Fraction non précisée (ancienne fiche) : inhalable, celle des VLEP de poussières
+      var fraction = d[p + '_fraction'] || (rcPoussieres(d) ? 'Inhalable' : '');
+      var vlep = num(d[p + '_vlep']);
+      if (i === 1 && isNaN(vlep)) vlep = num(d.vlep); // ancienne fiche : une seule VLEP
+      if (!nom && isNaN(vlep)) return;
+      var conc = num(d[p + '_conc']);
+      if (isNaN(conc)) conc = fraction === 'Alvéolaire' ? num(d.conc_alveolaire_gaine) : fraction === 'Inhalable' ? num(d.conc_inhalable_gaine) : NaN;
+      lignes.push({ nom: nom || 'Agent ' + i, vlep: vlep, conc: conc, n1: NaN, source: 'VLEP de l’agent', agent: i });
+    });
+  }
+  return lignes.map(function (l) {
+    l.limite = isNaN(l.vlep) ? NaN : l.vlep / 5;
+    l.avis = (isNaN(l.limite) || isNaN(l.conc)) ? 'Impossible de se prononcer' : (l.conc <= l.limite ? 'Satisfaisant' : 'Non Satisfaisant');
+    return l;
+  });
+}
+
 var CALC_RECYCLAGE = [
   { target: 'avis_destination', fn: function (d) {
       if (!d.destination) return 'Impossible de se prononcer';
@@ -248,34 +375,75 @@ var CALC_RECYCLAGE = [
       if (d.meme_nature === 'Non') return 'Non Satisfaisant';
       return 'Impossible de se prononcer';
     } },
-  { target: 'debit_min_air_neuf', decimals: 0, fn: function (d) { return debitMinR4222_6(d); } },
-  { target: 'avis_air_neuf', fn: avisAirNeuf },
+  // Conditions de l'ED 6008 : tenues à part de l'avis réglementaire
+  { target: 'avis_recommandations', fn: function (d) {
+      var l = [];
+      if (d.periode_recyclage) l.push(d.periode_recyclage === 'Toute l’année' ? 'Non Satisfaisant' : d.periode_recyclage === 'Non connue' ? 'Impossible de se prononcer' : 'Satisfaisant');
+      if (d.derivation_exterieur) l.push(d.derivation_exterieur === 'Oui' ? 'Satisfaisant' : d.derivation_exterieur === 'Non' ? 'Non Satisfaisant' : 'Impossible de se prononcer');
+      if (d.polluants_connus) l.push(d.polluants_connus === 'Oui' ? 'Satisfaisant' : d.polluants_connus === 'Non' ? 'Non Satisfaisant' : 'Impossible de se prononcer');
+      return l.length ? worstAvis(l) : '';
+    } },
+  { target: 'avis_perte_charge', fn: function (d) {
+      var p = num(d.perte_charge), mx = num(d.perte_charge_max);
+      if (isNaN(p) || isNaN(mx)) return '';
+      return p <= mx ? 'Satisfaisant' : 'Non Satisfaisant';
+    } },
+  // Arrêté du 8 octobre 1987, art. 4.2 b : contrôle de tous les systèmes de surveillance ; R4222-16 :
+  // surveillance obligatoire. Un test non réalisé ne permet pas de conclure.
+  { target: 'avis_surveillance', fn: function (d) {
+      var t = d.surveillance_test;
+      if (t === RC_TESTS[0]) return 'Satisfaisant';
+      if (t === RC_TESTS[1] || t === RC_TESTS[3]) return 'Non Satisfaisant';
+      if (t === RC_TESTS[2]) return 'Impossible de se prononcer';
+      if (d.surveillance_etat === 'Systèmes contrôlés et fonctionnels') return 'Satisfaisant'; // ancienne fiche
+      if (d.surveillance_etat === 'Système défaillant' || d.surveillance_etat === 'Aucun système de surveillance') return 'Non Satisfaisant';
+      return 'Impossible de se prononcer';
+    } },
+  { target: 'duree_mesure', decimals: 0, fn: function (d) {
+      var a = rcMinutes(d.heure_debut), b = rcMinutes(d.heure_fin);
+      if (isNaN(a) || isNaN(b)) return '';
+      return b >= a ? b - a : b + 1440 - a;
+    } },
+  { target: 'conc_inhalable_gaine', decimals: 3, fn: function (d) { var v = rcConcFraction(d, 'Inhalable'); return isNaN(v) ? '' : v; } },
+  { target: 'conc_alveolaire_gaine', decimals: 3, fn: function (d) { var v = rcConcFraction(d, 'Alvéolaire'); return isNaN(v) ? '' : v; } },
+  { target: 'avis_cinquieme', fn: function (d) {
+      if (rcNature(d) === RC_GAZ && !rcLignesLimites(d).length) return 'Impossible de se prononcer';
+      var lignes = rcLignesLimites(d).filter(function (l) { return !isNaN(l.conc) || l.agent; });
+      if (!lignes.length) return 'Impossible de se prononcer';
+      return worstAvis(lignes.map(function (l) { return l.avis; }));
+    } },
   { target: 'avis_gaine', fn: function (d) {
       var r = String(d.ref_gaine || '').trim();
       if (!r || r === '/' || r === '-') return AVIS_SO_REF;
-      var c = num(d.conc_gaine), rv = num(r);
+      var c = num(d.conc_inhalable_gaine), rv = num(r);
       if (isNaN(c) || isNaN(rv)) return 'Impossible de se prononcer';
       return c <= rv ? 'Satisfaisant' : 'Non Satisfaisant';
     } },
+  { target: 'debit_min_air_neuf', decimals: 0, fn: function (d) { return debitMinR4222_6(d); } },
+  // Air neuf : évalué seulement s'il a été relevé (le contrôle semestriel porte sur la gaine)
+  { target: 'avis_air_neuf', fn: function (d) {
+      if (!d.mode_air_neuf && (d.debit_air_neuf === undefined || d.debit_air_neuf === '')) return '';
+      return avisAirNeuf(d);
+    } },
+  // Atmosphère du local : seulement si elle a été mesurée
   { target: 'avis_atmosphere', fn: function (d) {
       var inh = num(d.conc_inhalable), alv = num(d.conc_alveolaire);
-      if (isNaN(inh) && isNaN(alv)) return 'Impossible de se prononcer';
+      if (isNaN(inh) && isNaN(alv)) return '';
       if (d.mesure_8h !== 'Oui') return 'Impossible de se prononcer';
-      if (d.nature_polluant === 'Poussières sans effet spécifique') {
+      if (rcNature(d) === RC_PSES) {
         if ((!isNaN(inh) && inh > R4222_10_INHALABLE) || (!isNaN(alv) && alv > R4222_10_ALVEOLAIRE)) return 'Non Satisfaisant';
         return 'Satisfaisant';
       }
-      var vlep = num(d.vlep);
+      var vlep = num(d.agent1_vlep);
+      if (isNaN(vlep)) vlep = num(d.vlep);
       if (isNaN(vlep)) return 'Impossible de se prononcer';
       return ((!isNaN(inh) && inh > vlep) || (!isNaN(alv) && alv > vlep)) ? 'Non Satisfaisant' : 'Satisfaisant';
     } },
   { target: 'avis', fn: function (d) {
       var etat = d.etat_epurateur ? (d.etat_epurateur === 'Bon état' ? 'Satisfaisant' : 'Non Satisfaisant') : 'Impossible de se prononcer';
-      // R4222-16 : la surveillance des dispositifs d'épuration est obligatoire — absente ou défaillante, non satisfaisant
-      var surv = d.surveillance_etat === 'Systèmes contrôlés et fonctionnels' ? 'Satisfaisant' : (d.surveillance_etat ? 'Non Satisfaisant' : 'Impossible de se prononcer');
       // R4222-17 : information non faite = non satisfaisant ; non vérifiée = sans effet sur l'avis
       var info = d.information_medecin_cse === 'Non' ? 'Non Satisfaisant' : '';
-      return worstAvis([d.avis_destination, etat, surv, info, d.avis_air_neuf, d.avis_gaine, d.avis_atmosphere]);
+      return worstAvis([d.avis_destination, d.avis_cinquieme, d.avis_gaine, d.avis_surveillance, etat, d.avis_perte_charge, info, d.avis_air_neuf, d.avis_atmosphere]);
     } },
   { target: 'prochain_controle', fn: function (d) { return addSixMonths(d.date_controle); } }
 ];
@@ -425,64 +593,127 @@ function pdfBuildAnnexeLocalSpecifique(list, logo) {
   return content;
 }
 
+// Tableau « polluant / VLEP / limite 1/5 / contrôle précédent / ce contrôle / avis » (comme la trame
+// SOCOTEC des installations d'épuration avec recyclage, critère de l'ED 6008)
+function pdfRecyclageTableLimites(H, d) {
+  var lignes = rcLignesLimites(d);
+  if (!lignes.length) return null;
+  var f = function (v, dec) { return isNaN(v) ? '-' : frDisplay(String(Math.round(v * Math.pow(10, dec)) / Math.pow(10, dec))); };
+  var body = [[H.L('Polluant'), H.L('VLEP 8 h (mg/m³)'), H.L('Limite : 1/5 de la VLEP (mg/m³)'), H.L('Contrôle précédent (mg/m³)'), H.L('Ce contrôle (mg/m³)'), H.L('Avis')]];
+  lignes.forEach(function (l) {
+    body.push([H.V(l.nom, { alignment: 'left' }), H.V(f(l.vlep, 3)), H.V(f(l.limite, 3)), H.V(f(l.n1, 3)), H.V(f(l.conc, 3), { bold: true }), H.avis(l.avis)]);
+  });
+  return H.t([150, 70, 85, 80, 70, 85], body);
+}
+
+// Canaux du photomètre (DustTrak DRX)
+function pdfRecyclageTableCanaux(H, d) {
+  var canaux = [['TOTAL', d.dt_total], ['PM10', d.dt_pm10], ['RESP (PM4)', d.dt_resp], ['PM2,5', d.dt_pm25], ['PM1', d.dt_pm1]]
+    .filter(function (c) { return c[1] !== undefined && c[1] !== ''; });
+  if (!canaux.length) return null;
+  var w = Math.floor(400 / canaux.length);
+  return H.t([140].concat(canaux.map(function () { return w; })), [
+    [H.L('Canal')].concat(canaux.map(function (c) { return H.L(c[0]); })),
+    [H.L('Moyenne lue (mg/m³)')].concat(canaux.map(function (c) { return H.V(H.v(c[1])); }))
+  ]);
+}
+
 function pdfBuildAnnexeRecyclage(list, logo) {
-  var titre = 'Recyclage de l’air', sousTitre = 'CONTRÔLE SEMESTRIEL DES INSTALLATIONS DE RECYCLAGE';
+  var titre = 'Recyclage de l’air', sousTitre = 'CONTRÔLE SEMESTRIEL DES INSTALLATIONS D’ÉPURATION AVEC RECYCLAGE';
   var content = [], H = pdfLsHelpers();
+  var rows = function (r) { return H.t([270, 270], r.filter(Boolean).map(function (x) { return [H.L(x[0]), x[2] ? H.avis(x[1]) : H.V(x[1])]; })); };
   (list || []).forEach(function (inst, idx) {
     var d = inst.data;
     if (idx > 0) content.push({ text: '', pageBreak: 'before' });
     content.push(pdfAnnexePageHeader(titre, sousTitre, logo));
     content.push(pdfLsIdent(H, [['Bâtiment', d.batiment, true], ['Atelier / local desservi', d.localisation, true], ['Installation de recyclage', d.reference_equipement], ['Date du contrôle', d.date_controle], ['Prochain contrôle avant le', d.prochain_controle, true]], d.photo));
     content.push(H.gap(4));
-    content.push(H.bar('Polluant et destination de l’air recyclé (Code du travail, art. R4222-9 et R4222-14)'));
-    content.push(H.t([270, 270], [
-      [H.L('Nature du polluant'), H.V([d.nature_polluant, d.polluant_precision].filter(Boolean).join(' — '))],
-      [H.L('L’air épuré est renvoyé'), H.V(d.destination)],
-      [H.L('Pollution de même nature dans les locaux concernés'), H.V(d.destination === 'Vers d’autres locaux' ? d.meme_nature : 'Sans objet')],
-      [H.L('Avis destination'), H.avis(d.avis_destination)]
+
+    content.push(H.bar('Fonctionnement du recyclage (Code du travail, art. R4222-9, R4222-14 et R4222-17)'));
+    content.push(rows([
+      ['L’air épuré est renvoyé', d.destination],
+      d.destination === 'Vers d’autres locaux' ? ['Pollution de même nature dans les locaux concernés', d.meme_nature] : null,
+      ['Avis destination de l’air recyclé', d.avis_destination, true],
+      ['Information du médecin du travail et du CSE (R4222-17)', d.information_medecin_cse]
     ]));
     content.push(H.gap(4));
-    content.push(H.bar('Épuration et surveillance (Code du travail, art. R4222-16 et R4222-17 ; arrêté du 8 octobre 1987, art. 4)'));
-    content.push(H.t([270, 270], [
-      [H.L('Système d’épuration'), H.V(d.type_epurateur)],
-      [H.L('Efficacité annoncée par le constructeur'), H.V(d.efficacite_constructeur)],
-      [H.L('Perte de charge relevée'), H.V(H.u(d.perte_charge, 'Pa'))],
-      [H.L('État du système d’épuration'), H.V(d.etat_epurateur)],
-      [H.L('Systèmes de surveillance en place'), H.V(Array.isArray(d.systemes_surveillance) ? d.systemes_surveillance.join(', ') : d.systemes_surveillance)],
-      [H.L('Contrôle des systèmes de surveillance (R4222-16)'), H.V(d.surveillance_etat)],
-      [H.L('Information du médecin du travail et du CSE (R4222-17)'), H.V(d.information_medecin_cse)]
+
+    content.push(H.bar('Systèmes de surveillance (R4222-16 ; arrêté du 8 octobre 1987, art. 4.2 b)'));
+    content.push(rows([
+      ['Systèmes en place', Array.isArray(d.systemes_surveillance) ? d.systemes_surveillance.join(', ') : d.systemes_surveillance],
+      ['Test de fonctionnement', d.surveillance_test || d.surveillance_etat],
+      d.surveillance_test_methode ? ['Méthode de test', d.surveillance_test_methode] : null,
+      ['Dernier étalonnage ou vérification du capteur', d.surveillance_etalonnage],
+      ['Avis systèmes de surveillance', d.avis_surveillance, true]
     ]));
     content.push(H.gap(4));
-    content.push(H.bar('Débits et air neuf (Code du travail, art. R4222-11 et R4222-6)'));
-    content.push(H.t([270, 270], [
-      [H.L('Débit d’air recyclé'), H.V(H.u(d.debit_recycle, 'm³/h'))],
-      [H.L('Désignation du local / effectif'), H.V([d.type_local, H.v(d.effectif) !== '-' ? H.v(d.effectif) + ' personne(s)' : ''].filter(Boolean).join(' — '))],
-      [H.L('Débit minimal d’air neuf réglementaire'), H.V(H.u(d.debit_min_air_neuf, 'm³/h'))],
-      [H.L('Débit d’air neuf introduit'), H.V(H.u(d.debit_air_neuf, 'm³/h') + (d.mode_air_neuf ? ' (' + d.mode_air_neuf + ')' : ''))],
-      [H.L('Avis air neuf / minimum réglementaire'), H.avis(d.avis_air_neuf)]
+
+    content.push(H.bar('Épuration'));
+    content.push(rows([
+      ['Système d’épuration', d.type_epurateur],
+      ['Efficacité annoncée par le constructeur', d.efficacite_constructeur],
+      d.efficacite_granulo ? ['Efficacité par tranches granulométriques fournie', d.efficacite_granulo] : null,
+      ['Perte de charge relevée / maximale admissible', [H.u(d.perte_charge, 'Pa'), H.u(d.perte_charge_max, 'Pa')].join(' / ')],
+      d.avis_perte_charge ? ['Avis perte de charge', d.avis_perte_charge, true] : null,
+      ['État du système d’épuration', d.etat_epurateur]
     ]));
     content.push(H.gap(4));
-    content.push(H.bar('Concentration dans l’air recyclé (arrêté du 8 octobre 1987, art. 4 — contrôle semestriel)'));
-    content.push(H.t([270, 270], [
-      [H.L('Concentration dans la gaine de recyclage ou à sa sortie'), H.V(H.u(d.conc_gaine, 'mg/m³') + (d.fraction_gaine ? ' (' + d.fraction_gaine.toLowerCase() + ')' : ''))],
-      [H.L('Méthode de mesure'), H.V(d.methode_mesure)],
-      [H.L('Valeur de référence'), H.V(H.u(d.ref_gaine, 'mg/m³'))],
-      [H.L('Avis concentration / valeur de référence'), H.avis(d.avis_gaine)]
+
+    var photo = rcPhotometre(d);
+    content.push(H.bar('Concentration dans l’air recyclé (arrêté du 8 octobre 1987, art. 4.2 b ; limite : INRS ED 6008)'));
+    content.push(rows([
+      ['Méthode de mesure', d.methode_mesure || (d.dt_total || d.dt_resp ? RC_PHOTOMETRE : '')],
+      ['Point de mesure', d.point_mesure_gaine],
+      ['Fonctionnement pendant la mesure', d.regime_mesure],
+      ['Horaires et durée', [d.heure_debut && d.heure_fin ? d.heure_debut + ' – ' + d.heure_fin : '', H.v(d.duree_mesure) !== '-' ? H.v(d.duree_mesure) + ' min' : ''].filter(Boolean).join(', ')],
+      photo ? ['Facteur de correction photométrique', H.v(d.dt_facteur) !== '-' ? H.v(d.dt_facteur) : '1 (aucun étalonnage)'] : null
+    ]));
+    var canaux = photo ? pdfRecyclageTableCanaux(H, d) : null;
+    if (canaux) { content.push(H.gap(3)); content.push(canaux); }
+    var lim = pdfRecyclageTableLimites(H, d);
+    if (lim) { content.push(H.gap(3)); content.push(lim); }
+    if (photo && (d.dt_total || d.dt_resp)) {
+      content.push({ text: 'Fraction alvéolaire : canal RESP ; fraction inhalable : canal TOTAL (majorant). Mesure à lecture directe, indicative.', fontSize: 7.5, italics: true, margin: [0, 2, 0, 0] });
+    }
+    content.push(H.gap(3));
+    content.push(rows([
+      ['Avis : concentrations au plus égales au 1/5 de la VLEP', d.avis_cinquieme, true],
+      ['Valeur de référence du dossier (fraction inhalable)', H.u(d.ref_gaine, 'mg/m³')],
+      ['Avis concentration / valeur de référence', d.avis_gaine, true]
     ]));
     content.push(H.gap(4));
-    var seuil = d.nature_polluant === 'Poussières sans effet spécifique'
-      ? 'R4222-10 : 4 mg/m³ (inhalable) et 0,9 mg/m³ (alvéolaire), moyenne sur 8 h'
-      : (H.v(d.vlep) !== '-' ? 'VLEP 8 h : ' + H.u(d.vlep, 'mg/m³') : 'VLEP du polluant non renseignée');
-    content.push(H.bar('Atmosphère du local (Code du travail, art. R4222-10 et R4222-14)'));
-    content.push(H.t([270, 270], [
-      [H.L('Poussières, fraction inhalable'), H.V(H.u(d.conc_inhalable, 'mg/m³'))],
-      [H.L('Poussières, fraction alvéolaire'), H.V(H.u(d.conc_alveolaire, 'mg/m³'))],
-      [H.L('Mesure représentative d’une moyenne sur 8 h'), H.V(d.mesure_8h)],
-      [H.L('Valeur(s) limite(s) appliquée(s)'), H.V(seuil)],
-      [H.L('Avis atmosphère du local'), H.avis(d.avis_atmosphere)]
-    ]));
-    content.push(H.gap(4));
-    content.push(H.t([386, 154], [[H.V('Avis par rapport à la réglementation (Code du travail, art. R4222-10, R4222-11 et R4222-14 ; arrêté du 8 octobre 1987, art. 4) :', { alignment: 'left' }), H.avis(d.avis)]]));
+
+    if (d.debit_recycle || d.mode_air_neuf || d.debit_air_neuf) {
+      content.push(H.bar('Débits et air neuf (Code du travail, art. R4222-11 et R4222-6)'));
+      content.push(rows([
+        ['Débit d’air recyclé', H.u(d.debit_recycle, 'm³/h')],
+        ['Désignation du local / effectif', [d.type_local, H.v(d.effectif) !== '-' ? H.v(d.effectif) + ' personne(s)' : ''].filter(Boolean).join(' — ')],
+        ['Débit minimal d’air neuf réglementaire', H.u(d.debit_min_air_neuf, 'm³/h')],
+        ['Débit d’air neuf introduit', H.u(d.debit_air_neuf, 'm³/h') + (d.mode_air_neuf ? ' (' + d.mode_air_neuf + ')' : '')],
+        d.avis_air_neuf ? ['Avis air neuf / minimum réglementaire', d.avis_air_neuf, true] : null
+      ]));
+      content.push(H.gap(4));
+    }
+    if (d.avis_atmosphere) {
+      content.push(H.bar('Atmosphère du local (Code du travail, art. R4222-10 et R4222-14)'));
+      content.push(rows([
+        ['Poussières, fraction inhalable / alvéolaire', [H.u(d.conc_inhalable, 'mg/m³'), H.u(d.conc_alveolaire, 'mg/m³')].join(' / ')],
+        ['Mesure représentative d’une moyenne sur 8 h', d.mesure_8h],
+        ['Avis atmosphère du local', d.avis_atmosphere, true]
+      ]));
+      content.push(H.gap(4));
+    }
+    if (d.avis_recommandations) {
+      content.push(H.bar('Conditions recommandées par l’INRS (ED 6008) — hors avis réglementaire'));
+      content.push(rows([
+        ['Période de recyclage', d.periode_recyclage],
+        ['Rejet direct à l’extérieur possible (dérivation)', d.derivation_exterieur],
+        ['Tous les polluants émis sont identifiés', d.polluants_connus],
+        ['Avis conditions recommandées', d.avis_recommandations, true]
+      ]));
+      content.push(H.gap(4));
+    }
+    content.push(H.t([386, 154], [[H.V('Avis par rapport à la réglementation (Code du travail, art. R4222-9 à R4222-17 ; arrêté du 8 octobre 1987, art. 4) :', { alignment: 'left' }), H.avis(d.avis)]]));
     content.push(H.gap(4));
     content.push(H.t([540], [[H.L('Observation')], [H.V(H.v(d.observation), { alignment: 'left', margin: [6, 4, 6, 4] })]]));
   });
@@ -513,19 +744,30 @@ function pdfBuildAnnexeRecyclage(list, logo) {
   ];
   WIZARD_STEPS.recyclage = [
     { title: 'Identification', fields: ['batiment', 'localisation', 'reference_equipement', 'date_controle', 'photo'] },
-    { title: 'Polluant & recyclage', fields: ['nature_polluant', 'polluant_precision', 'destination', 'meme_nature', 'avis_destination'] },
-    { title: 'Épuration & surveillance', fields: ['type_epurateur', 'efficacite_constructeur', 'perte_charge', 'etat_epurateur', 'systemes_surveillance', 'surveillance_etat', 'information_medecin_cse'] },
+    { title: 'Fonctionnement du recyclage', fields: ['destination', 'meme_nature', 'avis_destination', 'information_medecin_cse'] },
+    { title: 'Conditions recommandées (ED 6008)', fields: ['periode_recyclage', 'derivation_exterieur', 'polluants_connus', 'avis_recommandations'] },
+    { title: 'Polluants', fields: ['nature_polluant', 'agent1_nom', 'agent1_vlep', 'agent1_fraction', 'agent2_nom', 'agent2_vlep', 'agent2_fraction'] },
+    { title: 'Épuration', fields: ['type_epurateur', 'efficacite_constructeur', 'efficacite_granulo', 'perte_charge', 'perte_charge_max', 'avis_perte_charge', 'etat_epurateur'] },
+    { title: 'Systèmes de surveillance', fields: ['systemes_surveillance', 'surveillance_test', 'surveillance_test_methode', 'surveillance_etalonnage', 'avis_surveillance'] },
+    { title: 'Mesure en gaine — conditions', fields: ['methode_mesure', 'point_mesure_gaine', 'regime_mesure', 'heure_debut', 'heure_fin', 'duree_mesure'] },
+    { title: 'Mesure en gaine — résultats', fields: ['dt_total', 'dt_pm10', 'dt_resp', 'dt_pm25', 'dt_pm1', 'dt_facteur', 'grav_inhalable', 'grav_alveolaire',
+      'agent1_conc', 'agent2_conc', 'conc_inhalable_gaine', 'conc_alveolaire_gaine', 'conc_inhalable_gaine_n1', 'conc_alveolaire_gaine_n1', 'avis_cinquieme', 'ref_gaine', 'avis_gaine'] },
     { title: 'Débits & air neuf', fields: ['debit_recycle', 'type_local', 'effectif', 'mode_air_neuf', 'debit_air_neuf', 'debit_min_air_neuf', 'avis_air_neuf'] },
-    { title: 'Air recyclé (semestriel)', fields: ['conc_gaine', 'fraction_gaine', 'methode_mesure', 'ref_gaine', 'avis_gaine'] },
-    { title: 'Atmosphère du local', fields: ['conc_inhalable', 'conc_alveolaire', 'mesure_8h', 'vlep', 'avis_atmosphere'] },
+    { title: 'Atmosphère du local (si mesurée)', fields: ['conc_inhalable', 'conc_alveolaire', 'mesure_8h', 'avis_atmosphere'] },
     { title: 'Conclusion', fields: ['avis', 'prochain_controle', 'observation'] }
   ];
   }
   // Préremplissage N-1 / duplication : la configuration du local se reconduit, pas les mesures
   if (typeof DUPLICATION_EXTRA_KEEP_STEPS !== 'undefined') {
     DUPLICATION_EXTRA_KEEP_STEPS.local_specifique = ['Mesures à réaliser', 'Occupation', 'Taux de renouvellement'];
-    DUPLICATION_EXTRA_KEEP_STEPS.recyclage = ['Polluant & recyclage', 'Épuration & surveillance'];
+    DUPLICATION_EXTRA_KEEP_STEPS.recyclage = ['Fonctionnement du recyclage', 'Conditions recommandées (ED 6008)', 'Polluants', 'Épuration', 'Mesure en gaine — conditions'];
+    // Constats et relevés de la visite, jamais reconduits
+    if (typeof DUPLICATION_FINDING_KEYS !== 'undefined') ['information_medecin_cse', 'perte_charge', 'heure_debut', 'heure_fin', 'surveillance_test', 'surveillance_test_methode']
+      .forEach(function (k) { DUPLICATION_FINDING_KEYS[k] = true; });
   }
+
+  if (typeof N1_COMPARISON_FIELDS !== 'undefined') N1_COMPARISON_FIELDS.recyclage = [
+    { current: 'conc_inhalable_gaine', n1: 'conc_inhalable_gaine_n1' }, { current: 'conc_alveolaire_gaine', n1: 'conc_alveolaire_gaine_n1' }];
 
   if (typeof SECTION_GROUPS !== 'undefined') {
   var gi = SECTION_GROUPS.findIndex(function (g) { return g.key === 'captage_localise'; });
@@ -535,7 +777,7 @@ function pdfBuildAnnexeRecyclage(list, logo) {
       divNote: { x: 60, y: 610, w: 380, lines: ['REFERENTIELS', '', 'Code du travail, art. R4222-10 à R4222-12', 'Débit minimal d’air neuf : art. R4222-6 et R4222-11', 'Arrêté du 8 octobre 1987, art. 4'] } },
     { key: 'recyclage', titre: 'Recyclage de l’air', sommaireTitre: 'RECYCLAGE DE L’AIR', types: ['recyclage'],
       images: ['assets/report/divider-recyclage.jpg'], divTitres: ['RECYCLAGE DE L\'AIR'], divPhotos: [{ x: 80, y: 280, w: 340, h: 255 }],
-      divNote: { x: 60, y: 610, w: 380, lines: ['REFERENTIELS', '', 'Code du travail, art. R4222-10 et R4222-14', 'Poussières sans effet spécifique : 4 mg/m³ (inhalable), 0,9 mg/m³ (alvéolaire)', 'Arrêté du 8 octobre 1987, art. 4 : contrôle semestriel'] } });
+      divNote: { x: 60, y: 610, w: 380, lines: ['REFERENTIELS', '', 'Code du travail, art. R4222-9 à R4222-17', 'Arrêté du 8 octobre 1987, art. 4.2 b : contrôle semestriel', 'Concentration dans l’air recyclé : au plus 1/5 de la VLEP (INRS ED 6008)'] } });
 
   }
   if (typeof SYNTHESE_CONFIG !== 'undefined') {
@@ -545,7 +787,7 @@ function pdfBuildAnnexeRecyclage(list, logo) {
 
   if (typeof ED_REFERENCE !== 'undefined') {
     ED_REFERENCE.local_specifique = { badge: 'Réglementaire', status: 'muted', note: 'Code du travail R4222-11 (air neuf ≥ valeurs de R4222-6), R4222-12 (captage à la source) ; arrêté du 8 octobre 1987, art. 4 (débit global extrait). Extraction, air neuf ou les deux, au choix du technicien.' };
-    ED_REFERENCE.recyclage = { badge: 'Réglementaire', status: 'muted', note: 'Arrêté du 8 octobre 1987, art. 4 (contrôle semestriel des gaines de recyclage et des systèmes de surveillance) ; Code du travail R4222-14 (recyclage) et R4222-10 (poussières : 4 et 0,9 mg/m³).' };
+    ED_REFERENCE.recyclage = { badge: 'Réglementaire', status: 'muted', note: 'Arrêté du 8 octobre 1987, art. 4.2 b (tous les six mois : concentration dans les gaines de recyclage, contrôle de tous les systèmes de surveillance) ; Code du travail R4222-9, R4222-14, R4222-16, R4222-17 ; INRS ED 6008 : concentration de chaque polluant dans l’air recyclé au plus égale au 1/5 de sa VLEP (poussières sans effet spécifique, R4222-10 : 4 et 0,9 mg/m³).' };
   }
 
   if (typeof DVR_CONFIG !== 'undefined') {
@@ -557,7 +799,8 @@ function pdfBuildAnnexeRecyclage(list, logo) {
     DVR_CONFIG.recyclage = { cat: 'sp', polluant: 'Poussières', lignes: [
       { label: 'Débit d’air neuf introduit', mesure: 'debit_air_neuf', mini: 'debit_min_air_neuf', miniLabel: 'Minimum réglementaire (R4222-6)', avis: 'avis_air_neuf', unit: 'm³/h' },
       { label: 'Débit d’air recyclé', mesure: 'debit_recycle', role: 'point', unit: 'm³/h' },
-      { label: 'Concentration dans l’air recyclé', mesure: 'conc_gaine', role: 'point', unit: 'mg/m³', ref: 'ref_gaine' }
+      { label: 'Concentration dans l’air recyclé (fraction inhalable)', mesure: 'conc_inhalable_gaine', avis: 'avis_cinquieme', unit: 'mg/m³', ref: 'ref_gaine' },
+      { label: 'Concentration dans l’air recyclé (fraction alvéolaire)', mesure: 'conc_alveolaire_gaine', avis: 'avis_cinquieme', unit: 'mg/m³' }
     ] };
   }
 

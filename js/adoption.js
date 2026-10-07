@@ -4,10 +4,15 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.94';
+var APP_VERSION = '1.95';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.95', date: '07/10/2026', items: [
+    'Recyclage : fiche du contrôle semestriel refaite (arrêté du 8 octobre 1987, art. 4.2 b ; INRS ED 6008) — moyennes des canaux du DustTrak, concentration comparée au 1/5 de la VLEP de chaque polluant, test des systèmes de surveillance exigé (non testé = ne peut se prononcer), contrôle précédent rappelé.',
+    'Recyclage : rapport semestriel à part (menu ⋯), ou directement par « Rapport PDF » si la mission ne compte que du recyclage.',
+    'Dossier de valeurs de référence : trois prestations — l’établir pour une installation existante, à la mise en service (avec le descriptif), ou analyser un dossier existant (complétude article par article, valeurs comparées aux mesures). Le dossier suit le guide INRS ED 6008 : valeurs de référence, consigne d’utilisation, mesures en cas de panne, dossier de maintenance.'
+  ] },
   { version: '1.94', date: '07/10/2026', items: [
     'Toutes les installations : en haut d’une étape, « Reprendre de… » recopie en un toucher ce qui se répète d’une installation à l’autre pendant la visite (date, bâtiment, états visuels, test fumigène, conditions, valeurs de référence…), pris sur l’installation voisine. Les valeurs sont affichées avant d’être reprises ; jamais une mesure.'
   ] },

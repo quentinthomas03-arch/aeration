@@ -16,50 +16,7 @@ const FILTER = process.argv[2] || '';
 // Chargement de l'appli dans un contexte isolé
 // ————————————————————————————————————————————
 
-function makeStorage() {
-  const m = new Map();
-  return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), clear: () => m.clear(), key: i => [...m.keys()][i], get length() { return m.size; } };
-}
-
-function loadApp() {
-  const alerts = [];
-  const el = () => ({ style: {}, classList: { add() {}, remove() {} }, setAttribute() {}, removeAttribute() {}, appendChild() {}, addEventListener() {}, querySelector: () => null, getContext: () => null });
-  const ctx = {
-    console: { log() {}, warn() {}, error() {} }, setTimeout, clearTimeout, setInterval() {}, clearInterval() {},
-    Uint8Array, Uint16Array, Uint32Array, Int32Array, Float32Array, Float64Array, ArrayBuffer, DataView, TextEncoder, TextDecoder, Promise, Buffer,
-    alert: msg => alerts.push(String(msg)), confirm: () => true,
-    localStorage: makeStorage(), navigator: { userAgent: 'node' }, location: { reload() {} },
-    matchMedia: () => ({ matches: false, addEventListener() {} }), addEventListener() {}, history: { pushState() {} },
-    fetch: () => Promise.reject(new Error('pas de réseau dans les tests'))
-  };
-  ctx.window = ctx; ctx.self = ctx; ctx.globalThis = ctx;
-  ctx.document = Object.assign(el(), { documentElement: el(), body: el(), createElement: el, getElementById: () => null, querySelectorAll: () => [] });
-  vm.createContext(ctx);
-  const html = fs.readFileSync(path.join(APP, 'index.html'), 'utf8');
-  // Bibliothèques chargées à la demande dans l'appli (js/lazy-libs.js) : chargées d'emblée ici
-  const lazy = ['js/pdfmake.min.js', 'js/vfs_fonts.js', 'js/fonts-arial.js', 'js/xlsx.full.min.js'];
-  const scripts = lazy.concat([...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m => m[1]).filter(s => s !== 'js/app.js'));
-  for (const s of scripts) vm.runInContext(fs.readFileSync(path.join(APP, s), 'utf8'), ctx, { filename: s });
-  ctx.render = () => {};
-  ctx.__alerts = alerts;
-  return ctx;
-}
-
-function dataUrl(p) {
-  const b = fs.readFileSync(path.join(APP, p));
-  return 'data:image/' + (p.endsWith('.png') ? 'png' : 'jpeg') + ';base64,' + b.toString('base64');
-}
-
-function initPdfAssets(ctx) {
-  ctx.PDF_ASSETS.logo = dataUrl(ctx.LOGO_PATH);
-  ctx.PDF_ASSETS.banner = dataUrl(ctx.BANNER_PATH);
-  ctx.PDF_ASSETS.ctaSchema = dataUrl(ctx.CTA_SCHEMA_PATH);
-  ctx.PDF_ASSETS.sorbonneSchema = dataUrl(ctx.SORBONNE_SCHEMA_PATH);
-  ctx.PDF_ASSETS.dividers = {};
-  ctx.SECTION_GROUPS.forEach(g => { ctx.PDF_ASSETS.dividers[g.key] = g.images.map(dataUrl); });
-  ctx.PDF_ASSETS.methodo = {};
-  Object.keys(ctx.METHODO_IMAGES).forEach(k => { ctx.PDF_ASSETS.methodo[k] = dataUrl(ctx.METHODO_IMAGES[k]); });
-}
+const { loadApp, dataUrl, initPdfAssets } = require('../charger-appli');
 
 function loadDemo(ctx) {
   const env = JSON.parse(fs.readFileSync(path.join(APP, 'assets/demo/mission-demo.json'), 'utf8'));
@@ -69,7 +26,7 @@ function loadDemo(ctx) {
 }
 
 const clone = o => JSON.parse(JSON.stringify(o));
-const pdfBuffer = dd => new Promise(res => dd.getBuffer(b => res(Buffer.from(b))));
+const { pdfBuffer } = require('../charger-appli');
 const pageCount = buf => (buf.toString('latin1').match(/\/Type \/Page\b/g) || []).length;
 
 // Cherche des valeurs mal formées (« undefined », « NaN », « [object ») dans une définition pdfmake
@@ -287,13 +244,37 @@ test('valeurs de référence : jamais une valeur non satisfaisante proposée', c
   }));
 });
 
-test('valeurs de référence : PDF du relevé', async ctx => {
+test('valeurs de référence : dossier (installation existante, mise en service) et analyse', async ctx => {
   const m = loadDemo(ctx);
   ctx.state.missions = [m]; ctx.state.currentMissionId = m.id;
-  const dd = ctx.dvrDocDefinition(m, dataUrl(ctx.LOGO_PATH));
-  eq(badStrings(dd.content), [], 'valeurs mal formées');
-  const pages = pageCount(await pdfBuffer(ctx.pdfMake.createPdf(dd)));
-  assert(pages >= 2 && pages <= 8, 'pages : ' + pages);
+  initPdfAssets(ctx);
+  const texte = dd => JSON.stringify(dd.content);
+  // Installation existante : valeurs de référence + consigne, pas de descriptif
+  ctx.dvrData(m).mode = 'existante';
+  let dd = ctx.dossierInstallationDocDefinition(m);
+  eq(badStrings(dd.content), [], 'valeurs mal formées (existante)');
+  assert(texte(dd).includes('CONSIGNE D’UTILISATION') && !texte(dd).includes('NOTICE D’INSTRUCTIONS : DESCRIPTIF'), 'existante : sans descriptif');
+  assert(texte(dd).includes('Q = Qréf × √(P / Préf)'), 'suivi par la pression statique');
+  let pages = pageCount(await pdfBuffer(ctx.pdfMake.createPdf(dd)));
+  assert(pages >= 8 && pages <= 30, 'pages (existante) : ' + pages);
+  // Mise en service : descriptif en plus
+  ctx.dvrData(m).mode = 'mise_en_service'; ctx.dvrData(m).dateMiseEnService = '01/09/2026';
+  dd = ctx.dossierInstallationDocDefinition(m);
+  eq(badStrings(dd.content), [], 'valeurs mal formées (mise en service)');
+  assert(texte(dd).includes('NOTICE D’INSTRUCTIONS : DESCRIPTIF') && texte(dd).includes('du 01/09/2026'), 'mise en service : descriptif');
+  // Analyse : groupes selon les installations, manques, comparaison aux valeurs du dossier
+  ctx.dvrData(m).mode = 'analyse';
+  const groupes = ctx.dvrVerifGroupes(m).map(g => g.key);
+  eq(groupes, ['dossier', 'ns', 'sp', 'rc'], 'groupes applicables');
+  ctx.setDvrVerif('dvr', 'etat', 'present');
+  ctx.setDvrVerif('ns_filtres', 'etat', 'absent'); ctx.setDvrVerif('ns_filtres', 'com', 'pertes de charge maximales non indiquées');
+  ctx.setDvrVerif('sp_efficacite', 'etat', 'partiel');
+  eq(ctx.dvrVerifManques(m).map(x => x.item[0]), ['ns_filtres', 'sp_efficacite'], 'éléments à compléter');
+  dd = ctx.dossierInstallationDocDefinition(m);
+  eq(badStrings(dd.content), [], 'valeurs mal formées (analyse)');
+  assert(texte(dd).includes('pertes de charge maximales non indiquées'), 'précision reprise');
+  pages = pageCount(await pdfBuffer(ctx.pdfMake.createPdf(dd)));
+  assert(pages >= 4 && pages <= 15, 'pages (analyse) : ' + pages);
 });
 
 test('valeurs de référence : reprises à la visite suivante une fois validées', ctx => {
@@ -453,6 +434,12 @@ test('plan : filtres sur les épingles, zoom, placement par bâtiment', ctx => {
   ctx.state.overviewFiltre = null;
   ctx.state.planZoom = 2;
   assert(ctx.renderSiteOverview(m).includes('style="width:200%;"'), 'zoom × 2');
+  // zoom continu (pincement) : valeur quelconque conservée, bornée, et les boutons repartent du palier voisin
+  ctx.state.planZoom = 2.37;
+  const hz = ctx.renderSiteOverview(m);
+  assert(hz.includes('style="width:237%;"') && hz.includes('× 2,4'), 'zoom continu × 2,37');
+  eq(ctx.planZoomBorne(50), 6, 'zoom borné au maximum');
+  eq(ctx.planZoomBorne(0.3), 1, 'zoom borné au plan entier');
   ctx.state.planZoom = 1;
   ctx.planDemarrerPlacement(planId);
   ctx.planChoisirBatiment('Bât Y');
@@ -738,6 +725,104 @@ test('rappel de sauvegarde', ctx => {
   m._sauvegarde = il_y_a(8); m.installations.bureaux.forEach(i => { if (i.data._mod > m._sauvegarde) i.data._mod = il_y_a(9); });
   Object.keys(m.installations).forEach(t => m.installations[t].forEach(i => { if (i.data._mod && i.data._mod > m._sauvegarde) i.data._mod = il_y_a(9); }));
   eq(ctx.missionsASauvegarder().length, 0, 'rien modifié depuis la copie : pas de rappel');
+});
+
+test('fiches alignées sur le Rapso : cases réclamées, listes avec valeur imposée', ctx => {
+  const manques = (typeId, data) => ctx.verifMissingFields(ctx.getInstallationType(typeId), { data }).map(f => f.label);
+  // CTA : filtration masquée tant qu'on ne l'affiche pas (bouton du Rapso)
+  assert(!manques('cta', {}).some(l => /filtre/i.test(l)), 'filtration CTA non réclamée');
+  assert(manques('cta', { afficher_filtration: 'Oui' }).some(l => /Pré-filtre/.test(l)), 'filtration réclamée une fois affichée');
+  // Température / pression dans le conduit, commentaires, valeurs N-1 : facultatives
+  const ext = manques('extracteur', {});
+  assert(!ext.some(l => /Température|Pression statique|N-1|Observation/.test(l)), 'extracteur : ' + ext.join(', '));
+  // Locaux de charge : une grille à la fois, rien d'obligatoire dans une grille
+  const lc = manques('locaux_charge', {});
+  assert(!lc.some(l => /Largeur|Diamètre|Valeur mesurée/.test(l)), 'grilles non réclamées : ' + lc.join(', '));
+  const t = ctx.getInstallationType('locaux_charge'), f2 = t.fields.find(f => f.key === 'grille2_largeur');
+  assert(!ctx.evalShowIf(f2.showIf, {}), 'grille 2 masquée');
+  assert(ctx.evalShowIf(f2.showIf, { grille1_diametre: '30' }), 'grille 2 affichée après la grille 1');
+  // Bras : commentaire seulement si non adapté ; vitesse de captage imposée par la condition (liste Rapso)
+  const bras = ctx.getInstallationType('bras_aspiration');
+  const com = bras.fields.find(f => f.key === 'commentaire_1');
+  assert(!ctx.evalShowIf(com.showIf, { adapte_situation: 'Oui' }) && ctx.evalShowIf(com.showIf, { adapte_situation: 'Non' }), 'commentaire si non adapté');
+  const inst = { data: { conditions_dispersion: 'Emission à faible vitesse en air modérément calme', vitesse_captage: '2' } };
+  ctx.applyCalculations('bras_aspiration', inst);
+  eq(inst.data.vitesse_captage, '0.5', 'vitesse imposée');
+  const gaz = { data: { conditions_dispersion: 'Gaz et vapeurs', vitesse_captage: '0.3' } };
+  ctx.applyCalculations('bras_aspiration', gaz);
+  eq(gaz.data.vitesse_captage, '0.3', 'gaz et vapeurs : saisie gardée');
+  const cond = bras.fields.find(f => f.key === 'conditions_dispersion');
+  assert(ctx.selectOptionsHtml(cond, '').includes('modérément calme — 0,5 m/s'), 'vitesse affichée dans la liste');
+  assert(ctx.selectOptionsHtml(cond, 'Projection à grande vitesse').includes('selected>Projection à grande vitesse'), 'ancienne valeur conservée');
+});
+
+test('torches : un point tant que le nombre n’est pas choisi ; reprise depuis une installation voisine', ctx => {
+  const t = ctx.getInstallationType('torches_aspirantes');
+  const vis = (key, data) => { const f = t.fields.find(x => x.key === key); return ctx.evalShowIf(f.showIf, data); };
+  assert(vis('torche1_vitesse_centre', {}) && !vis('torche2_vitesse_centre', {}), 'un seul point par défaut');
+  assert(vis('torche3_vitesse_centre', { nombre_points_mesure: '3' }) && !vis('torche4_vitesse_centre', { nombre_points_mesure: '3' }), '3 points choisis');
+  assert(vis('torche5_vitesse_centre', { torche5_vitesse_centre: '80' }), 'point déjà rempli (ancienne fiche) toujours affiché');
+  const manques = ctx.verifMissingFields(t, { data: {} }).length;
+  assert(manques < 12, 'fiche vierge : ' + manques + ' cases réclamées');
+
+  const m = { id: 'm1', installations: { sorbonnes: [
+    { id: 'a', data: { reference_equipement: 'SO-01', temperature: '21.5', hygrometrie: '45', pression_atmospherique: '1013', appareils_mesure: 'KIMO' } },
+    { id: 'b', data: { reference_equipement: 'SO-02' } }],
+    bras_aspiration: [
+    { id: 'c', data: { reference_equipement: 'P1', etat_visuel: 'En bon état', etat_conduits: 'En bon état', test_fumigene: 'Non réalisé', conditions_dispersion: 'Gaz et vapeurs', vitesse_moyenne: '8' } },
+    { id: 'd', data: { reference_equipement: 'P2', test_fumigene: 'Non réalisé' } }] }, typesSelectionnes: ['sorbonnes', 'bras_aspiration'] };
+  ctx.state.missions = [m]; ctx.state.currentMissionId = 'm1'; ctx.state.currentInstIndex = 1;
+  const steps = ctx.WIZARD_STEPS.sorbonnes, etape = steps.findIndex(s => s.title === 'Mesures ambiantes');
+  const html = ctx.repriseVoisineHtml('sorbonnes', steps, etape, m.installations.sorbonnes[1]);
+  assert(html.includes('SO-01') && html.includes('21,5 °C'), 'bouton de reprise : ' + html.slice(0, 120));
+  ctx.repriseVoisineAppliquer('sorbonnes', 0, etape);
+  eq(m.installations.sorbonnes[1].data.temperature, '21.5', 'température reprise');
+  eq(m.installations.sorbonnes[1].data.appareils_mesure, 'KIMO', 'appareils repris');
+  eq(ctx.repriseVoisineHtml('sorbonnes', steps, etape, m.installations.sorbonnes[1]), '', 'plus de bouton une fois repris');
+  // Bras : constats repris, jamais la mesure ; un seul champ à gagner = pas de bouton
+  const sb = ctx.WIZARD_STEPS.bras_aspiration, ev = sb.findIndex(s => s.title === 'État visuel');
+  const hb = ctx.repriseVoisineHtml('bras_aspiration', sb, ev, m.installations.bras_aspiration[1]);
+  assert(hb.includes('P1') && !hb.includes('Non réalisé'), 'bouton bras sans le champ déjà identique : ' + hb.slice(0, 160));
+  ctx.repriseVoisineAppliquer('bras_aspiration', 0, ev);
+  const d = m.installations.bras_aspiration[1].data;
+  eq([d.etat_visuel, d.etat_conduits, d.conditions_dispersion, d.vitesse_moyenne], ['En bon état', 'En bon état', 'Gaz et vapeurs', undefined], 'constats repris, pas la mesure');
+  const ad = sb.findIndex(s => s.title === 'Adaptation & recyclage');
+  eq(ctx.repriseVoisineHtml('bras_aspiration', sb, ad, d), '', 'rien à reprendre');
+});
+
+test('recyclage : rapport semestriel autonome, synthèse sans « conforme » non contrôlé', async ctx => {
+  const m = loadDemo(ctx);
+  ctx.state.missions = [m]; ctx.state.currentMissionId = m.id;
+  initPdfAssets(ctx);
+  const d = m.installations.recyclage[0].data;
+  eq([d.avis_cinquieme, d.avis_surveillance, d.avis], ['Satisfaisant', 'Satisfaisant', 'Satisfaisant'], 'démo conforme');
+  // Surveillance non testée : jamais « conforme »
+  const inst = JSON.parse(JSON.stringify(m.installations.recyclage[0]));
+  inst.data.surveillance_test = 'Non testés';
+  ctx.applyCalculations('recyclage', inst);
+  const l = ctx.rrLignesSynthese(inst.data).find(x => /systèmes de surveillance$/.test(x[0]));
+  eq(l[2], 'Impossible de se prononcer', 'surveillance non testée');
+  eq(inst.data.avis, 'Impossible de se prononcer', 'avis global');
+  // Dépassement du 1/5 de la VLEP (bois : 1 mg/m³ → 0,2)
+  inst.data.surveillance_test = ctx.RC_TESTS[0]; inst.data.dt_total = '0,35';
+  ctx.applyCalculations('recyclage', inst);
+  eq([inst.data.conc_inhalable_gaine, inst.data.avis_cinquieme], ['0.35', 'Non Satisfaisant'], 'dépassement');
+  // Facteur de correction appliqué
+  inst.data.dt_total = '0,15'; inst.data.dt_facteur = '2';
+  ctx.applyCalculations('recyclage', inst);
+  eq(inst.data.conc_inhalable_gaine, '0.3', 'facteur de correction');
+  // Ancienne fiche (concentration unique, état de surveillance) toujours évaluée
+  const ancienne = { data: { nature_polluant: 'Poussières sans effet spécifique', destination: 'Dans le même local', etat_epurateur: 'Bon état',
+    surveillance_etat: 'Systèmes contrôlés et fonctionnels', methode_mesure: 'Appareil à lecture directe', conc_gaine: '0,3', fraction_gaine: 'Fraction inhalable' } };
+  ctx.applyCalculations('recyclage', ancienne);
+  eq([ancienne.data.conc_inhalable_gaine, ancienne.data.avis_cinquieme, ancienne.data.avis_surveillance], ['0.3', 'Satisfaisant', 'Satisfaisant'], 'ancienne fiche');
+  // Rapport
+  const dd = ctx.pdfBuildRecyclageDocDefinition(m);
+  eq(badStrings(dd.content), [], 'valeurs mal formées');
+  const pages = pageCount(await pdfBuffer(ctx.pdfMake.createPdf(dd)));
+  assert(pages >= 6 && pages <= 12, 'pages : ' + pages);
+  // Mission « recyclage seul » : le bouton Rapport PDF produit ce rapport
+  assert(ctx.rrMissionRecyclageSeule({ typesSelectionnes: ['recyclage'] }) && !ctx.rrMissionRecyclageSeule(m), 'recyclage seul');
 });
 
 test('plans en PDF : nom du niveau lu dans la page', ctx => {

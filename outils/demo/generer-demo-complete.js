@@ -9,11 +9,9 @@
 // contrôlée, des marques « à revoir », des notes de visite, des installations à faire et en cours.
 // Les avis sont calculés par l'appli elle-même (applyCalculations), jamais écrits à la main.
 
-const fs = require('fs'), path = require('path'), vm = require('vm');
-const APP = path.resolve(__dirname, '../..');
-// Chargeur de l'appli des tests automatiques (même code que le navigateur, sans navigateur)
-const runSrc = fs.readFileSync(path.join(APP, 'outils/tests/run.js'), 'utf8');
-eval(runSrc.slice(0, runSrc.indexOf('const tests = [];')).split('__dirname').join(JSON.stringify(path.join(APP, 'outils/tests'))));
+const fs = require('fs'), path = require('path');
+// Chargeur de l'appli commun aux outils (même code que le navigateur, sans navigateur)
+const { APP, loadApp, initPdfAssets } = require('../charger-appli');
 
 const ctx = loadApp();
 const base = JSON.parse(fs.readFileSync(path.join(APP, 'assets/demo/mission-demo.json'), 'utf8'));

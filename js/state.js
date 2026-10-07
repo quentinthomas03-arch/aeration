@@ -188,6 +188,13 @@ function normalizeMission(m) {
       if (inst && inst.data) applyCalculations('locaux_fumeurs', inst);
     });
   }
+  // Recyclage : refonte du contrôle semestriel (2026-10-07) — concentrations retenues, critère du 1/5 de
+  // la VLEP et avis de surveillance recalculés à partir des anciennes saisies (champs calculés seulement)
+  if (m.installations && Array.isArray(m.installations.recyclage) && typeof applyCalculations === 'function') {
+    m.installations.recyclage.forEach(function (inst) {
+      if (inst && inst.data) applyCalculations('recyclage', inst);
+    });
+  }
   // Sorbonnes : seuil normatif 0,4 m/s désormais appliqué aussi après 2005 (comme le Rapso, décision
   // du 2026-10-03) — recalcul au chargement pour que les dossiers existants affichent l'avis normatif
   // (champs calculés uniquement ; une valeur normative déjà saisie n'est jamais écrasée).

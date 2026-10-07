@@ -695,13 +695,16 @@ function pdfThreeColBlock(labels, values, y) {
   return t;
 }
 
-function pdfBuildPageDeGarde(m, di, ic, is, isi, logoDataUrl, bannerDataUrl) {
+// opts (rapports des prestations complémentaires) : { bandeau, titre } remplacent « Rapport d'intervention »
+// et l'intitulé du contrôle annuel.
+function pdfBuildPageDeGarde(m, di, ic, is, isi, logoDataUrl, bannerDataUrl, opts) {
+  opts = opts || {};
   var content = [];
   var at = function (node, x, y) { node.absolutePosition = { x: x, y: y }; return node; };
 
   if (bannerDataUrl) content.push(at({ image: bannerDataUrl, width: 399, height: 56 }, PDF_COVER_X, 53));
   if (logoDataUrl) content.push(at({ image: logoDataUrl, width: 60, height: 58 }, 467, 52));
-  content.push(at({ text: 'Rapport d\'intervention', bold: true, fontSize: 23, color: '#FFFFFF' }, 70, 66));
+  content.push(at({ text: opts.bandeau || 'Rapport d\'intervention', bold: true, fontSize: 23, color: '#FFFFFF' }, 70, 66));
 
   content.push(at({ stack: [
     { text: ic.nomEntreprise || '—', bold: true, fontSize: 11.5 },
@@ -710,7 +713,7 @@ function pdfBuildPageDeGarde(m, di, ic, is, isi, logoDataUrl, bannerDataUrl) {
     { text: ((ic.codePostal || '') + ' ' + (ic.ville || '')).trim(), fontSize: 9.6 }
   ], width: 232 }, 306, 128));
 
-  content.push(at({ text: 'CONTRÔLE DE L\'AERATION ET DE L\'ASSAINISSEMENT\nDES LOCAUX DE TRAVAIL', bold: true, fontSize: 13.4,
+  content.push(at({ text: opts.titre || 'CONTRÔLE DE L\'AERATION ET DE L\'ASSAINISSEMENT\nDES LOCAUX DE TRAVAIL', bold: true, fontSize: 13.4,
     alignment: 'center', width: PDF_COVER_W, lineHeight: 1.1 }, PDF_COVER_X, 242));
 
   var nomAuteur = di.auteurRapport || is.intervenant || '—';
@@ -811,8 +814,13 @@ function pdfBuildPresentationMission(m, di, ic, isi) {
     'Arrêté du 8 octobre 1987 relatif au contrôle périodique des installations d’aération et d’assainissement des locaux de travail.'
   ].forEach(function (t) { content.push({ text: '-      ' + t, fontSize: 10 }); });
 
-  // Matériel de mesure (js/terrain-assist.js) : n'apparaît que si des appareils ont été choisis pour
-  // la mission — un rapport sans appareils déclarés reste identique à la mise en page d'origine.
+  return content.concat(pdfTableAppareils(m));
+}
+
+// Matériel de mesure (js/terrain-assist.js) : n'apparaît que si des appareils ont été choisis pour
+// la mission — un rapport sans appareils déclarés reste identique à la mise en page d'origine.
+function pdfTableAppareils(m) {
+  var content = [];
   var appareils = m.appareilsMesure || [];
   if (appareils.length) {
     content.push(pdfSubHeading('Matériel de mesure utilisé'));
@@ -1490,6 +1498,8 @@ function pdfFetchAsDataUrl(path) {
 function exportRapportPdf() {
   var m = getCurrentMission();
   if (!m) { alert('Aucune mission sélectionnée'); return; }
+  // Prestation recyclage commandée seule : son propre rapport (js/rapport-recyclage.js)
+  if (typeof rrMissionRecyclageSeule === 'function' && rrMissionRecyclageSeule(m)) { exportRecyclagePdf(false); return; }
   rapportProgres('Préparation du rapport…');
   buildRapportPdf(m).then(function (r) { r.pdf.download(r.filename); })
     .catch(function (err) { rapportProgresFin(); alert('Erreur lors de l’export PDF.\n' + err.message); });

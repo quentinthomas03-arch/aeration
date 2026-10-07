@@ -1,4 +1,5 @@
-// dvr.js - Relevé pour l'établissement du dossier de valeurs de référence (chantier du 2026-10-03)
+// dvr.js - Relevé des valeurs de référence (chantier du 2026-10-03) ; dossier complet et analyse d'un
+// dossier existant : js/dossier-installation.js (2026-10-07)
 //
 // Cadre (arrêté du 8 octobre 1987) : le dossier de valeurs de référence fixe « les caractéristiques
 // qualitatives et quantitatives de l'installation qui garantissent le respect des spécifications
@@ -11,8 +12,8 @@
 // critère applicable ; sinon on propose le minimum réglementaire/normatif, ou la valeur reste à définir
 // par le maître d'ouvrage — jamais une valeur de fonctionnement défaillant érigée en référence.
 //
-// Prestation optionnelle par mission (m.dvr.actif, cochée quand elle est prévue au devis). Document PDF
-// distinct du rapport de contrôle. Une fois le relevé validé par le client (m.dvr.valideLe), ses valeurs
+// Prestation optionnelle par mission (m.dvr.actif, cochée quand elle est prévue au devis ; m.dvr.mode).
+// Document PDF distinct du rapport de contrôle. Une fois le relevé validé par le client (m.dvr.valideLe), ses valeurs
 // alimentent les champs « référence » lors du préremplissage de la visite suivante.
 
 var DVR_CATEGORIES = [
@@ -246,8 +247,8 @@ function renderDvrMissionOption(m) {
   var dv = dvrData(m);
   return '<div class="card"><div class="section-title">Prestation complémentaire</div>' +
     '<label class="appareil-choice"><input type="checkbox"' + (dv.actif ? ' checked' : '') + ' onchange="setDvrActif(this.checked);">' +
-    '<span><span class="appareil-choice-nom">Relevé pour le dossier de valeurs de référence</span>' +
-    '<span class="subtitle">À cocher si la prestation est prévue au devis (arrêté du 8 octobre 1987, art. 2 à 4). Document distinct du rapport.</span></span></label></div>';
+    '<span><span class="appareil-choice-nom">Dossier de valeurs de référence</span>' +
+    '<span class="subtitle">À cocher si la prestation est prévue au devis : établir le dossier, mesures à la mise en service, ou analyse d’un dossier existant (arrêté du 8 octobre 1987, art. 2 à 4). Document distinct du rapport, accessible par le menu ⋯ de la mission.</span></span></label></div>';
 }
 
 function renderDvr() {
@@ -256,8 +257,10 @@ function renderDvr() {
   var dv = dvrData(m);
   var items = dvrItems(m);
   var h = '<button class="back-btn" onclick="state.view=\'mission-detail\';render();">' + ICONS.arrowLeft + ' ' + escapeHtml(missionNom(m)) + '</button>';
-  h += '<div class="card"><h1>' + ICONS.clipboard + ' Valeurs de référence</h1>' +
-    '<p class="subtitle">Relevé pour l’établissement du dossier de valeurs de référence (arrêté du 8 octobre 1987). SOCOTEC relève et propose ; le chef d’établissement valide et l’intègre à la notice d’instructions.</p></div>';
+  h += '<div class="card"><h1>' + ICONS.clipboard + ' Dossier de valeurs de référence</h1>' +
+    '<p class="subtitle">Arrêté du 8 octobre 1987, art. 2 à 4 ; INRS ED 6008. SOCOTEC mesure, rédige et propose ; le chef d’établissement valide.</p></div>';
+  if (typeof renderDvrModeChoix === 'function') h += renderDvrModeChoix(m); // js/dossier-installation.js
+  if (typeof dvrMode === 'function' && dvrMode(m) === 'analyse') return h + renderDvrAnalyse(m);
   h += '<div class="card dvr-regle"><b>Règle appliquée :</b> une valeur relevée n’est proposée comme référence que si le critère est satisfaisant. ' +
     'Sinon, le minimum réglementaire ou normatif est proposé, ou la valeur reste à définir par le maître d’ouvrage après remise en conformité.</div>';
   if (!items.length) return h + '<div class="empty-state"><p>Aucune installation mesurée pour l’instant.</p></div>';
@@ -295,8 +298,8 @@ function renderDvr() {
     '<div class="row" style="align-items:center;margin-top:8px;"><input type="text" inputmode="numeric" class="input" style="flex:1;" placeholder="jj/mm/aaaa" value="' + escapeHtml(dv.valideLe || '') + '" onchange="setDvrValidation(this.value);">' +
     (dv.valideLe ? '' : '<button class="btn btn-gray btn-small" onclick="setDvrValidation(todayFr());">Aujourd’hui</button>') + '</div>' +
     (dv.valideLe ? '<div class="appareil-badge status-ok" style="margin-top:8px;">Relevé validé le ' + escapeHtml(dv.valideLe) + '</div>' : '') + '</div>';
-  h += '<button class="btn btn-primary" onclick="exportDvrPdf(false);">' + ICONS.download + ' Télécharger le relevé (PDF)</button>';
-  h += '<button class="btn btn-gray" onclick="exportDvrPdf(true);">' + ICONS.upload + ' Envoyer le relevé</button>';
+  h += '<button class="btn btn-primary" onclick="exportDvrPdf(false);">' + ICONS.download + ' Télécharger le dossier (PDF)</button>';
+  h += '<button class="btn btn-gray" onclick="exportDvrPdf(true);">' + ICONS.upload + ' Envoyer le dossier</button>';
   return h;
 }
 
@@ -304,99 +307,22 @@ function renderDvr() {
 // Document PDF
 // ————————————————————————————————————————————
 
-function dvrDocDefinition(m, logo) {
-  var dv = dvrData(m);
-  var di = m.donneesInternes || {}, ic = m.infosClient || {}, si = m.infosSiteIntervention || {};
-  var BLUE = '#0082DE';
-  var COLORS = { releve: '#166534', mini: '#92400E', adefinir: '#555555', so: '#555555' };
-  var cell = function (t, o) { return Object.assign({ text: t === undefined || t === null || t === '' ? '-' : String(t), fontSize: 8, margin: [3, 2, 3, 2] }, o || {}); };
-  var head = function (t, o) { return cell(t, Object.assign({ bold: true, color: 'white', fillColor: BLUE }, o || {})); };
-  var layout = { hLineColor: function () { return '#B7D7F0'; }, vLineColor: function () { return '#B7D7F0'; }, hLineWidth: function () { return 0.6; }, vLineWidth: function () { return 0.6; } };
-  var dateVisite = di.datesIntervention || m.dateControle || '';
-
-  var content = [];
-  content.push({ columns: [
-    logo ? { image: logo, width: 46 } : { text: '' },
-    { stack: [{ text: 'RELEVÉ POUR L’ÉTABLISSEMENT DU DOSSIER DE VALEURS DE RÉFÉRENCE', bold: true, fontSize: 12.5, color: BLUE },
-      { text: 'Installations d’aération et d’assainissement des locaux de travail — arrêté du 8 octobre 1987', fontSize: 9, color: '#333' }], margin: [12, 6, 0, 0] }
-  ], margin: [0, 0, 0, 10] });
-  content.push({ table: { widths: [110, '*'], body: [
-    [head('Établissement'), cell(ic.nomEntreprise || m.clientSite)],
-    [head('Site'), cell([si.siteIntervention, [si.adresseSite, si.codePostal, si.ville].filter(Boolean).join(' ')].filter(Boolean).join(' – '))],
-    [head('Date(s) du relevé'), cell(dateVisite)],
-    [head('Relevé effectué par'), cell((di.auteurRapport || m.controleur || '') + ' — SOCOTEC')],
-    [head('N° d’affaire'), cell(di.numeroAffaire)]
-  ] }, layout: layout, margin: [0, 0, 0, 10] });
-
-  content.push({ text: 'Cadre', bold: true, fontSize: 10, color: BLUE, margin: [0, 0, 0, 3] });
-  content.push({ text: 'Le dossier de valeurs de référence fixe les caractéristiques qualitatives et quantitatives de l’installation qui garantissent le respect des spécifications réglementaires et permettent les contrôles ultérieurs par comparaison (arrêté du 8 octobre 1987, art. 2). Pour une installation existante, il peut être établi lors de contrôles à l’initiative du chef d’établissement. ' +
-    'Le présent document rassemble les valeurs relevées par SOCOTEC lors du contrôle' + (dateVisite ? ' du ' + dateVisite : '') + '. Il appartient au chef d’établissement de les valider et de les intégrer à la notice d’instructions de l’installation.', fontSize: 8.5, alignment: 'justify', margin: [0, 0, 0, 6] });
-  content.push({ text: [{ text: 'Règle d’établissement : ', bold: true }, 'une valeur relevée n’est proposée comme référence que lorsque le critère applicable (exigence réglementaire, valeur normative ou recommandée) est satisfait. Dans le cas contraire, la valeur proposée est le minimum réglementaire ou normatif applicable ; à défaut, elle est à définir par le maître d’ouvrage après remise en conformité. Les vitesses et pressions sont associées aux débits relevés, aux points de mesure décrits dans le rapport de contrôle.'],
-    fontSize: 8.5, alignment: 'justify', margin: [0, 0, 0, 10] });
-
-  var items = dvrItems(m).filter(function (x) { return !dv.exclus[x.it.inst.id]; });
-  DVR_CATEGORIES.forEach(function (cat) {
-    var list = items.filter(function (x) { return x.cfg.cat === cat.key; });
-    if (!list.length) return;
-    content.push({ text: cat.titre + ' (' + cat.article + ')', bold: true, fontSize: 10.5, color: BLUE, margin: [0, 6, 0, 4] });
-    list.forEach(function (x) {
-      var inst = x.it.inst, block = [];
-      block.push({ text: [{ text: x.it.type.label, bold: true }, ' — ' + verifInstallationTitle(x.it)], fontSize: 9, margin: [0, 4, 0, 2] });
-      if (x.cfg.cat === 'sp') {
-        var refEd = (typeof getEdReferenceForType === 'function' && getEdReferenceForType(x.it.type.id)) || null;
-        block.push({ text: [{ text: 'Polluant(s) représentatif(s) : ', bold: true }, dvrPolluant(m, x.it.type, inst) || 'à préciser par le chef d’établissement',
-          refEd && refEd.badge ? { text: '   ·   Efficacité de captage : par conformité au référentiel ' + refEd.badge + ' (débits et géométrie du captage)' } : ''], fontSize: 8, margin: [0, 0, 0, 3] });
-      }
-      var body = [[head('Grandeur'), head('Valeur relevée', { alignment: 'center' }), head('Valeur de référence proposée', { alignment: 'center' }), head('Origine')]];
-      x.lignes.forEach(function (l) {
-        var u = l.def.unit ? ' ' + l.def.unit : '';
-        body.push([cell(l.def.label), cell(l.val.releve ? l.val.releve + u : '-', { alignment: 'center' }),
-          cell(l.val.propose ? l.val.propose + u : '-', { alignment: 'center', bold: !!l.val.propose }),
-          cell(l.val.label, { color: COLORS[l.val.origine] || '#333', italics: l.val.origine === 'adefinir' })]);
-      });
-      if (x.cfg.filtres) {
-        DVR_FILTRES.forEach(function (f) {
-          var classe = inst.data['filt_' + f[0] + '_classe'], type = inst.data['filt_' + f[0] + '_type'], pdc = inst.data['filt_' + f[0] + '_perte_charge'];
-          if (!classe && !type && !pdc) return;
-          body.push([cell(f[1] + ' — type et classe d’efficacité'), cell([type, classe].filter(Boolean).join(' · ') || '-', { alignment: 'center' }),
-            cell([type, classe].filter(Boolean).join(' · ') || '-', { alignment: 'center', bold: true }), cell('Filtre en place (relevé)', { color: COLORS.releve })]);
-          body.push([cell(f[1] + ' — perte de charge initiale / maximale admise'), cell(dvrFmt(pdc) ? dvrFmt(pdc) + ' Pa' : '-', { alignment: 'center' }), cell('-', { alignment: 'center' }),
-            cell('Donnée constructeur à reporter', { color: COLORS.adefinir, italics: true })]);
-        });
-      }
-      block.push({ table: { headerRows: 1, widths: ['*', 75, 95, 140], body: body }, layout: layout });
-      content.push({ stack: block, unbreakable: true, margin: [0, 0, 0, 6] });
-    });
-  });
-
-  content.push({ unbreakable: true, stack: [
-    { text: 'Validation par le chef d’établissement', bold: true, fontSize: 10.5, color: BLUE, margin: [0, 12, 0, 4] },
-    { text: 'Les valeurs proposées ci-dessus sont adoptées comme valeurs de référence de l’installation et intégrées à la notice d’instructions (arrêté du 8 octobre 1987, art. 2).', fontSize: 8.5, margin: [0, 0, 0, 6] },
-    { table: { widths: ['*', '*', 90, 150], body: [[head('Nom'), head('Fonction'), head('Date'), head('Signature')],
-      [cell(' ', { margin: [3, 18, 3, 18] }), cell(' '), cell(dv.valideLe || ' '), cell(' ')]] }, layout: layout }
-  ] });
-
-  return {
-    pageSize: 'A4', pageMargins: [36, 30, 36, 36],
-    defaultStyle: { font: 'Arial', fontSize: 9 },
-    info: { title: 'Relevé des valeurs de référence – ' + (m.clientSite || '') },
-    footer: function (page, pages) {
-      return { columns: [{ text: di.numeroAffaire ? 'N° d’affaire : ' + di.numeroAffaire : '', fontSize: 7, color: '#777' },
-        { text: page + '/' + pages, alignment: 'right', fontSize: 7, color: '#777' }], margin: [36, 12, 36, 0] };
-    },
-    content: content
-  };
-}
-
+// Document : dossier de valeurs de référence et consigne d'utilisation, ou analyse d'un dossier existant,
+// selon la prestation choisie (js/dossier-installation.js). Même page de garde que le rapport.
 function exportDvrPdf(share) {
   var m = getCurrentMission();
   if (!m) return;
-  ensureLib('pdf').then(function () { return pdfFetchAsDataUrl(LOGO_PATH); }).then(function (logo) {
-    var pdf = pdfMake.createPdf(dvrDocDefinition(m, logo));
-    var name = (m.clientSite || 'Mission').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç\s-]/g, '').trim() + '_releve_valeurs_reference.pdf';
-    if (share) offerPdfShare(pdf, name, missionMailDraft(m, 'Relevé des valeurs de référence'));
+  var analyse = dvrMode(m) === 'analyse';
+  rapportProgres('Préparation du document…');
+  ensureLib('pdf').then(function () { return Promise.all([pdfFetchAsDataUrl(LOGO_PATH), pdfFetchAsDataUrl(BANNER_PATH)]); }).then(function (r) {
+    PDF_ASSETS.logo = r[0]; PDF_ASSETS.banner = r[1];
+    var pdf = pdfMake.createPdf(dossierInstallationDocDefinition(m));
+    rapportProgresFin();
+    var name = (m.clientSite || 'Mission').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç\s-]/g, '').trim() + (analyse ? '_analyse_dossier_valeurs_reference.pdf' : '_dossier_valeurs_reference.pdf');
+    var objet = analyse ? 'Analyse du dossier de valeurs de référence' : 'Dossier de valeurs de référence';
+    if (share) offerPdfShare(pdf, name, missionMailDraft(m, objet));
     else pdf.download(name);
-  }).catch(function (err) { alert('Erreur lors de la génération du relevé.\n' + err.message); });
+  }).catch(function (err) { rapportProgresFin(); alert('Erreur lors de la génération du document.\n' + err.message); });
 }
 
-console.log('✓ Relevé des valeurs de référence chargé');
+console.log('✓ Valeurs de référence chargées');

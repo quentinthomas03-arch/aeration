@@ -51,7 +51,8 @@ function renderMissionDetail() {
       item('render();exportSyntheseExcel();', ICONS.list, 'Exporter la synthèse (Excel)') +
       (typeof exporterPhotosZip === 'function' ? item('render();exporterPhotosZip();', ICONS.download, 'Photos de la mission (zip, rangées par bâtiment)') : '') +
       (typeof renderModifsRapport === 'function' ? item('state.view=\'modifs-rapport\';render();', ICONS.list, 'Modifications depuis la version précédente du rapport') : '') +
-      (m.dvr && m.dvr.actif ? item('state.view=\'dvr\';render();', ICONS.clipboard, 'Relevé des valeurs de référence') : '') +
+      (m.dvr && m.dvr.actif ? item('state.view=\'dvr\';render();', ICONS.clipboard, 'Dossier de valeurs de référence') : '') +
+      (typeof rrInstallations === 'function' && rrInstallations(m).length && !rrMissionRecyclageSeule(m) ? item('exportRecyclagePdf(false);', ICONS.download, 'Rapport semestriel du recyclage (PDF)') : '') +
       item('render();envoyerRapportEtMission();', ICONS.upload, 'Envoyer par mail : rapport PDF + mission (Outlook)') +
       item('render();shareOrExportMission(' + m.id + ');', ICONS.download, 'Transférer la mission seule (fichier .json)') +
       (typeof imprimerEtiquettesQr === 'function' ? item('render();imprimerEtiquettesQr();', QR_ICON, 'Imprimer les étiquettes QR (avant la visite)') : '') +
