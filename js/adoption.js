@@ -4,10 +4,23 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.90';
+var APP_VERSION = '1.94';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.94', date: '07/10/2026', items: [
+    'Toutes les installations : en haut d’une étape, « Reprendre de… » recopie en un toucher ce qui se répète d’une installation à l’autre pendant la visite (date, bâtiment, états visuels, test fumigène, conditions, valeurs de référence…), pris sur l’installation voisine. Les valeurs sont affichées avant d’être reprises ; jamais une mesure.'
+  ] },
+  { version: '1.93', date: '07/10/2026', items: [
+    'Sorbonnes : l’étape « Contexte de mesures » a aussi son bouton de reprise (taille du local, paillasse, ouvrants, autres sorbonnes et dispositifs en fonctionnement), pris sur une autre sorbonne de la mission.'
+  ] },
+  { version: '1.92', date: '07/10/2026', items: [
+    'Cabines de peinture : état visuel de la cabine et état des filtres reprennent les choix du Rapso (« Cabine encrassée », « Neuf », « Encrassé »…) au lieu d’un simple Satisfaisant / Non satisfaisant ; le rapport affiche le constat.'
+  ] },
+  { version: '1.91', date: '07/10/2026', items: [
+    'Sorbonnes : à l’étape « Mesures ambiantes », un bouton reprend en un toucher la température, l’hygrométrie, la pression et les appareils saisis sur une autre sorbonne de la mission.',
+    'Torches aspirantes : un seul point de mesure s’affiche tant que le nombre de points n’est pas choisi (au lieu de 10).'
+  ] },
   { version: '1.90', date: '07/10/2026', items: [
     'Fiches réalignées sur le Rapso : la filtration de la CTA n’apparaît que si on l’affiche, les grilles des locaux de charge s’ajoutent une à une, le commentaire des bras ne s’ouvre que si le bras n’est pas adapté.',
     'Température et pression dans le conduit, commentaires et valeurs de l’an dernier : facultatifs, plus signalés « à saisir ».',

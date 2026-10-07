@@ -500,4 +500,90 @@ function appareilsRepriseHtml(typeId, f, inst) {
     ' Reprendre les appareils de la mission : ' + escapeHtml(txt) + '</button>';
 }
 
+// Reprise depuis une installation voisine de la mission (2026-10-07). En tête d'une étape, un bouton
+// reprend en un geste les champs qui se répètent d'une installation à l'autre pendant une même visite :
+// date, bâtiment, constats, contexte, valeurs de référence. Listes établies sur les classeurs Rapso
+// réels (part des installations voisines ayant la même valeur : « Individuel ou collectif » 100 %,
+// état visuel et test fumigène des bras 99 %, date du contrôle 89 à 100 %…). Jamais une mesure ni un
+// avis. Bouton plutôt que préremplissage : le technicien voit les valeurs avant de les reprendre ; il
+// n'apparaît que s'il évite au moins 2 saisies. Jamais d'une année sur l'autre (même visite seulement).
+// Sanitaires absents : chaque champ concerné s'y règle déjà en un toucher.
+var REPRISE_VOISINE = {
+  bureaux: ['batiment', 'type_local', 'type_ventilation', 'ouvrant_exterieur', 'entree_air_exterieur', 'entree_air_permanente', 'pourcentage_air_neuf', 'etat_bouches'],
+  erp: ['batiment', 'type_local', 'type_ventilation', 'ouvrant_exterieur', 'entree_air_exterieur', 'entree_air_permanente', 'pourcentage_air_neuf', 'etat_bouches'],
+  locaux_fumeurs: ['batiment', 'date_controle'],
+  cta: ['batiment', 'date_controle', 'mode_fonctionnement', 'etat_general', 'prise_air_neuf', 'batterie_froide', 'batterie_chaude', 'canalisations_gaines',
+    'ventilateur_courroie', 'fiche_maintenance', 'afficher_filtration', 'filt_pre_etat', 'filt_pre_type', 'filt_pre_classe', 'filt_filtre_etat',
+    'filt_filtre_type', 'filt_filtre_classe', 'filt_absolu_etat', 'filt_absolu_type', 'filt_absolu_classe', 'mesure_debit'],
+  extracteur: ['batiment', 'date_controle', 'mesure_debit', 'forme_section', 'vitesse_mode', 'afficher_taux'],
+  sorbonnes: ['batiment', 'date_controle', 'temperature', 'hygrometrie', 'pression_atmospherique', 'difference_pression', 'appareils_mesure',
+    'local', 'paillasse', 'ouvrants', 'autres_sorbonnes', 'autres_dispositifs', 'zones_turbulentes', 'zones_mortes', 'perturbations',
+    'verrouillage_paroi', 'parachute_paroi', 'mesure_vitesse_frontale', 'alarme_sonore', 'alarme_visuelle', 'eclairage_interieur',
+    'vitesse_min_reference', 'vitesse_moy_reference', 'debit_reference'],
+  hottes: ['batiment', 'localisation', 'date_mesure', 'etat_visuel_reseau', 'test_fumigene', 'mesures_choisies', 'vpe_min_reference', 'vpe_min_inrs',
+    'vpe_moy_reference', 'vpe_moy_inrs', 'operateur_hors_volume', 'vt_type_polluant', 'vt_reference'],
+  bras_aspiration: ['batiment', 'activite', 'atelier', 'adapte_situation', 'recyclage', 'etat_visuel', 'etat_conduits', 'test_fumigene', 'conditions_dispersion'],
+  cabines_peinture: ['batiment', 'date_controle'],
+  installations_diverses: ['batiment', 'localisation', 'date_controle', 'etat_visuel_reseau', 'test_fumigene', 'mesures_choisies', 'vpe_conditions_dispersion',
+    'vpe_reference', 'vpe_inrs', 'vt_type_polluant', 'vt_reference'],
+  gaz_echappement: ['batiment', 'atelier', 'date_controle'],
+  menuiserie: ['batiment', 'localisation', 'date_controle'],
+  menuiserie_bis: ['date_controle', 'simultaneites', 'vitesse_reference', 'debit_reference', 'etat_visuel_reseau', 'forme_conduit', 'vitesse_mode', 'temperature_conduit'],
+  box_peinture: ['batiment', 'date_controle'],
+  torches_aspirantes: ['batiment', 'date_controle'],
+  locaux_charge: ['batiment', 'date_controle'],
+  tts: ['batiment', 'date_mesure']
+};
+var REPRISE_UNITES = { temperature: ' °C', hygrometrie: ' %', pression_atmospherique: ' hPa', difference_pression: ' Pa', temperature_conduit: ' °C', pourcentage_air_neuf: ' %' };
+
+// Champs de l'étape à reprendre, et installation voisine qui les a : la plus proche avant, sinon après
+function repriseVoisine(m, typeId, idx, step) {
+  var liste = REPRISE_VOISINE[typeId], steps = WIZARD_STEPS[typeId];
+  if (!liste || !steps || !steps[step]) return null;
+  var champs = steps[step].fields.filter(function (k) { return liste.indexOf(k) !== -1; });
+  if (champs.length < 2) return null;
+  var list = (m && m.installations[typeId]) || [], inst = list[idx];
+  if (!inst) return null;
+  var t = getInstallationType(typeId);
+  var visible = function (k) { var f = t.fields.find(function (x) { return x.key === k; }); return f && (!f.showIf || evalShowIf(f.showIf, inst.data)); };
+  var gain = function (d) {
+    return champs.filter(function (k) { return !fieldEmptyValue(d[k]) && JSON.stringify(d[k]) !== JSON.stringify(inst.data[k]) && visible(k); });
+  };
+  var essai = function (i) { var g = list[i] && i !== idx ? gain(list[i].data) : []; return g.length >= 2 ? { src: i, champs: g } : null; };
+  for (var i = idx - 1; i >= 0; i--) { var r = essai(i); if (r) return r; }
+  for (var j = idx + 1; j < list.length; j++) { var r2 = essai(j); if (r2) return r2; }
+  return null;
+}
+
+function repriseValeurTexte(typeId, k, v) {
+  if (Array.isArray(v)) return v.join(', ');
+  if (v === 'Oui' || v === 'Non' || v === '/') {
+    var f = getInstallationType(typeId).fields.find(function (x) { return x.key === k; });
+    // Libellé sans l'unité ou la consigne finale entre parenthèses
+    return (f ? f.label.replace(/\s*\([^)]*\)\s*$/, '').toLowerCase() : k) + ' : ' + v.toLowerCase();
+  }
+  return frDisplay(v) + (REPRISE_UNITES[k] && /\d/.test(v) ? REPRISE_UNITES[k] : '');
+}
+
+function repriseVoisineHtml(typeId, steps, step, inst) {
+  var m = getCurrentMission(), r = repriseVoisine(m, typeId, state.currentInstIndex, step);
+  if (!r) return '';
+  var src = m.installations[typeId][r.src];
+  var resume = r.champs.map(function (k) { return repriseValeurTexte(typeId, k, src.data[k]); }).join(' · ');
+  var nom = overviewRowTitle({ type: getInstallationType(typeId), inst: src, idx: r.src });
+  return '<button type="button" class="phrases-toggle" style="margin-bottom:10px;" onclick="repriseVoisineAppliquer(\'' + typeId + '\',' + r.src + ',' + step + ');">' + ICONS.copy +
+    ' Reprendre de ' + escapeHtml(nom) + ' : ' + escapeHtml(resume) + '</button>';
+}
+
+function repriseVoisineAppliquer(typeId, src, step) {
+  var m = getCurrentMission(), r = repriseVoisine(m, typeId, state.currentInstIndex, step);
+  if (!r || r.src !== src) return;
+  var inst = m.installations[typeId][state.currentInstIndex], d = m.installations[typeId][src].data;
+  r.champs.forEach(function (k) { inst.data[k] = Array.isArray(d[k]) ? d[k].slice() : d[k]; });
+  if (typeof applyCalculations === 'function') applyCalculations(typeId, inst);
+  if (typeof touchInstallation === 'function') touchInstallation(inst);
+  persistMissions();
+  render();
+}
+
 console.log('✓ Aides terrain chargées');

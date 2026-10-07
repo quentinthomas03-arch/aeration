@@ -153,10 +153,16 @@ function buildCtaFiltreFields(prefix, label, avecPerteDeCharge) {
 // répondu à la question (comportement identique à avant son ajout — jamais de régression sur ce
 // point) — ergonomie du 2026-09-19 : sans ça, un relevé à 2-3 points imposait quand même de traverser
 // les 10 étapes "Point de mesure" une par une.
+// Point n°i affiché si le nombre de points choisi est ≥ i. Nombre pas encore choisi : seul le point 1,
+// plus tout point déjà rempli (anciennes fiches) — et non les 10 points d'office (50 cases réclamées).
 function torchePointShowIf(i) {
-  var vals = [''];
+  var vals = i === 1 ? [''] : [];
   for (var k = i; k <= 10; k++) vals.push(String(k));
-  return { key: 'nombre_points_mesure', in: vals };
+  var choisi = { key: 'nombre_points_mesure', in: vals };
+  if (i === 1) return choisi;
+  var p = 'torche' + i;
+  return { or: [choisi, { and: [{ key: 'nombre_points_mesure', in: [''] },
+    { anyFilled: [p + '_point_mesure', p + '_diametre_tube', p + '_vitesse_centre', p + '_valeur_reference', p + '_distance_l'] }] }] };
 }
 function buildTorcheRowFields(i) {
   var p = 'torche' + i;
@@ -791,11 +797,14 @@ var INSTALLATION_TYPES = [
       { key: 'zone_travail', label: 'Zone de travail', type: 'text' },
 
       { key: 'section_visuel', label: 'Contrôle visuel', type: 'section' },
-      { key: 'etat_visuel_cabine', label: 'État visuel de la cabine', type: 'select', options: ['Satisfaisant', 'Non Satisfaisant', 'Impossible de se prononcer'] },
+      // Listes du Rapso (feuille LISTE, LISTBOX_CDP_2_10 et _4_10) : un constat, pas un avis — vérifié sur
+      // les classeurs réels (« Cabine encrassée », « Neuf »…) le 2026-10-07
+      { key: 'etat_visuel_cabine', label: 'État visuel de la cabine', type: 'select', options: ['Etat visuel satisfaisant', 'Cabine encombrée', 'Cabine encrassée',
+        'Cabine avec une aération déficiente', 'Cabine avec un appel d’air empêchant le bon fonctionnement de l’aération'] },
       { key: 'direction_flux', label: 'Vérification de la direction du flux (test fumigène)', type: 'select',
         options: ['Toute la fumée a été aspirée', 'On observe des irrégularités lors de l\u2019aspiration des fumées',
                   'On constate un phénomène de rétrodiffusion des fumées', 'Aucune aspiration', 'Non réalisé'] },
-      { key: 'etat_filtres', label: 'État des filtres', type: 'select', options: ['Satisfaisant', 'Non Satisfaisant', 'Impossible de se prononcer'] },
+      { key: 'etat_filtres', label: 'État des filtres', type: 'select', options: ['Neuf', 'En bon état', 'Encrassé', 'Détérioré', 'Non observé'] },
       { key: 'observation_visuel', label: 'Observation', type: 'textarea' },
 
       { key: 'section_dimensions', label: 'Mesure de la cabine vide', type: 'section' },

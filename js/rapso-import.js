@@ -212,7 +212,7 @@ var RAPSO_FIELD_MAP = {
     ['Nature des produits à peindre', 'nature_produits'],
     ['Subjectiles industriels divers ou véhicules', 'zone_travail'],
     ['Zone de travail', 'zone_travail'],
-    ['Etat des filtres', 'etat_filtres'],
+    ['Etat visuel de la cabine', 'etat_visuel_cabine'], ['Etat des filtres', 'etat_filtres'],
     ['Valeur de référence_1', 'v1_reference'], ['Valeur recommandées par_1', 'v1_recommandee_par'],
     ['Valeur de référence_2', 'v2_reference'], ['Valeur recommandées par_2', 'v2_recommandee_par'],
     ['Largeur (m)/Hauteur (m)', 'largeur_cabine'], ['Longueur (m)', 'longueur_cabine'],

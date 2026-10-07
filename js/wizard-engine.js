@@ -312,6 +312,7 @@ function renderGenericWizard(m, t, inst) {
 
   h += '<div class="card' + etapeAnimClasse(t.id, step) + '">';
   if (typeof conditionsMesureHtml === 'function') h += conditionsMesureHtml(t.id, steps, step, inst); // conditions de mesure (js/conditions-mesure.js)
+  if (typeof repriseVoisineHtml === 'function') h += repriseVoisineHtml(t.id, steps, step, inst); // reprise d'une installation voisine (js/terrain-assist.js)
   gwStepFields(t.id, steps[step]).forEach(function (f) { h += gwRenderField(t.id, f, inst); });
   h += '</div>';
 

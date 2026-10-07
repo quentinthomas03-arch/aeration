@@ -379,6 +379,7 @@ function evalShowIf(cond, data) {
   // forme_conduit/vitesse_mode — donc aucun avis recalculé ni donnée supprimée ; seuls les champs
   // now correctement masqués cessent d'apparaître à l'écran.
   if (cond.and) return cond.and.every(function (c) { return evalShowIf(c, data); });
+  if (cond.or) return cond.or.some(function (c) { return evalShowIf(c, data); });
   // anyFilled : au moins une des cases citées est remplie (grilles successives des locaux de charge)
   if (cond.anyFilled) return cond.anyFilled.some(function (k) { return !fieldEmptyValue(data[k]); });
   // ⚠️ BUG CORRIGÉ (2026-09-19) : v vaut `undefined` (jamais '') tant que le technicien n'a pas

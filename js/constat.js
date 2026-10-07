@@ -10,7 +10,7 @@
 // critères sans conclusion.
 
 var CONSTAT_CHAMPS_PRIORITE = ['observation', 'observations', 'conclusion', 'remarque', 'commentaire', 'commentaire_2', 'commentaire_1'];
-var CONSTAT_ETAT_DEFAVORABLE = /réparer|nettoyer|mauvais|dégradé|détérioré|colmaté|encrassé|hors service|non conforme|insuffisant/i;
+var CONSTAT_ETAT_DEFAVORABLE = /réparer|nettoyer|mauvais|dégradé|détérioré|colmaté|encrassé|encombré|déficient|empêchant|hors service|non conforme|insuffisant/i;
 
 var CONSTAT_IDSP = 'Impossible de se prononcer';
 
