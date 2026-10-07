@@ -345,6 +345,28 @@ function fieldHint(state) {
   return '';
 }
 
+// Valeur imposée par un choix (f.optionHints, ex. vitesse de captage d'une condition de dispersion),
+// affichée à côté du libellé pour savoir quoi choisir ; la valeur enregistrée reste le libellé seul.
+function optionHint(f, opt) {
+  var h = f.optionHints && Object.prototype.hasOwnProperty.call(f.optionHints, opt) ? f.optionHints[opt] : '';
+  return h === undefined || h === null ? '' : String(h);
+}
+function optionTexte(f, opt) {
+  var h = optionHint(f, opt);
+  return h ? opt + ' — ' + h : String(opt);
+}
+
+// <option> d'une liste déroulante. Une valeur déjà saisie absente de la liste (ancienne liste,
+// import) reste affichée et sélectionnée au lieu de disparaître.
+function selectOptionsHtml(f, val) {
+  var h = '<option value=""' + (val === '' ? ' selected' : '') + '>—</option>';
+  if (val !== '' && f.options.indexOf(val) === -1) h += '<option value="' + escapeHtml(val) + '" selected>' + escapeHtml(val) + '</option>';
+  f.options.forEach(function (opt) {
+    h += '<option value="' + escapeHtml(opt) + '"' + (val === opt ? ' selected' : '') + '>' + escapeHtml(optionTexte(f, opt)) + '</option>';
+  });
+  return h;
+}
+
 function evalShowIf(cond, data) {
   // ⚠️ BUG CORRIGÉ (2026-08) : le combinateur `and: [...]` (utilisé par buildBoxCaptageFields pour
   // combiner "nombre_captage sélectionné" + une condition propre au captage, ex. forme rectangulaire
@@ -357,6 +379,8 @@ function evalShowIf(cond, data) {
   // forme_conduit/vitesse_mode — donc aucun avis recalculé ni donnée supprimée ; seuls les champs
   // now correctement masqués cessent d'apparaître à l'écran.
   if (cond.and) return cond.and.every(function (c) { return evalShowIf(c, data); });
+  // anyFilled : au moins une des cases citées est remplie (grilles successives des locaux de charge)
+  if (cond.anyFilled) return cond.anyFilled.some(function (k) { return !fieldEmptyValue(data[k]); });
   // ⚠️ BUG CORRIGÉ (2026-09-19) : v vaut `undefined` (jamais '') tant que le technicien n'a pas
   // touché le champ — torchePointShowIf (installations-schema.js) compte sur `in: ['', '1', ...]`
   // pour que "pas encore répondu" affiche tous les points de mesure, mais `[...].indexOf(undefined)`
@@ -390,13 +414,7 @@ function renderFieldInput(typeId, f, inst) {
     return '<textarea class="input" rows="3" onchange="' + onchange + '">' + escapeHtml(val) + '</textarea>';
   }
   if (f.type === 'select') {
-    var h = '<select class="input" onchange="' + onchange + '">';
-    h += '<option value=""' + (val === '' ? ' selected' : '') + '>—</option>';
-    f.options.forEach(function (opt) {
-      h += '<option value="' + escapeHtml(opt) + '"' + (val === opt ? ' selected' : '') + '>' + escapeHtml(opt) + '</option>';
-    });
-    h += '</select>';
-    return h;
+    return '<select class="input" onchange="' + onchange + '">' + selectOptionsHtml(f, val) + '</select>';
   }
   if (f.type === 'checkbox-group') {
     var current = Array.isArray(val) ? val : (val ? [val] : []);

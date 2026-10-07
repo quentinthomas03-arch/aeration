@@ -234,6 +234,7 @@
     .choice-btn { border: 1.5px solid rgba(0,0,0,0.08); background: rgba(248,250,252,0.8); border-radius: 14px; padding: 16px 10px; font-size: 14px; font-weight: 600; color: var(--text-dark); cursor: pointer; text-align: center; transition: all 0.2s cubic-bezier(0.4,0,0.2,1); }
     .choice-btn:active { transform: scale(0.96); }
     .choice-btn.selected { border-color: var(--primary); background: var(--grad-btn); color: white; box-shadow: 0 4px 14px -2px rgba(0,172,232,0.4); }
+    .choice-hint { display: block; margin-top: 3px; font-size: 12px; font-weight: 500; opacity: .75; }
 
     .wizard-nav { display: flex; gap: 8px; margin-top: 18px; }
     .wizard-nav .btn { margin-bottom: 0; }

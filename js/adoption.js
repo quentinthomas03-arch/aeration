@@ -4,10 +4,15 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.89';
+var APP_VERSION = '1.90';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.90', date: '07/10/2026', items: [
+    'Fiches réalignées sur le Rapso : la filtration de la CTA n’apparaît que si on l’affiche, les grilles des locaux de charge s’ajoutent une à une, le commentaire des bras ne s’ouvre que si le bras n’est pas adapté.',
+    'Température et pression dans le conduit, commentaires et valeurs de l’an dernier : facultatifs, plus signalés « à saisir ».',
+    'Listes déroulantes : la valeur imposée s’affiche à côté du choix (vitesse de captage des bras, plage INRS, vitesse de transport, débit des machines à bois). Bras : la vitesse de captage se remplit d’elle-même, avec la liste exacte du Rapso.'
+  ] },
   { version: '1.89', date: '06/10/2026', items: [
     'Plan du site : zoomez en pinçant à deux doigts, le point sous les doigts reste en place (Ctrl + molette sur PC). Les boutons − / + restent disponibles.'
   ] },

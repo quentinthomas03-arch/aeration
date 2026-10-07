@@ -43,6 +43,33 @@ var MACHINE_BOIS_DEBIT_REF = {
   'Ponceuse': null // pas de valeur de référence dans la liste d'origine ("/")
 };
 var MACHINE_BOIS_OPTIONS = ['/'].concat(Object.keys(MACHINE_BOIS_DEBIT_REF));
+var MACHINE_BOIS_DEBIT_TEXTE = {};
+Object.keys(MACHINE_BOIS_DEBIT_REF).forEach(function (k) {
+  if (MACHINE_BOIS_DEBIT_REF[k] !== null) MACHINE_BOIS_DEBIT_TEXTE[k] = MACHINE_BOIS_DEBIT_REF[k] + ' m³/h';
+});
+
+// Conditions de dispersion du polluant, reprises de la feuille LISTE du Rapso V29 (libellés exacts) :
+//  - bras d'aspiration (LISTBOX_BOA_1_6) : vitesse de captage imposée, en m/s ;
+//  - installations diverses (LISTBOX_EQUIP_1_11) : plage recommandée par l'INRS (ED 695), en m/s.
+var BOA_VITESSE_CAPTAGE = {
+  'Emission sans vitesse initiale en air calme': 0.25,
+  'Emission à faible vitesse en air modérément calme': 0.5,
+  'Génération active en zone agitée': 1,
+  'Emission à grande vitesse initiale dans une zone à mouvement d\'air très rapide': 2.5,
+  'Gaz et vapeurs': null
+};
+var BOA_VITESSE_CAPTAGE_TEXTE = {};
+Object.keys(BOA_VITESSE_CAPTAGE).forEach(function (k) {
+  var v = BOA_VITESSE_CAPTAGE[k];
+  BOA_VITESSE_CAPTAGE_TEXTE[k] = v === null ? 'pas de vitesse imposée' : String(v).replace('.', ',') + ' m/s';
+});
+var EQUIP_VITESSE_EMISSION = {
+  'Emission sans vitesse initiale en air calme': '0,25 à 0,5 m/s',
+  'Emission à faible vitesse en air modérément calme': '0,5 à 1 m/s',
+  'Génération active en zone agitée': '1 à 2,5 m/s',
+  'Emission à grande vitesse initiale dans une zone à mouvement d\'air très rapide': '2,5 à 10 m/s',
+  'Gaz et vapeurs': 'pas de vitesse imposée'
+};
 
 // Génère les champs de mesure d'un captage (Box préparation peinture), visible selon nombre_captage
 function buildBoxCaptageFields(n) {
@@ -115,6 +142,8 @@ function buildCtaFiltreFields(prefix, label, avecPerteDeCharge) {
     { key: prefix + '_classe', label: label + ' — Classe d\u2019efficacité', type: 'select', options: CLASSES_EFFICACITE_FILTRE }
   ];
   if (avecPerteDeCharge) f.push({ key: prefix + '_perte_charge', label: label + ' — Perte de charge (Pa)', type: 'number' });
+  // Comme le Rapso (bouton « Afficher la filtration » de UserForm_CTA) : cadre masqué tant qu'on ne l'affiche pas
+  f.forEach(function (x) { x.showIf = { key: 'afficher_filtration', equals: 'Oui' }; });
   return f;
 }
 
@@ -148,16 +177,20 @@ function buildTorcheRowFields(i) {
 }
 
 // Génère les champs d'une ligne "grille" du panneau Calcul du débit (Locaux de charge)
+// Grilles : comme les lignes « N° de grille » du Rapso, autant que de grilles réelles. La grille n°i
+// n'apparaît que si la précédente est commencée ; chaque case est facultative (grille rectangulaire
+// OU ronde, mesure au cône OU en vitesse : on ne remplit que ce qui s'applique).
 function buildLocalChargeGrilleFields(i) {
-  var p = 'grille' + i;
+  var p = 'grille' + i, q = 'grille' + (i - 1);
+  var showIf = i === 1 ? undefined : { anyFilled: [q + '_largeur', q + '_longueur', q + '_diametre', q + '_debit_cone', q + '_valeur_mesuree'] };
   return [
-    { key: 'section_' + p, label: 'Grille n°' + i, type: 'section' },
-    { key: p + '_largeur', label: 'Largeur (cm)', type: 'number' },
-    { key: p + '_longueur', label: 'Longueur (cm)', type: 'number' },
-    { key: p + '_diametre', label: 'Diamètre (cm)', type: 'number' },
-    { key: p + '_debit_cone', label: "Débit mesuré à l'aide d'un cône (m³/h)", type: 'number' },
-    { key: p + '_valeur_mesuree', label: 'Valeur mesurée (m/s)', type: 'number' },
-    { key: p + '_debit_obtenu', label: 'Débit obtenu (m³/h)', type: 'computed' }
+    { key: 'section_' + p, label: 'Grille n°' + i, type: 'section', showIf: showIf },
+    { key: p + '_largeur', label: 'Largeur (cm)', type: 'number', optional: true, showIf: showIf },
+    { key: p + '_longueur', label: 'Longueur (cm)', type: 'number', optional: true, showIf: showIf },
+    { key: p + '_diametre', label: 'Diamètre (cm)', type: 'number', optional: true, showIf: showIf },
+    { key: p + '_debit_cone', label: "Débit mesuré à l'aide d'un cône (m³/h)", type: 'number', optional: true, showIf: showIf },
+    { key: p + '_valeur_mesuree', label: 'Valeur mesurée (m/s)', type: 'number', optional: true, showIf: showIf },
+    { key: p + '_debit_obtenu', label: 'Débit obtenu (m³/h)', type: 'computed', showIf: showIf }
   ];
 }
 
@@ -703,15 +736,15 @@ var INSTALLATION_TYPES = [
       // écart repéré lors de l'inventaire du chantier "photos par installation".
       { key: 'photo', label: 'Photo', type: 'photo' },
       { key: 'adapte_situation', label: 'Adapté à la situation', type: 'select', options: ['Oui', 'Non'] },
-      { key: 'commentaire_1', label: 'Commentaire', type: 'textarea' },
+      { key: 'commentaire_1', label: 'Commentaire', type: 'textarea', showIf: { key: 'adapte_situation', equals: 'Non' } }, // Rapso : seulement si non adapté
       { key: 'recyclage', label: 'Recyclage', type: 'select', options: ['Oui', 'Non'] },
       { key: 'etat_visuel', label: 'État visuel', type: 'select', options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués'] },
       { key: 'etat_conduits', label: 'État des conduits aérauliques', type: 'select', options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués'] },
       { key: 'test_fumigene', label: 'Test fumigène — Visualisation fumigène à 20 cm', type: 'text' },
+      // Liste du Rapso (feuille LISTE, LISTBOX_BOA_1_6) : chaque condition impose la vitesse de captage
+      // (BOA_VITESSE_CAPTAGE), affichée à côté du choix et reportée dans « Vitesse de captage recherchée »
       { key: 'conditions_dispersion', label: 'Conditions de dispersion du polluant', type: 'select',
-        options: ['Emission passive en air calme', 'Emission à faible vitesse en air calme',
-                  'Emission à faible vitesse en air modérément calme', 'Génération active en zone calme',
-                  'Génération active en zone agitée', 'Projection à grande vitesse'] },
+        options: Object.keys(BOA_VITESSE_CAPTAGE), optionHints: BOA_VITESSE_CAPTAGE_TEXTE },
 
       { key: 'section_bouche', label: "Bouche d'aspiration", type: 'section' },
       { key: 'type_bouche', label: 'Type de bouche d\u2019aspiration', type: 'select', options: ['Sans collerette', 'Avec collerette', 'Sans collerette reposant sur un plan', 'Avec collerette reposant sur un plan'] },
@@ -835,10 +868,9 @@ var INSTALLATION_TYPES = [
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_mesuree', label: 'Valeur mesurée (m/s)', type: 'number',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
+      // Liste du Rapso (LISTBOX_EQUIP_1_11) avec la plage de vitesse INRS de chaque condition
       { key: 'vpe_conditions_dispersion', label: 'Condition de dispersion du polluant', type: 'select',
-        options: ['Emission passive en air calme', 'Emission à faible vitesse en air calme',
-                  'Emission à faible vitesse en air modérément calme', 'Génération active en zone calme',
-                  'Génération active en zone agitée', 'Emission à grande vitesse initiale dans une zone à mouvement d\u2019air très rapide'],
+        options: Object.keys(EQUIP_VITESSE_EMISSION), optionHints: EQUIP_VITESSE_EMISSION,
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
@@ -1006,7 +1038,7 @@ var INSTALLATION_TYPES = [
       { key: 'section_localisation', label: 'Localisation', type: 'section' },
       { key: 'reference_machine', label: 'Référence de la machine à bois', type: 'text' },
       { key: 'date_controle', label: 'Date de Contrôle', type: 'text' },
-      { key: 'type_machine', label: 'Type de machine à bois', type: 'select', options: MACHINE_BOIS_OPTIONS },
+      { key: 'type_machine', label: 'Type de machine à bois', type: 'select', options: MACHINE_BOIS_OPTIONS, optionHints: MACHINE_BOIS_DEBIT_TEXTE },
       { key: 'photo', label: 'Photo', type: 'photo' },
       { key: 'simultaneites', label: 'Simultanéités (ex : 100% — toutes les machines en aspiration, ou XX% — machines en aspiration : ...)', type: 'textarea' },
 
@@ -1230,6 +1262,19 @@ var INSTALLATION_TYPES = [
     ]
   },
 ];
+
+// Cases facultatives, comme dans le Rapso (vérif du 2026-10-07) : affichées « optionnel » et jamais
+// réclamées par « Terminé » ni « Vérifier avant de partir » :
+//  - commentaires, observations, remarques, conclusion rédigée ;
+//  - valeurs de l'an dernier (*_n1, débit mesuré précédemment) : reprises de la visite précédente ;
+//  - température et pression statique dans le conduit : dans le Rapso, elles ne figurent que dans la
+//    mesure par points dans la gaine, et ne servent qu'à la masse volumique affichée (pas au débit).
+var CHAMPS_FACULTATIFS_RAPSO = /^(observation|observations|observation_visuel|commentaire|commentaire_\d|remarque|conclusion|debit_precedent)$|_n1$|(^|_)temperature_conduit$|(^|_)pression_statique$|^captage\d_(temperature|pression_statique)$/;
+INSTALLATION_TYPES.forEach(function (t) {
+  t.fields.forEach(function (f) {
+    if (f.type !== 'section' && f.type !== 'computed' && CHAMPS_FACULTATIFS_RAPSO.test(f.key)) f.optional = true;
+  });
+});
 
 function getInstallationType(id) {
   for (var i = 0; i < INSTALLATION_TYPES.length; i++) {

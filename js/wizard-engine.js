@@ -75,7 +75,8 @@ function gwChoiceButtons(typeId, f, inst) {
   f.options.forEach(function (opt) {
     var jsSafeOpt = String(opt).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     h += '<button type="button" class="choice-btn' + (val === opt ? ' selected' : '') + '" onclick="gwField(\'' +
-      typeId + '\',\'' + f.key + '\',\'' + jsSafeOpt + '\');">' + escapeHtml(opt) + '</button>';
+      typeId + '\',\'' + f.key + '\',\'' + jsSafeOpt + '\');">' + escapeHtml(opt) +
+      (optionHint(f, opt) ? ' <span class="choice-hint">' + escapeHtml(optionHint(f, opt)) + '</span>' : '') + '</button>';
   });
   h += '</div>' + fieldHint(st) + '</div>';
   return h;
@@ -103,10 +104,7 @@ function gwNativeSelect(typeId, f, inst) {
   var st = fieldState(f, inst);
   var h = '<div class="field-big">' + fieldLabelWithTag(f, st) +
     '<select class="input-text-big state-' + st + '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">';
-  h += '<option value=""' + (val === '' ? ' selected' : '') + '>—</option>';
-  f.options.forEach(function (opt) {
-    h += '<option value="' + escapeHtml(opt) + '"' + (val === opt ? ' selected' : '') + '>' + escapeHtml(opt) + '</option>';
-  });
+  h += selectOptionsHtml(f, val);
   h += '</select>' + fieldHint(st) + '</div>';
   return h;
 }

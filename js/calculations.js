@@ -61,6 +61,14 @@ var HOTTE_POLLUANTS = {
   'Poussières lourdes': '20 à 23',
   'Poussières lourdes ou humides': '> 23'
 };
+// Vitesse de transport affichée à côté de chaque type de polluant dans la liste (hottes, installations diverses)
+INSTALLATION_TYPES.forEach(function (t) {
+  t.fields.forEach(function (f) {
+    if (f.key !== 'vt_type_polluant') return;
+    f.optionHints = {};
+    Object.keys(HOTTE_POLLUANTS).forEach(function (k) { f.optionHints[k] = /^[>\d]/.test(HOTTE_POLLUANTS[k]) ? HOTTE_POLLUANTS[k] + ' m/s' : 'pas de minimum'; });
+  });
+});
 
 var POURCENTAGE_REF = 0.8; // Pourcentage_Ref_TABx dans le VBA
 
@@ -1019,6 +1027,12 @@ var CALC_RULES = {
   ],
 
   bras_aspiration: [
+    // Vitesse de captage imposée par la condition de dispersion choisie (liste du Rapso, comme
+    // « Condition de Polluant_2 ») ; condition absente ou « Gaz et vapeurs » : saisie du technicien gardée
+    { target: 'vitesse_captage', decimals: 2, fn: function (d) {
+        var v = BOA_VITESSE_CAPTAGE[d.conditions_dispersion];
+        return typeof v === 'number' ? v : NaN;
+      } },
     { target: 'surface_bouche', decimals: 4, fn: function (d) {
         var s = surfaceBoucheBOA(d);
         return isNaN(s) ? '' : s;
