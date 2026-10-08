@@ -245,7 +245,7 @@ function omFichesEtape(typeId, steps, step, inst) {
   if (typeId === 'sorbonnes' && (a('grille') || a('perturbations'))) ajoute('sorbonne');
   if (typeId === 'hottes' && a('vpe_grid')) ajoute('hotte');
   if (typeId === 'bras_aspiration' && (a('vitesse_moyenne') || a('test_fumigene'))) ajoute('bras');
-  if (typeId === 'cabines_peinture' && (a('vitesse_grid') || a('largeur_cabine'))) ajoute('cabine');
+  if (typeId === 'cabines_peinture' && (a('vitesse_grid') || a('largeur_cabine') || a('avec_grid'))) ajoute('cabine');
   if (typeId === 'tts' && a('vitesse_fentes')) ajoute('cuve');
   if (typeId === 'installations_diverses' && a('vpe_mesuree')) ajoute('emission');
   if (typeId === 'decapage' && (a('longueur') || a('debit_extrait') || a('vitesse_ouvertures'))) ajoute('decapage');
@@ -282,7 +282,9 @@ function omBoutonsHtml(typeId, fiches) {
 function ouMesurerHtml(typeId, steps, step, inst) {
   var fiches = omFichesEtape(typeId, steps, step, inst);
   var h = omBoutonsHtml(typeId, fiches);
-  if (fiches.some(function (o) { return o.k === 'cabine'; })) h += omCabineGrilleBoutonHtml(inst.data);
+  // Grille du protocole : seulement sur l'étape de la grille de la cabine vide
+  if (fiches.some(function (o) { return o.k === 'cabine'; }) && gwStepFields(typeId, steps[step]).some(function (f) { return f.key === 'vitesse_grid' && (!f.showIf || evalShowIf(f.showIf, inst.data)); }))
+    h += omCabineGrilleBoutonHtml(inst.data);
   return h;
 }
 
@@ -374,11 +376,19 @@ var OM_CDP_CRITERES = {
 var OM_CDP_TYPES = { 'Voiture': 'CDP Voiture', 'Camion': 'CDP Camion', 'Ouverte': 'CDP Ouverte', 'Fermée': 'CDP Fermee', 'Encombrant': 'CDP Encombrant', 'Fosse': 'CDP Fosse' };
 
 // Propositions pour la vitesse moyenne (rang 0) ou minimale (rang 1) : [{ par, valeur, precision }]
-function omCdpPropositions(d, rang) {
+function omCdpPropositions(d, rang, bloc) {
+  bloc = bloc || 'vide';
   var t = OM_CDP_TYPES[d.type_cabine || ''];
   if (!t) return [];
   var zone = /ext/i.test(d.zone_travail || '') ? 'Extérieure' : /int/i.test(d.zone_travail || '') ? 'Intérieure' : '';
-  var veh = /v[ée]hicule/i.test(d.zone_travail || '') ? ['véhicules'] : /subjectile/i.test(d.zone_travail || '') ? ['subjectiles industriels divers'] : ['subjectiles industriels divers', 'véhicules'];
+  // Voiture, camion : critère « véhicules » ou « subjectiles industriels divers » ; la cabine vide n'a de
+  // valeur que pour les subjectiles (feuille LISTE du Rapso)
+  var objets = d.vehicules_subjectiles || '', veh = [];
+  if (bloc === 'vide') veh = ['subjectiles industriels divers'];
+  else {
+    if (!objets || /v[ée]hicule/i.test(objets)) veh.push('véhicules');
+    if (!objets || /subjectile/i.test(objets)) veh.push('subjectiles industriels divers');
+  }
   var guide = d.type_cabine === 'Encombrant' ? 'Guide INRS ED 906' : d.pulverisation === 'Poudre' ? 'Guide INRS ED 928' : 'Guide INRS ED 839';
   var out = [];
   ['Norme 16985', 'Guide INRS'].forEach(function (ref) {
@@ -391,30 +401,34 @@ function omCdpPropositions(d, rang) {
     variantes.forEach(function (v) {
       var ligne = OM_CDP_CRITERES['/' + t + '/' + ref + '/' + v[0]];
       if (!ligne) return;
-      var val = ligne[rang] || ligne[rang + 2]; // avec le véhicule / l'encombrant, sinon cabine vide
+      var val = ligne[bloc === 'avec' ? rang : rang + 2];
       if (val && val !== '/') out.push({ par: ref === 'Guide INRS' ? guide : ref, valeur: val, precision: v[1] });
     });
   });
   return out;
 }
 
+// Champ de valeur recommandée → [bloc, rang, champ « recommandée par »]
+var OM_CDP_CHAMPS_RECO = { v1_valeur_recommandee: ['vide', 0, 'v1_recommandee_par'], v2_valeur_recommandee: ['vide', 1, 'v2_recommandee_par'],
+  avec_moy_reco: ['avec', 0, 'avec_recommandee_par'], avec_min_reco: ['avec', 1, 'avec_recommandee_par'] };
+
 function omCdpRecoHtml(typeId, f, inst) {
-  var rang = f.key === 'v1_valeur_recommandee' ? 0 : f.key === 'v2_valeur_recommandee' ? 1 : -1;
-  if (typeId !== 'cabines_peinture' || rang < 0) return '';
-  var d = inst.data, pre = rang ? 'v2_' : 'v1_', props = omCdpPropositions(d, rang);
-  props = props.filter(function (p) { return !(String(d[pre + 'valeur_recommandee']) === p.valeur && d[pre + 'recommandee_par'] === p.par); });
+  var c = OM_CDP_CHAMPS_RECO[f.key];
+  if (typeId !== 'cabines_peinture' || !c) return '';
+  var d = inst.data, props = omCdpPropositions(d, c[1], c[0]);
+  props = props.filter(function (p) { return !(String(d[f.key]) === p.valeur && d[c[2]] === p.par); });
   if (!props.length) return '';
   return '<div class="om-reco">' + props.map(function (p) {
-    return '<button type="button" class="phrases-toggle" onclick="omCdpAppliquer(\'' + pre + '\',\'' + p.valeur + '\',\'' + escapeHtml(p.par) + '\');">' + ICONS.copy + ' ' +
+    return '<button type="button" class="phrases-toggle" onclick="omCdpAppliquer(\'' + f.key + '\',\'' + c[2] + '\',\'' + p.valeur + '\',\'' + escapeHtml(p.par) + '\');">' + ICONS.copy + ' ' +
       escapeHtml(p.par) + (p.precision ? ' (' + escapeHtml(p.precision) + ')' : '') + ' : ' + p.valeur + ' m/s</button>';
   }).join('') + '</div>';
 }
 
-function omCdpAppliquer(pre, valeur, par) {
+function omCdpAppliquer(champ, champPar, valeur, par) {
   var inst = getCurrentInstallation('cabines_peinture');
   if (!inst) return;
-  inst.data[pre + 'recommandee_par'] = par;
-  updateInstallationField('cabines_peinture', pre + 'valeur_recommandee', valeur);
+  inst.data[champPar] = par;
+  updateInstallationField('cabines_peinture', champ, valeur);
 }
 
 // ————————————————————————————————————————————

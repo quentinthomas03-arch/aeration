@@ -78,6 +78,9 @@ var DVR_CONFIG = {
     { label: 'Distance maximale de captage', mesure: 'distance_max_captage', role: 'point', unit: 'cm' }
   ] },
   cabines_peinture: { cat: 'sp', polluant: 'Aérosols de peinture et solvants', lignes: [
+    // Voiture, camion, encombrant : mesure autour du véhicule ou de l’encombrant (2026-10-08)
+    { label: 'Vitesse moyenne autour du véhicule ou de l’encombrant', mesure: 'avec_v_moy', mini: 'avec_moy_reco', miniLabel: 'Valeur recommandée', avis: 'avec_moy_avis', unit: 'm/s', ref: 'avec_moy_reference' },
+    { label: 'Vitesse minimale autour du véhicule ou de l’encombrant', mesure: 'avec_v_min', mini: 'avec_min_reco', miniLabel: 'Valeur recommandée', avis: 'avec_min_avis', unit: 'm/s', ref: 'avec_min_reference' },
     { label: 'Vitesse moyenne de l’air dans la cabine', mesure: 'v1_mesuree', mini: 'v1_valeur_recommandee', miniLabel: 'Valeur recommandée', avis: 'v1_avis', unit: 'm/s', ref: 'v1_reference' },
     { label: 'Vitesse minimale de l’air dans la cabine', mesure: 'v2_mesuree', mini: 'v2_valeur_recommandee', miniLabel: 'Valeur recommandée', avis: 'v2_avis', unit: 'm/s', ref: 'v2_reference' },
     { label: 'Débit d’air extrait', mesure: 'debit_mesure', avis: 'debit_avis', unit: 'm³/h', ref: 'debit_reference' },

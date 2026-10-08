@@ -4,10 +4,18 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.2';
+var APP_VERSION = '2.4';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.4', date: '08/10/2026', items: [
+    'Bureaux et salles de réunion : le commentaire réglementaire du Rapso est rédigé automatiquement (« Effectif : 3 personne (s) max », « Ce volume permet d’accueillir 5 occupant(s) »…), selon le volume ou le débit d’air neuf. Il s’affiche dans la fiche et dans le rapport, suivi de votre commentaire.'
+  ] },
+  { version: '2.3', date: '08/10/2026', items: [
+    'Cabines de voiture, de camion et d’encombrant : comme dans le Rapso, mesure autour du véhicule ou de l’encombrant (10 points pour une voiture, 12, 14 ou 16 pour un camion selon sa longueur, 14 pour un encombrant), moyenne et minimum calculés, avec leurs avis.',
+    'Cabines de voiture et de camion : la cabine vide n’est demandée que si l’on y peint aussi des subjectiles divers (« Objets peints »). Le rapport suit la même règle.',
+    'Import d’un classeur Rapso : les mesures avec le véhicule ou l’encombrant et celles de la cabine vide arrivent chacune dans leur bloc ; la longueur du camion et les objets peints sont repris.'
+  ] },
   { version: '2.2', date: '08/10/2026', items: [
     'Cabines de peinture : types Voiture, Camion et Fosse du Rapso, avec leur protocole de mesure (points autour du véhicule, ligne de points dans la fosse) et leur titre dans le rapport.',
     'Cabines de peinture : la valeur recommandée du Rapso (Norme 16985 ou guide INRS, selon le type de cabine, le flux, la zone et la pulvérisation) se reprend en un toucher sous le champ, avec sa référence.',

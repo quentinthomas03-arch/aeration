@@ -527,7 +527,8 @@ var REPRISE_VOISINE = {
   // Cabines (2026-10-08) : type de flux 4/4 cabines voisines, pulvérisation et zone de travail identiques
   // quand renseignées, valeurs recommandées et « Norme 16985 » 100 % (classeurs et rapports réels)
   cabines_peinture: ['batiment', 'date_controle', 'type_flux', 'pulverisation', 'zone_travail', 'v1_reference', 'v1_valeur_recommandee', 'v1_recommandee_par',
-    'v2_active', 'v2_reference', 'v2_valeur_recommandee', 'v2_recommandee_par'],
+    'v2_active', 'v2_reference', 'v2_valeur_recommandee', 'v2_recommandee_par', 'vehicules_subjectiles',
+    'avec_moy_reference', 'avec_moy_reco', 'avec_min_reference', 'avec_min_reco', 'avec_recommandee_par'],
   installations_diverses: ['batiment', 'localisation', 'date_controle', 'etat_visuel_reseau', 'test_fumigene', 'mesures_choisies', 'vpe_conditions_dispersion',
     'vpe_reference', 'vpe_inrs', 'vt_type_polluant', 'vt_reference'],
   gaz_echappement: ['batiment', 'atelier', 'date_controle'],

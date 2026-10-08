@@ -3,7 +3,7 @@
 // À tenir à jour à chaque évolution d'un critère (voir NOTICE-TECHNIQUE.md).
 
 var APROPOS = {
-  conception: 'Quentin Thomas — SOCOTEC',
+  conception: 'Quentin Thomas',
   referent: 'À désigner par la direction technique',
   relectureTextes: '03/10/2026',
   reglementation: [

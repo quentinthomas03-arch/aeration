@@ -264,6 +264,15 @@ var N1_COMPARISON_FIELDS = {
   ]
 };
 
+// Cabines de peinture (2026-10-08) : bloc « avec le véhicule ou l'encombrant » et bloc « cabine vide »
+// selon le type de cabine, comme le Rapso (UserForm_CDP, Inserer_Annexes). Type non renseigné : cabine vide.
+var CDP_OBJETS = ['Véhicules', 'Subjectiles industriels divers', 'Véhicules et subjectiles industriels divers'];
+var CDP_CLASSES_CAMION = ['Inférieure à 10 m', '10 à 12 m', '12 à 14 m'];
+var CDP_AVEC = { key: 'type_cabine', in: ['Voiture', 'Camion', 'Encombrant'] };
+var CDP_VIDE = { or: [{ key: 'type_cabine', in: ['', 'Fermée', 'Ouverte', 'Semi-fermée', 'Encombrant', 'Fosse'] },
+  { key: 'vehicules_subjectiles', in: [CDP_OBJETS[1], CDP_OBJETS[2]] }] };
+var CDP_VIDE_V2 = { and: [CDP_VIDE, { key: 'v2_active', equals: 'Oui' }] };
+
 var INSTALLATION_TYPES = [
   {
     id: 'bureaux', label: 'Bureaux / Salles de réunion', icon: 'building', implemented: true,
@@ -319,6 +328,8 @@ var INSTALLATION_TYPES = [
 
       { key: 'section_conclusion', label: 'Conclusion', type: 'section' },
       { key: 'avis', label: "Avis (débit d'air neuf vs valeur à respecter)", type: 'computed' },
+      // Commentaire du Rapso (UserForm_LOC) : effectif maximal que permettent le volume ou le débit d’air neuf
+      { key: 'commentaire_rapso', label: 'Commentaire réglementaire (effectif maximal, comme le Rapso)', type: 'computed' },
       { key: 'commentaire', label: 'Commentaire', type: 'textarea' }
     ]
   },
@@ -796,6 +807,9 @@ var INSTALLATION_TYPES = [
       { key: 'nature_produits', label: 'Nature des produits à peindre', type: 'text' },
       { key: 'pulverisation', label: 'Pulvérisation', type: 'select', options: ['Liquide', 'Poudre'] },
       { key: 'zone_travail', label: 'Zone de travail', type: 'text' },
+      // Rapso (UserForm_CDP, cases « subjectiles industriels divers » / « véhicules ») : pour une voiture
+      // ou un camion, la cabine vide n'est mesurée que si l'on y peint aussi des subjectiles divers
+      { key: 'vehicules_subjectiles', label: 'Objets peints', type: 'select', options: CDP_OBJETS, showIf: { key: 'type_cabine', in: ['Voiture', 'Camion'] } },
 
       { key: 'section_visuel', label: 'Contrôle visuel', type: 'section' },
       // Listes du Rapso (feuille LISTE, LISTBOX_CDP_2_10 et _4_10) : un constat, pas un avis — vérifié sur
@@ -808,30 +822,51 @@ var INSTALLATION_TYPES = [
       { key: 'etat_filtres', label: 'État des filtres', type: 'select', options: ['Neuf', 'En bon état', 'Encrassé', 'Détérioré', 'Non observé'] },
       { key: 'observation_visuel', label: 'Observation', type: 'textarea' },
 
-      { key: 'section_dimensions', label: 'Mesure de la cabine vide', type: 'section' },
-      { key: 'largeur_cabine', label: 'Largeur (m)', type: 'number' },
-      { key: 'longueur_cabine', label: 'Longueur (m)', type: 'number' },
-      { key: 'vitesse_nb_axes', label: 'Nombre d’axes', type: 'number' },
-      { key: 'vitesse_nb_points', label: 'Nombre de points par axe', type: 'number' },
-      { key: 'vitesse_grid', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid', colsKey: 'vitesse_nb_points', rowsKey: 'vitesse_nb_axes', pointEntry: true },
-      { key: 'vitesse_moyenne_grille', label: 'Vitesse moyenne calculée (m/s)', type: 'computed' },
+      // Mesure avec le véhicule ou l'encombrant (Rapso : blocs _1/_2 et « Tableau Valeur_1 ») : 10 points
+      // autour d'une voiture, 12, 14 ou 16 autour d'un camion selon sa longueur, 14 autour d'un encombrant.
+      // Moyenne et minimum calculés sur ces points, comme le Rapso (vérifié sur 2 cabines réelles).
+      { key: 'section_avec', label: 'Mesure avec le véhicule ou l’encombrant', type: 'section', showIf: CDP_AVEC },
+      { key: 'avec_classe_camion', label: 'Longueur du camion', type: 'select', options: CDP_CLASSES_CAMION, showIf: { key: 'type_cabine', equals: 'Camion' } },
+      { key: 'avec_nb_points', label: 'Nombre de points autour du véhicule ou de l’encombrant', type: 'computed', showIf: CDP_AVEC },
+      { key: 'avec_nb_lignes', label: 'Lignes de la grille', type: 'computed', showIf: CDP_AVEC },
+      { key: 'avec_nb_colonnes', label: 'Colonnes de la grille', type: 'computed', showIf: CDP_AVEC },
+      { key: 'avec_grid', label: 'Valeurs mesurées autour du véhicule ou de l’encombrant (m/s) — « / » pour exclure un point', type: 'grid',
+        rowsKey: 'avec_nb_lignes', colsKey: 'avec_nb_colonnes', pointEntry: true, showIf: CDP_AVEC },
+      { key: 'avec_v_moy', label: 'Vitesse moyenne mesurée (m/s)', type: 'computed', showIf: CDP_AVEC },
+      { key: 'avec_v_min', label: 'Vitesse minimale mesurée (m/s)', type: 'computed', showIf: CDP_AVEC },
+      { key: 'avec_moy_reference', label: 'Vitesse moyenne — valeur de référence (m/s, « / » si aucune)', type: 'text', showIf: CDP_AVEC },
+      { key: 'avec_moy_reco', label: 'Vitesse moyenne — valeur recommandée (m/s)', type: 'number', showIf: CDP_AVEC },
+      { key: 'avec_moy_avis', label: 'Vitesse moyenne — avis', type: 'computed', showIf: CDP_AVEC },
+      { key: 'avec_min_reference', label: 'Vitesse minimale — valeur de référence (m/s, « / » si aucune)', type: 'text', showIf: CDP_AVEC },
+      { key: 'avec_min_reco', label: 'Vitesse minimale — valeur recommandée (m/s)', type: 'number', showIf: CDP_AVEC },
+      { key: 'avec_min_avis', label: 'Vitesse minimale — avis', type: 'computed', showIf: CDP_AVEC },
+      { key: 'avec_recommandee_par', label: 'Valeurs recommandées par (ex : Norme 16985, guide INRS ED 839)', type: 'text', showIf: CDP_AVEC },
 
-      { key: 'section_v1', label: 'Vitesse d\u2019air — Vitesse moyenne', type: 'section' },
-      { key: 'v1_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number' },
-      { key: 'v1_mesuree', label: 'Valeur mesurée (m/s)', type: 'number' },
-      { key: 'v1_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text' },
-      { key: 'v1_valeur_recommandee', label: 'Valeur recommandée (m/s)', type: 'number' },
-      { key: 'v1_recommandee_par', label: 'Valeur recommandée par (ex : Norme 16985, guide INRS ED 835/ED 928)', type: 'text' },
-      { key: 'v1_avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed' },
+      // Cabine vide : toujours, sauf voiture ou camion où l'on ne peint que des véhicules (Rapso)
+      { key: 'section_dimensions', label: 'Mesure de la cabine vide', type: 'section', showIf: CDP_VIDE },
+      { key: 'largeur_cabine', label: 'Largeur (m)', type: 'number', showIf: CDP_VIDE },
+      { key: 'longueur_cabine', label: 'Longueur (m)', type: 'number', showIf: CDP_VIDE },
+      { key: 'vitesse_nb_axes', label: 'Nombre d’axes', type: 'number', showIf: CDP_VIDE },
+      { key: 'vitesse_nb_points', label: 'Nombre de points par axe', type: 'number', showIf: CDP_VIDE },
+      { key: 'vitesse_grid', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid', colsKey: 'vitesse_nb_points', rowsKey: 'vitesse_nb_axes', pointEntry: true, showIf: CDP_VIDE },
+      { key: 'vitesse_moyenne_grille', label: 'Vitesse moyenne calculée (m/s)', type: 'computed', showIf: CDP_VIDE },
 
-      { key: 'section_v2', label: 'Vitesse d\u2019air — Vitesse minimale', type: 'section' },
-      { key: 'v2_active', label: 'Ajouter la vitesse minimale', type: 'select', options: ['Oui', 'Non'] },
-      { key: 'v2_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number', showIf: { key: 'v2_active', equals: 'Oui' } },
-      { key: 'v2_mesuree', label: 'Valeur mesurée (m/s)', type: 'number', showIf: { key: 'v2_active', equals: 'Oui' } },
-      { key: 'v2_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text', showIf: { key: 'v2_active', equals: 'Oui' } },
-      { key: 'v2_valeur_recommandee', label: 'Valeur recommandée (m/s)', type: 'number', showIf: { key: 'v2_active', equals: 'Oui' } },
-      { key: 'v2_recommandee_par', label: 'Valeur recommandée par', type: 'text', showIf: { key: 'v2_active', equals: 'Oui' } },
-      { key: 'v2_avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed', showIf: { key: 'v2_active', equals: 'Oui' } },
+      { key: 'section_v1', label: 'Vitesse d’air — Vitesse moyenne', type: 'section', showIf: CDP_VIDE },
+      { key: 'v1_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number', showIf: CDP_VIDE },
+      { key: 'v1_mesuree', label: 'Valeur mesurée (m/s)', type: 'number', showIf: CDP_VIDE },
+      { key: 'v1_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text', showIf: CDP_VIDE },
+      { key: 'v1_valeur_recommandee', label: 'Valeur recommandée (m/s)', type: 'number', showIf: CDP_VIDE },
+      { key: 'v1_recommandee_par', label: 'Valeur recommandée par (ex : Norme 16985, guide INRS ED 835/ED 928)', type: 'text', showIf: CDP_VIDE },
+      { key: 'v1_avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed', showIf: CDP_VIDE },
+
+      { key: 'section_v2', label: 'Vitesse d’air — Vitesse minimale', type: 'section', showIf: CDP_VIDE },
+      { key: 'v2_active', label: 'Ajouter la vitesse minimale', type: 'select', options: ['Oui', 'Non'], showIf: CDP_VIDE },
+      { key: 'v2_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number', showIf: CDP_VIDE_V2 },
+      { key: 'v2_mesuree', label: 'Valeur mesurée (m/s)', type: 'number', showIf: CDP_VIDE_V2 },
+      { key: 'v2_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text', showIf: CDP_VIDE_V2 },
+      { key: 'v2_valeur_recommandee', label: 'Valeur recommandée (m/s)', type: 'number', showIf: CDP_VIDE_V2 },
+      { key: 'v2_recommandee_par', label: 'Valeur recommandée par', type: 'text', showIf: CDP_VIDE_V2 },
+      { key: 'v2_avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed', showIf: CDP_VIDE_V2 },
 
       { key: 'section_debit', label: 'Débit d\u2019air dans la cabine vide', type: 'section' },
       { key: 'debit_mesure_n1', label: 'Débit mesuré année N-1 (m³/h)', type: 'number' },
@@ -945,7 +980,7 @@ var INSTALLATION_TYPES = [
       { key: 'photo', label: 'Photo', type: 'photo' },
       { key: 'type_captage_adapte', label: 'Type de captage adapté à la situation', type: 'select', options: ['Oui', 'Non'] },
       // "Le système de fixation est hors-service", "La gaine est trouée" et "Bon état" confirmés
-      // verbatim par plusieurs rapports de référence réels (ex. EK2L0_25_1909, ek2l0_1910).
+      // verbatim par plusieurs rapports de référence réels.
       // "Le réseau est encrassé" vient de la lecture directe de la feuille LISTE du classeur VBA
       // (source fiable) mais n'a pas été vu coché sur un rapport réel échantillonné — à vérifier en
       // priorité si un dossier réel montre un jour "réseau encrassé" coché.

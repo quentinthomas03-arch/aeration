@@ -210,17 +210,26 @@ var RAPSO_FIELD_MAP = {
     ['Marque', 'marque'], ['Emplacement', 'batiment'], ['Date du contrôle', 'date_controle'],
     ['Description de la cabine', 'reference_equipement'],
     ['Nature des produits à peindre', 'nature_produits'],
-    ['Subjectiles industriels divers ou véhicules', 'zone_travail'],
+    // Voiture, camion : cases « subjectiles industriels divers » / « véhicules » du Rapso
+    ['Subjectiles industriels divers ou véhicules', 'vehicules_subjectiles', function (v) {
+      var s = String(v || '').toLowerCase(), sub = /subjectile/.test(s), veh = /v[ée]hicule/.test(s);
+      return sub && veh ? 'Véhicules et subjectiles industriels divers' : sub ? 'Subjectiles industriels divers' : veh ? 'Véhicules' : '';
+    }],
+    // « Cas Camion » : longueur du camion ; le Rapso écrit « 10 à 14 m » pour la classe 12 à 14 m (CONSTANTE.bas)
+    ['Cas Camion', 'avec_classe_camion', function (v) {
+      var s = String(v || '').trim();
+      return /^inf/i.test(s) ? 'Inférieure à 10 m' : s === '10 à 12 m' ? '10 à 12 m' : s === '10 à 14 m' || s === '12 à 14 m' ? '12 à 14 m' : '';
+    }],
     ['Zone de travail', 'zone_travail'],
     ['Etat visuel de la cabine', 'etat_visuel_cabine'], ['Etat des filtres', 'etat_filtres'],
     // Malgré son en-tête, « Valeur recommandées par_N » contient la VALEUR recommandée (0,3 ; 0,25) et
     // « Normes » le texte de référence (« Norme 16985 ») — vérifié sur les classeurs réels le 2026-10-08,
-    // comme outils/non-regression-rapso/types.js. Blocs _1/_2 (cabine encombrante) ou _3/_4 (cabine vide)
-    // selon le type de cabine : le premier rempli l'emporte (une valeur posée n'est jamais écrasée).
-    ['Valeur de référence_1', 'v1_reference'], ['Valeur de référence_3', 'v1_reference'],
-    ['Valeur recommandées par_1', 'v1_valeur_recommandee'], ['Valeur recommandées par_3', 'v1_valeur_recommandee'], ['Normes', 'v1_recommandee_par'],
-    ['Valeur de référence_2', 'v2_reference'], ['Valeur de référence_4', 'v2_reference'],
-    ['Valeur recommandées par_2', 'v2_valeur_recommandee'], ['Valeur recommandées par_4', 'v2_valeur_recommandee'], ['Normes', 'v2_recommandee_par'],
+    // comme outils/non-regression-rapso/types.js. Blocs _1/_2 : mesure avec le véhicule ou l'encombrant ;
+    // _3/_4 : cabine vide (cabines ouvertes et fermées : seulement _3/_4, vérifié sur 4 cabines réelles).
+    ['Valeur de référence_1', 'avec_moy_reference'], ['Valeur recommandées par_1', 'avec_moy_reco'],
+    ['Valeur de référence_2', 'avec_min_reference'], ['Valeur recommandées par_2', 'avec_min_reco'], ['Normes', 'avec_recommandee_par'],
+    ['Valeur de référence_3', 'v1_reference'], ['Valeur recommandées par_3', 'v1_valeur_recommandee'], ['Normes', 'v1_recommandee_par'],
+    ['Valeur de référence_4', 'v2_reference'], ['Valeur recommandées par_4', 'v2_valeur_recommandee'], ['Normes', 'v2_recommandee_par'],
     ['Largeur (m)/Hauteur (m)', 'largeur_cabine'], ['Longueur (m)', 'longueur_cabine'],
     ['Valeur de référence_5', 'debit_reference']
   ],

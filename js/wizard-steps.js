@@ -62,7 +62,7 @@ var WIZARD_STEPS = {
     { title: 'Identification', fields: ['batiment', 'reference_local', 'type_local', 'volume', 'effectif'] },
     { title: 'Type de ventilation', fields: ['type_ventilation', 'entree_air_permanente', 'ouvrant_exterieur', 'entree_air_exterieur'] },
     { title: 'Débits mesurés', fields: ['volume_min', 'debit_min_air_neuf', 'debit_total_mesure', 'debit_soufflage', 'debit_extraction', 'nombre_bouches', 'pourcentage_air_neuf', 'debit_air_neuf_introduit'] },
-    { title: 'État & constat', fields: ['etat_bouches', 'type_ventilation_libelle', 'avis', 'commentaire'] }
+    { title: 'État & constat', fields: ['etat_bouches', 'type_ventilation_libelle', 'avis', 'commentaire_rapso', 'commentaire'] }
   ],
 
   erp: [
@@ -229,8 +229,11 @@ var WIZARD_STEPS = {
   // Grille de points (vitesse_grid) non retravaillée : reste au rendu existant via gwPassthrough.
   cabines_peinture: [
     { title: 'Identification', fields: ['batiment', 'marque', 'type_cabine', 'date_controle', 'reference_equipement', 'photo'] },
-    { title: 'Caractéristiques', fields: ['type_flux', 'nature_produits', 'pulverisation', 'zone_travail'] },
+    { title: 'Caractéristiques', fields: ['type_flux', 'nature_produits', 'pulverisation', 'zone_travail', 'vehicules_subjectiles'] },
     { title: 'Contrôle visuel', fields: ['etat_visuel_cabine', 'direction_flux', 'etat_filtres', 'observation_visuel'] },
+    // Voiture, camion, encombrant : mesure autour du véhicule ou de l'encombrant (2026-10-08, comme le Rapso)
+    { title: 'Avec le véhicule ou l’encombrant — points', fields: ['avec_classe_camion', 'avec_nb_points', 'avec_grid', 'avec_v_moy', 'avec_v_min'] },
+    { title: 'Avec le véhicule ou l’encombrant — avis', fields: ['avec_moy_reference', 'avec_moy_reco', 'avec_moy_avis', 'avec_min_reference', 'avec_min_reco', 'avec_min_avis', 'avec_recommandee_par'] },
     { title: 'Cabine vide — dimensions & grille', fields: ['largeur_cabine', 'longueur_cabine', 'vitesse_nb_axes', 'vitesse_nb_points', 'vitesse_grid', 'vitesse_moyenne_grille'] },
     { title: 'Vitesse moyenne', fields: ['v1_mesuree', 'v1_reference', 'v1_valeur_recommandee', 'v1_recommandee_par', 'v1_avis'] },
     { title: 'Vitesse minimale (optionnel)', fields: ['v2_active', 'v2_mesuree', 'v2_reference', 'v2_valeur_recommandee', 'v2_recommandee_par', 'v2_avis'] },

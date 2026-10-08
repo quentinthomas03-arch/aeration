@@ -58,7 +58,7 @@ function sectionGroupForType(typeId) {
 // des points de mesure renseignés, cf. calculations.js).
 // Colonnes et libellés alignés sur les tableaux de synthèse du Rapso réel (comparaison du 2026-10-03).
 var SYNTHESE_CONFIG = {
-  bureaux: { titre: 'Conclusion sur les contrôles des locaux à pollution non spécifique', col1: 'batiment', col1Label: 'Bâtiment', col2: 'type_local', col2Label: 'Type de local', col3: 'reference_local', col3Label: 'Nom du local', avis: 'avis', commentaire: 'commentaire' },
+  bureaux: { titre: 'Conclusion sur les contrôles des locaux à pollution non spécifique', col1: 'batiment', col1Label: 'Bâtiment', col2: 'type_local', col2Label: 'Type de local', col3: 'reference_local', col3Label: 'Nom du local', avis: 'avis', commentaire: 'commentaire_rapport' },
   sanitaires: { titre: 'Conclusion sur les sanitaires', col1: 'batiment', col1Label: 'Bâtiment', col2: 'repere', col2Label: 'Repère', col3: 'nom_usage', col3Label: "Nom d'usage", avis: 'avis', commentaire: 'observation' },
   locaux_fumeurs: { titre: 'Conclusion sur les locaux fumeurs', col1: 'batiment', col1Label: 'Bâtiment', col2: 'reference_equipement', col2Label: 'Référence de l’équipement', avis: 'avis_csp', commentaire: 'observation' },
   cta: { titre: 'Conclusion sur les CTA', col1: 'batiment', col1Label: 'Bâtiment', col2: 'reference_equipement', col2Label: "Référence de l'équipement", avis: 'avis', commentaire: 'observation' },

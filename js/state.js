@@ -156,6 +156,16 @@ function normalizeMission(m) {
     });
   }
 
+  // Bureaux : commentaire réglementaire du Rapso (ajouté le 2026-10-08) calculé sur les dossiers déjà
+  // sauvegardés, sans relancer les autres calculs (les avis déjà rendus ne bougent pas)
+  if (m.installations && Array.isArray(m.installations.bureaux) && typeof commentaireLpns === 'function') {
+    m.installations.bureaux.forEach(function (inst) {
+      if (!inst || !inst.data) return;
+      inst.data.commentaire_rapso = commentaireLpns(inst.data);
+      inst.data.commentaire_rapport = commentaireRapportLpns(inst.data);
+    });
+  }
+
   // Cabines de peinture : force le recalcul de la conclusion (avis global) sur les dossiers déjà
   // sauvegardés. Contrairement à chambre_erp_individuelle, ce champ est un "computed" pur (jamais
   // saisi manuellement) — il n'y a donc aucune valeur explicite à protéger : la formule précédente

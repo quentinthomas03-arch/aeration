@@ -187,6 +187,83 @@ function avisVitesse(mesuree, reference, inrs) {
   return mes >= num(ref) * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
 }
 
+// Commentaire réglementaire des locaux à pollution non spécifique, rédigé comme le Rapso (UserForm_LOC,
+// colonne « Commentaires » de la feuille « autres locaux ») : effectif maximal que permettent le volume
+// ou le débit d'air neuf. Types d'hébergement (ajout de l'appli, absents du Rapso) : débit seul.
+var COMMENTAIRE_LPNS_OCCASIONNEL = 'Le local étant occupé occasionnellement, il n\'existe pas de valeur minimale à respecter.';
+function commentaireLpns(d) {
+  if (d.type_local === 'Local occupé occasionnellement') return COMMENTAIRE_LPNS_OCCASIONNEL;
+  if (!d.type_local) return 'Impossible de se prononcer (Type de local non renseigné)';
+  if (!d.type_ventilation) return 'Impossible de se prononcer (Type de ventilation non renseigné)';
+  var forfait = LOCAL_LPNS_FORFAIT.hasOwnProperty(d.type_local);
+  if (!forfait && String(d.effectif === undefined ? '' : d.effectif).trim() === '') return 'Impossible de se prononcer (Effectif non renseigné)';
+  var t = LOCAL_LPNS[d.type_local] || {}, vol = num(d.volume), volMin = num(d.volume_min), parOcc = t.vol;
+  var nbVol = function () { return Math.floor(vol / parOcc); };
+  // Critère du volume seul (ventilation naturelle)
+  var parVolume = function () {
+    if (parOcc === null || parOcc === undefined) return '';
+    if (isNaN(volMin) || volMin === 0) return 'Impossible de se prononcer (Effectif : 0 occupant)';
+    if (isNaN(vol)) return 'Le volume du local n\'a pas pu être mesuré.';
+    return 'Effectif : ' + nbVol() + ' personne (s) max';
+  };
+  var vt = d.type_ventilation;
+  if (vt === 'Nat sans ouvrants') {
+    if (d.entree_air_permanente === 'Non') return 'Ouvrants ne donnant pas sur l\'extérieur ou non accessibles et absence de ventilation mécanique';
+    return parVolume();
+  }
+  if (vt === 'Nat avec ouvrants') return parVolume();
+  if (vt === 'Extraction' && d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur === 'Non') {
+    return 'En l\'absence d\'ouvrants et d\'entrée d\'air donnant sur l\'extérieur, il n\'y a pas d\'apport d\'air neuf dans ce local.';
+  }
+  // Ventilation mécanique : débit d\'air neuf (extraction : débit total mesuré), puis volume
+  var debit = (vt === 'Extraction') ? num(d.debit_total_mesure) : debitAirNeufMesure(d), min = num(d.debit_min_air_neuf);
+  var sansVolume = parOcc === null || parOcc === undefined;
+  if (isNaN(min) || (!sansVolume && (isNaN(volMin) || volMin === 0))) return 'Impossible de se prononcer (Effectif : 0 occupant)';
+  var parDebit = function () {
+    return forfait ? 'Le débit minimal d\'air neuf n\'est pas suffisant.'
+      : 'Le débit minimal d\'air neuf n\'est pas suffisant. Il permet d\'accueillir ' + Math.floor(debit / t.debit) + ' occupant(s)';
+  };
+  if (sansVolume) {
+    if (isNaN(debit)) return 'Le débit du local n\'a pas pu être mesuré.';
+    return debit >= min ? '/' : parDebit();
+  }
+  if (isNaN(debit)) {
+    if (isNaN(vol)) return 'Le débit et le volume du local n\'ont pas pu être mesurés';
+    return vol >= volMin ? 'Le débit minimal d\'air neuf n\'est pas mesurable. Cependant le volume du local permet d\'accueillir ' + nbVol() + ' occupant(s).'
+      : 'Le débit minimal d\'air neuf n\'est pas mesurable. Le volume du local n\'est pas suffisant non plus. Limite son accès à ' + nbVol() + ' occupant(s).';
+  }
+  if (debit >= min) return '/';
+  if (isNaN(vol)) return parDebit();
+  return vol >= volMin ? 'Le débit minimal d\'air neuf n\'est pas suffisant. Cependant le volume du local permet d\'accueillir ' + nbVol() + ' occupant(s).'
+    : 'Le débit minimal d\'air neuf et le volume du local ne sont pas suffisants. Ce volume permet d\'accueillir ' + nbVol() + ' occupant(s).';
+}
+
+// Commentaire du rapport : celui du Rapso, suivi du commentaire du technicien s'il y en a un
+function commentaireRapportLpns(d) {
+  var auto = commentaireLpns(d), libre = String(d.commentaire || '').trim();
+  if (!libre) return auto;
+  return (!auto || auto === '/') ? libre : auto + ' ' + libre;
+}
+
+// Cabines de peinture (Rapso, UserForm_CDP / Inserer_Annexes) : bloc « avec le véhicule ou l'encombrant »
+// pour voiture, camion, encombrant ; bloc « cabine vide » sauf voiture ou camion où l'on ne peint que des
+// véhicules (case « subjectiles industriels divers » non cochée).
+function cdpAvec(d) { return ['Voiture', 'Camion', 'Encombrant'].indexOf(d.type_cabine) !== -1; }
+function cdpVide(d) {
+  if (d.type_cabine !== 'Voiture' && d.type_cabine !== 'Camion') return true;
+  return /subjectile/i.test(d.vehicules_subjectiles || '');
+}
+function cdpNbPointsAvec(d) {
+  if (d.type_cabine === 'Voiture') return 10;
+  if (d.type_cabine === 'Encombrant') return 14;
+  if (d.type_cabine === 'Camion') return { 'Inférieure à 10 m': 12, '10 à 12 m': 14, '12 à 14 m': 16 }[d.avec_classe_camion] || 0;
+  return 0;
+}
+// Disposition de la grille de saisie (7 colonnes au plus) : [lignes, colonnes]
+function cdpGrilleAvec(d) {
+  return { 10: [2, 5], 12: [2, 6], 14: [2, 7], 16: [4, 4] }[cdpNbPointsAvec(d)] || null;
+}
+
 // Avis vitesse de transport (VBA) : parse "X à Y", "> X", ou "pas de vitesse..."
 function avisTransport(mesuree, reference, inrsStr) {
   var mes = num(mesuree);
@@ -355,6 +432,8 @@ function machineBoisDebitRef(type) {
 var CALC_RULES = {
 
   bureaux: [
+    { target: 'commentaire_rapso', fn: function (d) { return commentaireLpns(d); } },
+    { target: 'commentaire_rapport', fn: function (d) { return commentaireRapportLpns(d); } },
     { target: 'volume_min', fn: function (d) {
         var t = LOCAL_LPNS[d.type_local]; var eff = num(d.effectif);
         if (!t || t.vol === null || isNaN(eff)) return '';
@@ -768,7 +847,7 @@ var CALC_RULES = {
       } },
     // Valeur recommandée par l'INRS (ED 750/ED 695) pour le transport pneumatique des poussières de bois : 20 m/s
     { target: 'vitesse_inrs_ed750', fn: function () { return 20; } },
-    // Corrigé le 2026-10-03 contre 18 machines réelles (Rapso Verdun) : sans valeur de référence
+    // Corrigé le 2026-10-03 contre 18 machines réelles (classeur Rapso réel) : sans valeur de référence
     // client ("/"), le Rapso compare la vitesse aux 20 m/s INRS — directement, sans le coefficient
     // 0,8 (18,71 m/s y est Non Satisfaisant). L'appli répondait "Impossible de se prononcer".
     { target: 'vitesse_avis', fn: function (d) {
@@ -1163,11 +1242,26 @@ var CALC_RULES = {
         if (!s || s.incomplete) return '';
         return s.moyenne;
       } },
+    // Bloc « avec le véhicule ou l'encombrant » (Rapso, UserForm_CDP : Nb_Cas 10 / 12-14-16 / 14 points)
+    { target: 'avec_nb_points', fn: function (d) { return String(cdpNbPointsAvec(d) || ''); } },
+    { target: 'avec_nb_lignes', fn: function (d) { var g = cdpGrilleAvec(d); return g ? String(g[0]) : ''; } },
+    { target: 'avec_nb_colonnes', fn: function (d) { var g = cdpGrilleAvec(d); return g ? String(g[1]) : ''; } },
+    { target: 'avec_v_moy', decimals: 2, fn: function (d) {
+        var s = cdpGrilleAvec(d) && gridStats(d.avec_grid, d.avec_nb_lignes, d.avec_nb_colonnes);
+        return (!s || s.incomplete) ? '' : s.moyenne;
+      } },
+    { target: 'avec_v_min', decimals: 2, fn: function (d) {
+        var s = cdpGrilleAvec(d) && gridStats(d.avec_grid, d.avec_nb_lignes, d.avec_nb_colonnes);
+        return (!s || s.incomplete) ? '' : s.min;
+      } },
+    { target: 'avec_moy_avis', fn: function (d) { return cdpAvec(d) ? avisVitesse(d.avec_v_moy, d.avec_moy_reference, d.avec_moy_reco) : ''; } },
+    { target: 'avec_min_avis', fn: function (d) { return cdpAvec(d) ? avisVitesse(d.avec_v_min, d.avec_min_reference, d.avec_min_reco) : ''; } },
     { target: 'v1_avis', fn: function (d) {
+        if (!cdpVide(d)) return ''; // voiture ou camion où l'on ne peint que des véhicules : pas de cabine vide
         return avisVitesse(d.v1_mesuree, d.v1_reference, d.v1_valeur_recommandee);
       } },
     { target: 'v2_avis', fn: function (d) {
-        if (d.v2_active !== 'Oui') return '';
+        if (d.v2_active !== 'Oui' || !cdpVide(d)) return '';
         return avisVitesse(d.v2_mesuree, d.v2_reference, d.v2_valeur_recommandee);
       } },
     { target: 'debit_avis', fn: function (d) {
@@ -1180,9 +1274,14 @@ var CALC_RULES = {
         // Fidèle à Caller_Conclusion_CDP (VBA, UserForm_CDP) : l'avis global agrège aussi l'avis
         // débit (Tbx_Debit_1_3/2_3), pas seulement les avis de vitesse. Débit non mesuré = "Impossible
         // de se prononcer", même si les vitesses sont renseignées (2 cabines réelles sur 2, 2026-10-03).
-        if (d.v1_mesuree && String(d.debit_mesure || '').trim() === '') return 'Impossible de se prononcer';
-        var avis = [d.v1_avis, d.debit_avis];
-        if (d.v2_active === 'Oui') avis.push(d.v2_avis);
+        // Voiture, camion, encombrant : les avis du bloc « avec » comptent aussi ; la cabine vide ne compte
+        // que si elle est à mesurer (Caller_Conclusion_CDP : Tbx_Cab_4/8 puis Tbx_Cab_Vide_1_4/1_8).
+        var mesure = (cdpVide(d) && d.v1_mesuree) || (cdpAvec(d) && d.avec_v_moy);
+        if (mesure && String(d.debit_mesure || '').trim() === '') return 'Impossible de se prononcer';
+        var avis = [d.debit_avis];
+        if (cdpVide(d)) avis.push(d.v1_avis);
+        if (cdpAvec(d)) avis.push(d.avec_moy_avis, d.avec_min_avis);
+        if (d.v2_active === 'Oui' && cdpVide(d)) avis.push(d.v2_avis);
         avis = avis.filter(function (a) { return a; });
         if (avis.length === 0) return '';
         if (avis.some(function (a) { return a === 'Impossible de se prononcer'; })) return 'Impossible de se prononcer';

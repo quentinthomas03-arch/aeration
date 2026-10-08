@@ -9,8 +9,8 @@
 // et demi-points (tailles de police), comme dans la mise en page Word d'origine. PT()/FS() font la
 // conversion vers les points utilisés par pdfmake.
 
-// Mise en page alignée sur le PDF Rapso réel (comparaison page à page du 2026-10-03, rapport EMFI
-// Haguenau) : marges étroites, zone utile de 540 pt (x = 27 à 567) au lieu des 481,8 pt (9636 twips)
+// Mise en page alignée sur le PDF Rapso réel (comparaison page à page du 2026-10-03, rapport de
+// référence) : marges étroites, zone utile de 540 pt (x = 27 à 567) au lieu des 481,8 pt (9636 twips)
 // de l'ancien gabarit Word. Toutes les largeurs exprimées en twips sont mises à l'échelle par PT() ;
 // PTR() garde l'échelle d'origine pour la page de garde, qui conserve les marges larges du Rapso.
 var PDF_PAGE_MARGINS = [27, 43, 28, 48];
@@ -320,7 +320,7 @@ function pdfTight(t) {
   return t;
 }
 
-// Schéma "Mesure dans le plan d'ouverture" d'une hotte, dessiné comme dans le Rapso (EMFI Haguenau
+// Schéma "Mesure dans le plan d'ouverture" d'une hotte, dessiné comme dans le Rapso (rapport de référence,
 // p. 64) : cadre, une case par point (valeur mesurée), cotes en hauteur (à gauche, du bas vers le
 // haut) et en largeur (en bas). La ligne 0 de vpe_grid est la plus basse (1re position en hauteur).
 function pdfHottePlanSvg(d) {
@@ -361,7 +361,7 @@ function pdfHottePlanSvg(d) {
 
 // ————————————————————————————————————————————
 // Bloc "Mesure de la vitesse dans le conduit" commun à toutes les fiches (CTA, extracteur,
-// équipements, machines à bois, gaz d'échappement...) — maquette du Rapso réel (EMFI Haguenau
+// équipements, machines à bois, gaz d'échappement...) — maquette du Rapso réel (rapport de référence,
 // p. 29/31) : effluent, gaine, grille des points avec leur distance à la paroi, valeur mesurée.
 // ————————————————————————————————————————————
 
@@ -459,7 +459,7 @@ function pdfConduitBlock(o) {
 }
 
 
-// Page de méthodologie au style du Rapso (EMFI Haguenau p. 50, 62, 82) : logo en haut à gauche,
+// Page de méthodologie au style du Rapso (rapport de référence, p. 50, 62, 82) : logo en haut à gauche,
 // titre bleu marine centré, texte bleu marine 11 pt sans encadré, illustration éventuelle. Reprend
 // les paragraphes non gras de "legal" (les titres en gras sont remplacés par opts.titre).
 var PDF_METHODO_BLUE = '#005499';
@@ -676,7 +676,7 @@ function pdfBuildAnnexeProvisoire(t, list) {
 // ————————————————————————————————————————————
 
 // Page de garde : reproduite à la position près d'après le PDF Rapso réel (relevé du 2026-10-03,
-// rapport EMFI Haguenau) — d'où les absolutePosition, la page de garde du Rapso n'étant pas un flux
+// rapport de référence) — d'où les absolutePosition, la page de garde du Rapso n'étant pas un flux
 // de texte mais une maquette fixe. Bloc utile x 56 -> 538 (482 pt).
 var PDF_COVER_X = 56, PDF_COVER_W = 482;
 
@@ -953,7 +953,7 @@ function pdfBuildAnnexeBureaux(list, logoDataUrl) {
     { label: 'État des bouches', key: 'etat_bouches' },
     { subheader: 'Constat' }, { label: 'Type de ventilation', key: 'type_ventilation_libelle' },
     { label: 'Débit minimum d’air neuf (m³/h)', key: 'debit_min_air_neuf' }, { label: 'Volume minimal (m³)', key: 'volume_min' },
-    { label: 'Avis par rapport aux valeurs réglementaires', key: 'avis', isAvis: true }, { label: 'Commentaire', key: 'commentaire' }
+    { label: 'Avis par rapport aux valeurs réglementaires', key: 'avis', isAvis: true }, { label: 'Commentaire', key: 'commentaire_rapport' }
   ];
   return pdfCrosstabSection('Bureaux', 'locaux à pollution non spécifique', legal, rows, list, logoDataUrl);
 }
@@ -1040,7 +1040,7 @@ function pdfBuildAnnexeExtracteur(list, logoDataUrl) {
     if (idx > 0) content.push({ text: '', pageBreak: 'before' });
     content.push(pdfAnnexePageHeader(titre, sousTitre, logoDataUrl));
 
-    // Maquette du Rapso (EMFI Haguenau p. 41) : identification 284 pt, cadre photo 231 pt.
+    // Maquette du Rapso (rapport de référence, p. 41) : identification 284 pt, cadre photo 231 pt.
     var v = formatCrosstabValue;
     var L = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10, left: true }), { margin: [6, 0, 2, 0] }, extra || {}); };
     var V = function (t, extra) { return Object.assign(pdfBodyCell(t, { center: true, size: 10 }), { margin: [2, 0, 2, 0] }, extra || {}); };
@@ -1111,7 +1111,7 @@ function pdfBuildAnnexeHottes(list, logoDataUrl) {
   }
   content = content.concat(pdfMethodoPage(legal, { titre: 'Méthodologie de vérification de l\'aspiration des hottes', titleSize: 11, titleColor: '#003F73', image: { key: 'hottes', x: 43, y: 215, w: 377, h: 179 } }));
   content.push({ text: '', pageBreak: 'after' });
-  // Maquette du Rapso réel (EMFI Haguenau p. 63-64).
+  // Maquette du Rapso réel (rapport de référence, p. 63-64).
   var v = formatCrosstabValue;
   var L = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
   var V = function (t, extra) { return Object.assign(pdfBodyCell(t, { center: true, size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
@@ -1202,8 +1202,8 @@ function pdfBuildAnnexeHottes(list, logoDataUrl) {
 // ————————————————————————————————————————————
 // 5.7 — Bras d'aspiration articulés
 // ————————————————————————————————————————————
-// Bras articulé : maquette reproduite d'après le PDF Rapso réel (relevé du 2026-10-03, EMFI
-// Haguenau p. 72). Bloc utile décalé de 26 pt (x 53 -> 567), identification en texte (libellés
+// Bras articulé : maquette reproduite d'après le PDF Rapso réel (relevé du 2026-10-03, rapport de
+// référence p. 72). Bloc utile décalé de 26 pt (x 53 -> 567), identification en texte (libellés
 // soulignés alignés à droite), cadre photo nu en haut à droite, captage + commentaire côte à côte.
 var PDF_BOA_INDENT = 26, PDF_BOA_W = 514;
 
@@ -1606,7 +1606,7 @@ function pdfBuildAnnexeCTA(list, logoDataUrl, ctaSchemaDataUrl) {
     if (idx > 0) content.push({ text: '', pageBreak: 'before' });
     content.push(pdfAnnexePageHeader(titre, sousTitre, logoDataUrl));
 
-    // Maquette du Rapso (EMFI Haguenau p. 28) : bloc de 524 pt décalé de 8 pt, police 9,7 pt.
+    // Maquette du Rapso (rapport de référence, p. 28) : bloc de 524 pt décalé de 8 pt, police 9,7 pt.
     var v = formatCrosstabValue, IND = [8, 0, 0, 0];
     var L = function (t, size) { return Object.assign(pdfHeaderCell(t, { size: size || 9.7 }), { margin: [1, 0, 1, 0] }); };
     var V = function (t, size) { return Object.assign(pdfBodyCell(t, { center: true, size: size || 9.7 }), { margin: [1, 0, 1, 0] }); };
@@ -1735,7 +1735,7 @@ function pdfBuildAnnexeSorbonnes(list, logoDataUrl) {
   }
   content = content.concat(pdfMethodoPage(legal, { titre: 'Méthodologie de vérification des sorbonnes' }));
   content.push({ text: '', pageBreak: 'after' });
-  // Maquette du Rapso réel sur deux pages (EMFI Haguenau p. 51-52), bloc x 30 -> 564 (534 pt).
+  // Maquette du Rapso réel sur deux pages (rapport de référence, p. 51-52), bloc x 30 -> 564 (534 pt).
   var v = formatCrosstabValue;
   var L = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
   var N = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10, fill: PDF_NAVY }), { margin: [1, 0, 1, 0] }, extra || {}); };
@@ -1902,7 +1902,7 @@ function pdfBuildAnnexeCabinesPeinture(list, logoDataUrl) {
   }
   content = content.concat(pdfMethodoPage(legal, { titre: 'Méthodologie de vérification de la\nventilation des cabines de peinture' }));
   content.push({ text: '', pageBreak: 'after' });
-  // Maquette du Rapso réel (Nord Réducteurs p. 29-30), bloc x 27 -> 541 (514 pt).
+  // Maquette du Rapso réel (troisième rapport de référence, p. 29-30), bloc x 27 -> 541 (514 pt).
   var v = formatCrosstabValue;
   var L = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
   var V = function (t, extra) { return Object.assign(pdfBodyCell(t, { center: true, size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
@@ -1922,6 +1922,18 @@ function pdfBuildAnnexeCabinesPeinture(list, logoDataUrl) {
     }
     return t([78, 102, 103, 102, 129], rows);
   }
+  // Bloc « avec le véhicule ou l'encombrant » (Rapso, Modele_CDP_2) : moyenne et minimale calculées sur les points
+  function pdfCabineAvecTable(d) {
+    var par = d.avec_recommandee_par ? 'par ' + d.avec_recommandee_par : 'par la Norme 16985';
+    return t([78, 102, 103, 102, 129], [
+      [{ text: '', border: NONE }, L('Valeurs mesurées', m12), L('Valeurs de référence', m12), L('Valeurs recommandées ' + par, { fontSize: 8, margin: [1, 8, 1, 8] }),
+        L('Avis par rappport aux valeurs de référence', m6)],
+      [L('Vitesse moyenne (m/s)', { margin: [1, 1, 1, 1] }), V(v(d.avec_v_moy), m6), V(v(d.avec_moy_reference), m6), V(v(d.avec_moy_reco), m6), V(v(d.avec_moy_avis), m6)],
+      [L('Vitesse minimale (m/s)', { margin: [1, 1, 1, 1] }), V(v(d.avec_v_min), m6), V(v(d.avec_min_reference), m6), V(v(d.avec_min_reco), m6), V(v(d.avec_min_avis), m6)]
+    ]);
+  }
+  var TITRES_AVEC = { 'Voiture': 'Vitesse d\'air dans la cabine avec une voiture', 'Camion': 'Vitesse d\'air dans la cabine avec le camion',
+    'Encombrant': 'Vitesse d\'air dans la cabine avec l\'objet encombrant' };
 
   list.forEach(function (inst, idx) {
     var d = inst.data;
@@ -1955,10 +1967,18 @@ function pdfBuildAnnexeCabinesPeinture(list, logoDataUrl) {
       [L('Vérification de la direction du flux', m6), V(v(d.direction_flux), m6)],
       [L('Etat des filtres', m6), V(v(d.etat_filtres), m6)]
     ]));
-    content.push(bar('Vitesse d\'air dans la cabine vide'));
-    content.push(gap(12));
-    content.push(pdfCabineVitesseTable(d));
-    content.push(gap(12));
+    if (cdpAvec(d)) {
+      content.push(bar(TITRES_AVEC[d.type_cabine]));
+      content.push(gap(12));
+      content.push(pdfCabineAvecTable(d));
+      content.push(gap(12));
+    }
+    if (cdpVide(d)) {
+      content.push(bar('Vitesse d\'air dans la cabine vide'));
+      content.push(gap(12));
+      content.push(pdfCabineVitesseTable(d));
+      content.push(gap(12));
+    }
     content.push(bar('Débit d\'air dans la cabine vide'));
     content.push(gap(12));
     content.push(t([78, 102, 103, 129], [
@@ -1975,7 +1995,23 @@ function pdfBuildAnnexeCabinesPeinture(list, logoDataUrl) {
         V(v(d.conclusion), { alignment: 'left', margin: [4, 12, 1, 12] })],
       [L('Observation', { margin: [1, 12, 1, 12] }), V(v(d.observations), { colSpan: 2, alignment: 'left', margin: [4, 12, 4, 12] }), {}]
     ]));
-    if (d.largeur_cabine || d.longueur_cabine) {
+    var nbAvec = cdpNbPointsAvec(d), gA = cdpGrilleAvec(d);
+    if (cdpAvec(d) && gA && Array.isArray(d.avec_grid)) {
+      content.push(gap(24));
+      content.push(bar('Points de mesure autour ' + (d.type_cabine === 'Encombrant' ? 'de l\'objet encombrant' : 'du véhicule') + ' (' + nbAvec + ' points)'));
+      content.push(gap(12));
+      var pts = [];
+      for (var ra = 0; ra < gA[0]; ra++) for (var ca = 0; ca < gA[1]; ca++) { var x = d.avec_grid[ra] && d.avec_grid[ra][ca]; pts.push((x === undefined || x === '') ? '-' : String(x)); }
+      var ligneN = [L('Point')].concat(pts.slice(0, 8).map(function (_, i) { return L(String(i + 1)); }));
+      var ligneV = [L('m/s')].concat(pts.slice(0, 8).map(function (p) { return V(p); }));
+      var corps = [ligneN, ligneV];
+      if (pts.length > 8) {
+        corps.push([L('Point')].concat(pts.slice(8).map(function (_, i) { return L(String(i + 9)); })).concat(Array.from({ length: 16 - pts.length }, function () { return { text: '', border: NONE }; })));
+        corps.push([L('m/s')].concat(pts.slice(8).map(function (p) { return V(p); })).concat(Array.from({ length: 16 - pts.length }, function () { return { text: '', border: NONE }; })));
+      }
+      content.push(t([40].concat(Array(Math.min(8, pts.length)).fill(40)), corps));
+    }
+    if (cdpVide(d) && (d.largeur_cabine || d.longueur_cabine)) {
       content.push(gap(24));
       content.push(bar('Mesure de la cabine vide'));
       content.push(gap(12));
@@ -2018,7 +2054,7 @@ function pdfBuildAnnexeBoxPeinture(list, logoDataUrl) {
     return content;
   }
   // Référentiel : affiché sur la page intercalaire de la section (cf. SECTION_GROUPS.divNote).
-  // Maquette du Rapso réel (Nord Réducteurs p. 39-41).
+  // Maquette du Rapso réel (troisième rapport de référence, p. 39-41).
   var v = formatCrosstabValue;
   var L = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
   var V = function (t, extra) { return Object.assign(pdfBodyCell(t, { center: true, size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
@@ -2218,7 +2254,7 @@ function pdfBuildAnnexeGazEchappement(list, logoDataUrl) {
     return content;
   }
   // Référentiels : affichés sur la page intercalaire de la section (cf. SECTION_GROUPS.divNote).
-  // Maquette du Rapso réel sur deux pages (Verdun p. 166-167).
+  // Maquette du Rapso réel sur deux pages (second rapport de référence, p. 166-167).
   var v = formatCrosstabValue;
   var L = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
   var V = function (t, extra) { return Object.assign(pdfBodyCell(t, { center: true, size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
@@ -2404,7 +2440,7 @@ function pdfBuildAnnexeMenuiserieMAB(list, logoDataUrl) {
     return content;
   }
   // Référentiels : affichés sur la page intercalaire de la section (cf. SECTION_GROUPS.divNote).
-  // Maquette du Rapso réel sur deux pages (Verdun p. 170-171).
+  // Maquette du Rapso réel sur deux pages (second rapport de référence, p. 170-171).
   var v = formatCrosstabValue;
   var L = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
   var V = function (t, extra) { return Object.assign(pdfBodyCell(t, { center: true, size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
@@ -2684,7 +2720,7 @@ function pdfBuildAnnexeInstallationsDiverses(list, logoDataUrl) {
   }
   content = content.concat(pdfMethodoPage(legal, { titre: 'Méthodologie de vérification de la ventilation\nd\'équipements divers', image: { key: 'equipements', x: 84, y: 186, w: 214, h: 356 } }));
   content.push({ text: '', pageBreak: 'after' });
-  // Maquette du Rapso réel sur deux pages (EMFI Haguenau p. 83-84).
+  // Maquette du Rapso réel sur deux pages (rapport de référence, p. 83-84).
   var v = formatCrosstabValue;
   var L = function (t, extra) { return Object.assign(pdfHeaderCell(t, { size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
   var V = function (t, extra) { return Object.assign(pdfBodyCell(t, { center: true, size: 10 }), { margin: [1, 0, 1, 0] }, extra || {}); };
@@ -2763,7 +2799,7 @@ function pdfBuildAnnexeInstallationsDiverses(list, logoDataUrl) {
 // proportionnellement (somme d'origine 10340 → 9635) pour tenir dans PDF_ANNEXE_CONTENT_WIDTH.
 // ————————————————————————————————————————————
 function pdfBuildAnnexeLocauxCharge(list, logoDataUrl) {
-  // Maquette du Rapso réel (EMFI Haguenau p. 96-98). Les référentiels figurent sur la page
+  // Maquette du Rapso réel (rapport de référence, p. 96-98). Les référentiels figurent sur la page
   // intercalaire de la section (cf. pdfSectionDividerPage), plus sur une page à part.
   var titre = 'Local de charge', sousTitre = 'LOCAUX DE CHARGE D\'ACCUMULATEURS';
   var content = [];
