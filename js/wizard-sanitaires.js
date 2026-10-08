@@ -77,7 +77,7 @@ function renderSanitairesWizard(m, t, inst) {
   h += '<div class="card' + (typeof etapeAnimClasse === 'function' ? etapeAnimClasse('sanitaires', step) : '') + '">';
   if (step === 0) h += renderSanStep1(inst);
   else if (step === 1) h += renderSanStep2(inst);
-  else if (step === 2) h += renderSanStep3(inst);
+  else if (step === 2) h += (typeof omBoutonsHtml === 'function' ? omBoutonsHtml('sanitaires', [{ k: 'bouche' }]) : '') + renderSanStep3(inst); // où et comment mesurer (js/ou-mesurer.js)
   else h += renderSanStep4(inst);
   h += '</div>';
 

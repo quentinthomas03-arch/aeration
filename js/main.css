@@ -1136,3 +1136,17 @@ select.tb-input { min-width: 108px; max-width: 150px; font-size: 13px; padding: 
 .faq-mots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .faq-mot { border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-dark); border-radius: 14px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
 .faq-mot.active { background: var(--primary-pale); border-color: transparent; font-weight: 600; }
+
+/* === Où et comment mesurer (js/ou-mesurer.js) === */
+.om-btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.om-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 1px solid #0082DE; background: transparent; color: #005499; font-size: 14px; font-weight: 600; }
+[data-theme="dark"] .om-btn { color: #7cc4fa; }
+.om-overlay { align-items: center; }
+.om-card { width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; background: var(--bg-main); color: var(--text-dark); border-radius: 20px; padding: 16px 16px 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.35); }
+.om-tete { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.om-tete h2 { font-size: 17px; margin: 2px 0 8px; }
+.om-x { min-width: 40px; min-height: 40px; border: none; background: transparent; font-size: 26px; line-height: 1; color: var(--text-muted, #64748b); }
+.om-svg { display: block; width: 100%; height: auto; color: var(--text-dark); margin: 4px 0; }
+.om-legende { font-size: 13px; color: var(--text-muted, #64748b); margin: 4px 0 8px; line-height: 1.4; }
+.om-liste { margin: 0 0 6px; padding-left: 18px; font-size: 14px; line-height: 1.45; }
+.om-liste li { margin: 4px 0; }

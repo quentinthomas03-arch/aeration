@@ -4,10 +4,16 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.98';
+var APP_VERSION = '2.0';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.0', date: '08/10/2026', items: [
+    '« Où et comment mesurer ? » sur toutes les installations de captage et de mesure de débit : cabines de peinture (points calculés d’après les dimensions, protocoles ED 839 et ED 928), cuves de traitement de surface, torches aspirantes, machines à bois (5 D / 3 D, ED 750), décapage, fluides de coupe, postes aux solvants, point d’émission des installations diverses, bouches et grilles (bureaux, ERP, sanitaires, locaux de charge…), réseaux de CTA.'
+  ] },
+  { version: '1.99', date: '08/10/2026', items: [
+    'Sorbonnes, hottes, bras d’aspiration et mesures en conduit : à l’étape de mesure, « Où et comment mesurer ? » ouvre un schéma tracé avec les dimensions saisies (points de la sorbonne, quadrillage de la hotte, distance d’utilisation du bras, longueurs droites du conduit) et les consignes des guides INRS ED 795, ED 695 et ED 668.'
+  ] },
   { version: '1.98', date: '07/10/2026', items: [
     'Questions fréquentes : 47 fiches (locaux et air neuf, sanitaires, captage, recyclage, par installation, dossier et contrôles), chacune avec sa source — Code du travail, arrêté du 8 octobre 1987, guides INRS — ou signalée « sans source extérieure ».',
     'Questions fréquentes : recherche par mot-clé de terrain (WC, CTA, soudage…) et mots proposés en un toucher.',

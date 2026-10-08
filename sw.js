@@ -4,7 +4,7 @@
 // des correctifs export-pdf.js n'étaient pas pris en compte malgré un rechargement normal de la
 // page, car fetch() sans option "cache" consulte le cache HTTP heuristique du navigateur avant même
 // d'atteindre ce fetch handler "network-first" — un simple F5 ne suffisait pas).
-const CACHE_NAME = 'aeration-v1.98';
+const CACHE_NAME = 'aeration-v2.0';
 const urlsToCache = [
   './',
   './index.html',
@@ -79,6 +79,7 @@ const urlsToCache = [
   './js/qualite.js',
   './js/finitions.js',
   './js/conditions-mesure.js',
+  './js/ou-mesurer.js',
   './js/aides-mesure.js',
   './js/pourquoi-avis.js',
   './js/grands-sites.js',
