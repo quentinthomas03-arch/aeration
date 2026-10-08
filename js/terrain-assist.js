@@ -524,7 +524,10 @@ var REPRISE_VOISINE = {
   hottes: ['batiment', 'localisation', 'date_mesure', 'etat_visuel_reseau', 'test_fumigene', 'mesures_choisies', 'vpe_min_reference', 'vpe_min_inrs',
     'vpe_moy_reference', 'vpe_moy_inrs', 'operateur_hors_volume', 'vt_type_polluant', 'vt_reference'],
   bras_aspiration: ['batiment', 'activite', 'atelier', 'adapte_situation', 'recyclage', 'etat_visuel', 'etat_conduits', 'test_fumigene', 'conditions_dispersion'],
-  cabines_peinture: ['batiment', 'date_controle'],
+  // Cabines (2026-10-08) : type de flux 4/4 cabines voisines, pulvérisation et zone de travail identiques
+  // quand renseignées, valeurs recommandées et « Norme 16985 » 100 % (classeurs et rapports réels)
+  cabines_peinture: ['batiment', 'date_controle', 'type_flux', 'pulverisation', 'zone_travail', 'v1_reference', 'v1_valeur_recommandee', 'v1_recommandee_par',
+    'v2_active', 'v2_reference', 'v2_valeur_recommandee', 'v2_recommandee_par'],
   installations_diverses: ['batiment', 'localisation', 'date_controle', 'etat_visuel_reseau', 'test_fumigene', 'mesures_choisies', 'vpe_conditions_dispersion',
     'vpe_reference', 'vpe_inrs', 'vt_type_polluant', 'vt_reference'],
   gaz_echappement: ['batiment', 'atelier', 'date_controle'],
@@ -533,7 +536,14 @@ var REPRISE_VOISINE = {
   box_peinture: ['batiment', 'date_controle'],
   torches_aspirantes: ['batiment', 'date_controle'],
   locaux_charge: ['batiment', 'date_controle'],
-  tts: ['batiment', 'date_mesure']
+  tts: ['batiment', 'date_mesure'],
+  // Types hors Rapso (2026-10-08) : aucune donnée réelle ; seulement l'identification, qui se répète sur
+  // tous les types du Rapso (date du contrôle 89 à 100 %, bâtiment et atelier repris partout)
+  decapage: ['batiment', 'localisation', 'date_controle'],
+  fluide_coupe: ['batiment', 'localisation', 'date_controle'],
+  poste_solvant: ['batiment', 'localisation', 'date_controle'],
+  local_specifique: ['batiment', 'date_controle'],
+  recyclage: ['batiment', 'localisation', 'date_controle']
 };
 var REPRISE_UNITES = { temperature: ' °C', hygrometrie: ' %', pression_atmospherique: ' hPa', difference_pression: ' Pa', temperature_conduit: ' °C', pourcentage_air_neuf: ' %' };
 

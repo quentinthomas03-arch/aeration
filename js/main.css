@@ -1150,3 +1150,4 @@ select.tb-input { min-width: 108px; max-width: 150px; font-size: 13px; padding: 
 .om-legende { font-size: 13px; color: var(--text-muted, #64748b); margin: 4px 0 8px; line-height: 1.4; }
 .om-liste { margin: 0 0 6px; padding-left: 18px; font-size: 14px; line-height: 1.45; }
 .om-liste li { margin: 4px 0; }
+.om-reco { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }

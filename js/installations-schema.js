@@ -787,7 +787,8 @@ var INSTALLATION_TYPES = [
     fields: [
       { key: 'batiment', label: 'Bâtiment', type: 'text' },
       { key: 'marque', label: 'Marque', type: 'text' },
-      { key: 'type_cabine', label: 'Type de cabine', type: 'select', options: ['Fermée', 'Ouverte', 'Semi-fermée', 'Encombrant'] },
+      // Voiture, Camion, Fosse : types du Rapso (CDP Voiture / Camion / Fosse, ajoutés le 2026-10-08)
+      { key: 'type_cabine', label: 'Type de cabine', type: 'select', options: ['Fermée', 'Ouverte', 'Semi-fermée', 'Encombrant', 'Voiture', 'Camion', 'Fosse'] },
       { key: 'date_controle', label: 'Date du contrôle', type: 'text' },
       { key: 'reference_equipement', label: 'Description de la cabine', type: 'text' },
       { key: 'photo', label: 'Photo de l\u2019installation', type: 'photo' },

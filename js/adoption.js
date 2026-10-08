@@ -4,10 +4,21 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.0';
+var APP_VERSION = '2.2';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.2', date: '08/10/2026', items: [
+    'Cabines de peinture : types Voiture, Camion et Fosse du Rapso, avec leur protocole de mesure (points autour du véhicule, ligne de points dans la fosse) et leur titre dans le rapport.',
+    'Cabines de peinture : la valeur recommandée du Rapso (Norme 16985 ou guide INRS, selon le type de cabine, le flux, la zone et la pulvérisation) se reprend en un toucher sous le champ, avec sa référence.',
+    'Décapage : sous le débit extrait, la durée attendue du test au fumigène (3 à 4 fois V/Q, INRS ED 768) pour vérifier le débit sur place, chronomètre en main.'
+  ] },
+  { version: '2.1', date: '08/10/2026', items: [
+    'Mesure en conduit : si un tube de Pitot fait partie des appareils de la mission et qu’une vitesse moyenne est sous 4 m/s, l’appli le signale (erreur trop grande, préférer l’anémomètre — INRS ED 695).',
+    'Cabines de peinture : un toucher règle la grille de saisie sur le nombre de points du protocole INRS (ED 839 / ED 928), calculé d’après les dimensions.',
+    'Cabines de peinture : « Reprendre de… » recopie aussi le type de flux, la pulvérisation, la zone de travail, les valeurs recommandées et la norme d’une cabine voisine. Décapage, fluides de coupe, solvants, local spécifique et recyclage : reprise du bâtiment, de l’atelier et de la date.',
+    'Import d’un classeur Rapso : la valeur recommandée des cabines et sa norme (« Norme 16985 ») arrivent dans les bons champs, y compris pour les cabines fermées.'
+  ] },
   { version: '2.0', date: '08/10/2026', items: [
     '« Où et comment mesurer ? » sur toutes les installations de captage et de mesure de débit : cabines de peinture (points calculés d’après les dimensions, protocoles ED 839 et ED 928), cuves de traitement de surface, torches aspirantes, machines à bois (5 D / 3 D, ED 750), décapage, fluides de coupe, postes aux solvants, point d’émission des installations diverses, bouches et grilles (bureaux, ERP, sanitaires, locaux de charge…), réseaux de CTA.'
   ] },

@@ -64,7 +64,8 @@ function gwBigNumber(typeId, f, inst) {
   return '<div class="field-big">' + fieldLabelWithTag(f, st) + champ + fieldHint(st) +
     plausibilityHintHtml(typeId, f, val) + gwN1Hint(typeId, f.key, inst) +
     (typeof fieldAssistHtml === 'function' ? fieldAssistHtml(typeId, f, inst) : '') +
-    (typeof aidesMesureHtml === 'function' ? aidesMesureHtml(typeId, f, inst) : '') + '</div>'; // bouches, tour du conduit (js/aides-mesure.js)
+    (typeof aidesMesureHtml === 'function' ? aidesMesureHtml(typeId, f, inst) : '') + // bouches, tour du conduit (js/aides-mesure.js)
+    (typeof omAideChampHtml === 'function' ? omAideChampHtml(typeId, f, inst) : '') + '</div>'; // Pitot, valeur recommandée des cabines, fumigène du décapage (js/ou-mesurer.js)
 }
 
 // Boutons larges (2 colonnes max) : select/toggle à choix restreint (≤4 options).
@@ -175,7 +176,8 @@ function gwRenderField(typeId, f, inst) {
     case 'grid':
       return seuilAvant(typeId, f, inst) + (f.pointEntry ? gwGridPointEntry(typeId, f, inst) : gwPassthrough(typeId, f, inst)) +
         (typeof grilleAberrantsHtml === 'function' ? grilleAberrantsHtml(typeId, f, inst) : '') + // point aberrant (js/mesures.js)
-        (typeof positionsPointsHtml === 'function' ? positionsPointsHtml(typeId, f, inst) : ''); // positions des points (js/finitions.js)
+        (typeof positionsPointsHtml === 'function' ? positionsPointsHtml(typeId, f, inst) : '') + // positions des points (js/finitions.js)
+        (typeof pitotAlerteHtml === 'function' ? pitotAlerteHtml(typeId, f, inst) : ''); // Pitot sous 4 m/s (js/ou-mesurer.js)
     case 'charger-list':
     case 'photo':
       return gwPassthrough(typeId, f, inst);

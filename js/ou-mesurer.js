@@ -91,9 +91,24 @@ var OM_FICHES = {
   cabine: function (d) {
     var p = omCabineCas(d), c = { titre: 'Cabine de peinture : où et comment mesurer' };
     var appareil = 'Anémomètre directionnel lisant de 0,10 à 1 m/s à ± 0,05 m/s ; en chaque point, moyenne sur 60 s, sur 200 s si la ventilation est instable.';
+    if (p.vehicule) {
+      c.consignes = [p.camion
+        ? 'Véhicule long : points répartis autour du camion, à 0,50 m de ses parois et à 1,50 m du sol ; 2 points à l’avant, 2 à l’arrière ; sur les côtés, 1,50 à 2 m entre les points.'
+        : 'Véhicule de tourisme : 10 points autour de la voiture (3 par côté, 2 à l’avant, 2 à l’arrière), à 0,50 m de ses parois et à 0,90 m du sol.',
+        'Si la cabine est aussi mesurée vide : points à 0,90 m du sol, à 0,50 m au moins des parois, ' + (p.camion ? '2 m' : '1,50 m') + ' au plus entre deux points.',
+        appareil, 'Critère du guide : moyenne d’au moins 0,40 m/s, aucun point sous 0,30 m/s.'];
+      c.source = 'INRS ED 839, § 10.3 et 10.3.1' + (p.camion ? ' (écart de 2 m en cabine vide : règle du Rapso)' : '');
+      return c;
+    }
+    if (p.fosse) {
+      c.consignes = ['Points sur une ligne le long de la fosse, à 1 m de son fond (exemple du guide), 1,50 m au plus entre deux points (Rapso).',
+        'En chaque point, moyenne sur 60 s.', appareil];
+      c.source = 'INRS ED 906, dossier technique (mesures dans la fosse) ; ED 839, § 10.3';
+      return c;
+    }
     if (p.vertical && !p.poudre) {
       c.consignes = ['Cabine vide. Points à 0,90 m du sol de la cabine, jamais à moins de 0,50 m des parois.',
-        'Quadrillage établi à partir du centre du sol de la cabine, 1,50 m au plus entre deux points.',
+        'Quadrillage établi à partir du centre du sol de la cabine, ' + (p.pas === 2 ? '2 m au plus entre deux points pour une cabine d’encombrant (règle du Rapso ; 1,50 m dans le guide).' : '1,50 m au plus entre deux points.'),
         'Cabine pour véhicules de tourisme : 10 points autour du véhicule (3 par côté, 2 à l’avant, 2 à l’arrière), à 0,50 m de ses parois et 0,90 m du sol. Véhicules longs : à 1,50 m du sol, 1,50 à 2 m entre les points sur les côtés.',
         appareil, 'Critère du guide : aucun point sous 0,30 m/s (véhicules : moyenne d’au moins 0,40 m/s).'];
       c.source = 'INRS ED 839, § 10.3 et 10.3.1';
@@ -265,7 +280,191 @@ function omBoutonsHtml(typeId, fiches) {
 }
 
 function ouMesurerHtml(typeId, steps, step, inst) {
-  return omBoutonsHtml(typeId, omFichesEtape(typeId, steps, step, inst));
+  var fiches = omFichesEtape(typeId, steps, step, inst);
+  var h = omBoutonsHtml(typeId, fiches);
+  if (fiches.some(function (o) { return o.k === 'cabine'; })) h += omCabineGrilleBoutonHtml(inst.data);
+  return h;
+}
+
+// ————————————————————————————————————————————
+// Cabine de peinture : la grille de saisie prend en un toucher le nombre de points du protocole
+// ————————————————————————————————————————————
+
+// { axes, points } du protocole d'après les dimensions saisies, ou null (dimensions manquantes, cas
+// sans règle complète — cabine ouverte en poudre : hauteur inconnue — ou plus de points que la grille)
+function omCabineGrilleProtocole(d) {
+  var p = omCabineCas(d), l = num(d.largeur_cabine), L = num(d.longueur_cabine), g;
+  if (p.fosse) {
+    if (!(L > 0)) return null;
+    g = { axes: 1, points: omCabinePositions(L, false, 1.5).length };
+  } else if (p.vertical) {
+    if (!(l > 0 && L > 0)) return null;
+    g = { axes: omCabinePositions(L, p.poudre, p.pas).length, points: omCabinePositions(l, p.poudre, p.pas).length };
+  } else {
+    if (p.poudre && p.ouverte) return null;
+    g = { axes: 3, points: 3 }; // 9 points au minimum : 3 en hauteur, 3 en largeur
+  }
+  return g.axes <= GRID_MAX && g.points <= GRID_MAX ? g : null;
+}
+
+function omCabineGrilleBoutonHtml(d) {
+  var g = omCabineGrilleProtocole(d);
+  var a = parseInt(d.vitesse_nb_axes, 10), p = parseInt(d.vitesse_nb_points, 10);
+  // Grille déjà au protocole, dans un sens ou dans l'autre (axes en largeur ou en longueur) : rien à proposer
+  if (!g || (a === g.axes && p === g.points) || (a === g.points && p === g.axes)) return '';
+  return '<div class="om-btns"><button type="button" class="om-btn" onclick="omCabineAppliquerGrille();">' + ICONS.check +
+    ' Grille du protocole : ' + g.axes + ' axes × ' + g.points + ' points</button></div>';
+}
+
+function omCabineAppliquerGrille() {
+  var inst = getCurrentInstallation('cabines_peinture'), g = inst && omCabineGrilleProtocole(inst.data);
+  if (!g) return;
+  var d = inst.data, deja = Array.isArray(d.vitesse_grid) && d.vitesse_grid.some(function (r) { return Array.isArray(r) && r.some(function (c) { return String(c || '').trim(); }); });
+  if (deja && !confirm('Des vitesses sont déjà saisies dans la grille. Passer à ' + g.axes + ' axes × ' + g.points + ' points ?')) return;
+  d.vitesse_nb_axes = String(g.axes);
+  updateInstallationField('cabines_peinture', 'vitesse_nb_points', String(g.points));
+}
+
+// ————————————————————————————————————————————
+// Cabine de peinture : valeur recommandée du Rapso en un toucher
+// ————————————————————————————————————————————
+
+// Feuille LISTE du Rapso V29, plage Criteres_CDP_1_10 (lue le 2026-10-08) : critère → [V moyenne, V minimale]
+// avec le véhicule ou l'encombrant, puis [V moyenne, V minimale] cabine vide. '' = sans objet, '/' = pas de valeur.
+var OM_CDP_CRITERES = {
+  '/CDP Voiture/Norme 16985/subjectiles industriels divers/': ['0,3', '0,25', '0,3', '0,25'],
+  '/CDP Voiture/Norme 16985/véhicules/': ['0,3', '0,25', '', ''],
+  '/CDP Voiture/Guide INRS/subjectiles industriels divers/': ['0,4', '0,3', '/', '0,3'],
+  '/CDP Voiture/Guide INRS/véhicules/': ['0,4', '0,3', '', ''],
+  '/CDP Camion/Norme 16985/subjectiles industriels divers/': ['0,3', '0,25', '0,3', '0,25'],
+  '/CDP Camion/Norme 16985/véhicules/': ['0,3', '0,25', '', ''],
+  '/CDP Camion/Guide INRS/subjectiles industriels divers/': ['0,4', '0,3', '/', '0,3'],
+  '/CDP Camion/Guide INRS/véhicules/': ['0,4', '0,3', '', ''],
+  '/CDP Ouverte/Norme 16985/Horizontale/Intérieure/Liquide/': ['', '', '0,5', '0,4'],
+  '/CDP Ouverte/Norme 16985/Horizontale/Intérieure/Poudre/': ['', '', '0,5', '0,4'],
+  '/CDP Ouverte/Norme 16985/Horizontale/Extérieure/Liquide/': ['', '', '0,5', '0,4'],
+  '/CDP Ouverte/Norme 16985/Horizontale/Extérieure/Poudre/': ['', '', '0,5', '0,4'],
+  '/CDP Ouverte/Norme 16985/Verticale/Intérieure/Liquide/': ['', '', '0,3', '0,25'],
+  '/CDP Ouverte/Norme 16985/Verticale/Intérieure/Poudre/': ['', '', '0,3', '0,25'],
+  '/CDP Ouverte/Norme 16985/Verticale/Extérieure/Liquide/': ['', '', '0,4', '0,3'],
+  '/CDP Ouverte/Norme 16985/Verticale/Extérieure/Poudre/': ['', '', '0,4', '0,3'],
+  '/CDP Ouverte/Guide INRS/Horizontale/Intérieure/Liquide/': ['', '', '0,5', '0,4'],
+  '/CDP Ouverte/Guide INRS/Horizontale/Intérieure/Poudre/': ['', '', '/', '0,5'],
+  '/CDP Ouverte/Guide INRS/Horizontale/Extérieure/Liquide/': ['', '', '0,5', '0,4'],
+  '/CDP Ouverte/Guide INRS/Horizontale/Extérieure/Poudre/': ['', '', '/', '0,5'],
+  '/CDP Ouverte/Guide INRS/Verticale/Intérieure/Liquide/': ['', '', '/', '0,3'],
+  '/CDP Ouverte/Guide INRS/Verticale/Intérieure/Poudre/': ['', '', '/', '0,3'],
+  '/CDP Ouverte/Guide INRS/Verticale/Extérieure/Liquide/': ['', '', '/', '0,5'],
+  '/CDP Ouverte/Guide INRS/Verticale/Extérieure/Poudre/': ['', '', '/', '0,5'],
+  '/CDP Fermee/Norme 16985/Horizontale/Liquide/': ['', '', '0,5', '0,4'],
+  '/CDP Fermee/Norme 16985/Horizontale/Poudre/': ['', '', '0,5', '0,4'],
+  '/CDP Fermee/Norme 16985/Verticale/Liquide/': ['', '', '0,3', '0,25'],
+  '/CDP Fermee/Norme 16985/Verticale/Poudre/': ['', '', '0,3', '0,25'],
+  '/CDP Fermee/Guide INRS/Horizontale/Liquide/': ['', '', '0,5', '0,4'],
+  '/CDP Fermee/Guide INRS/Horizontale/Poudre/': ['', '', '/', '0,5'],
+  '/CDP Fermee/Guide INRS/Verticale/Liquide/': ['', '', '/', '0,3'],
+  '/CDP Fermee/Guide INRS/Verticale/Poudre/': ['', '', '/', '0,3'],
+  '/CDP Encombrant/Norme 16985/': ['0,3', '0,25', '0,3', '0,25'],
+  '/CDP Encombrant/Guide INRS/': ['0,4', '0,3', '0,4', '0,3'],
+  '/CDP Fosse/Norme 16985/Descendant/': ['', '', '0,3', '0,25'],
+  '/CDP Fosse/Guide INRS/Descendant/': ['', '', '0,4', '0,3'],
+  '/CDP Fosse/Norme 16985/Ascendant/': ['', '', '0,7', '0,25'],
+  '/CDP Fosse/Guide INRS/Ascendant/': ['', '', '0,7', '0,3']
+};
+var OM_CDP_TYPES = { 'Voiture': 'CDP Voiture', 'Camion': 'CDP Camion', 'Ouverte': 'CDP Ouverte', 'Fermée': 'CDP Fermee', 'Encombrant': 'CDP Encombrant', 'Fosse': 'CDP Fosse' };
+
+// Propositions pour la vitesse moyenne (rang 0) ou minimale (rang 1) : [{ par, valeur, precision }]
+function omCdpPropositions(d, rang) {
+  var t = OM_CDP_TYPES[d.type_cabine || ''];
+  if (!t) return [];
+  var zone = /ext/i.test(d.zone_travail || '') ? 'Extérieure' : /int/i.test(d.zone_travail || '') ? 'Intérieure' : '';
+  var veh = /v[ée]hicule/i.test(d.zone_travail || '') ? ['véhicules'] : /subjectile/i.test(d.zone_travail || '') ? ['subjectiles industriels divers'] : ['subjectiles industriels divers', 'véhicules'];
+  var guide = d.type_cabine === 'Encombrant' ? 'Guide INRS ED 906' : d.pulverisation === 'Poudre' ? 'Guide INRS ED 928' : 'Guide INRS ED 839';
+  var out = [];
+  ['Norme 16985', 'Guide INRS'].forEach(function (ref) {
+    var variantes = [];
+    if (t === 'CDP Voiture' || t === 'CDP Camion') veh.forEach(function (v) { variantes.push([v + '/', veh.length > 1 ? v : '']); });
+    else if (t === 'CDP Ouverte') { if (d.type_flux && zone && d.pulverisation) variantes.push([d.type_flux + '/' + zone + '/' + d.pulverisation + '/', '']); }
+    else if (t === 'CDP Fermee') { if (d.type_flux && d.pulverisation) variantes.push([d.type_flux + '/' + d.pulverisation + '/', '']); }
+    else if (t === 'CDP Fosse') ['Descendant', 'Ascendant'].forEach(function (v) { variantes.push([v + '/', 'flux ' + v.toLowerCase()]); });
+    else variantes.push(['', '']);
+    variantes.forEach(function (v) {
+      var ligne = OM_CDP_CRITERES['/' + t + '/' + ref + '/' + v[0]];
+      if (!ligne) return;
+      var val = ligne[rang] || ligne[rang + 2]; // avec le véhicule / l'encombrant, sinon cabine vide
+      if (val && val !== '/') out.push({ par: ref === 'Guide INRS' ? guide : ref, valeur: val, precision: v[1] });
+    });
+  });
+  return out;
+}
+
+function omCdpRecoHtml(typeId, f, inst) {
+  var rang = f.key === 'v1_valeur_recommandee' ? 0 : f.key === 'v2_valeur_recommandee' ? 1 : -1;
+  if (typeId !== 'cabines_peinture' || rang < 0) return '';
+  var d = inst.data, pre = rang ? 'v2_' : 'v1_', props = omCdpPropositions(d, rang);
+  props = props.filter(function (p) { return !(String(d[pre + 'valeur_recommandee']) === p.valeur && d[pre + 'recommandee_par'] === p.par); });
+  if (!props.length) return '';
+  return '<div class="om-reco">' + props.map(function (p) {
+    return '<button type="button" class="phrases-toggle" onclick="omCdpAppliquer(\'' + pre + '\',\'' + p.valeur + '\',\'' + escapeHtml(p.par) + '\');">' + ICONS.copy + ' ' +
+      escapeHtml(p.par) + (p.precision ? ' (' + escapeHtml(p.precision) + ')' : '') + ' : ' + p.valeur + ' m/s</button>';
+  }).join('') + '</div>';
+}
+
+function omCdpAppliquer(pre, valeur, par) {
+  var inst = getCurrentInstallation('cabines_peinture');
+  if (!inst) return;
+  inst.data[pre + 'recommandee_par'] = par;
+  updateInstallationField('cabines_peinture', pre + 'valeur_recommandee', valeur);
+}
+
+// ————————————————————————————————————————————
+// Décapage : durée attendue du test au fumigène (INRS ED 768, § 5.1)
+// ————————————————————————————————————————————
+
+function omDecapageFumigeneHtml(typeId, f, inst) {
+  if (typeId !== 'decapage' || f.key !== 'debit_extrait') return '';
+  var d = inst.data, V = num(d.longueur) * num(d.largeur) * num(d.hauteur), Q = num(d.debit_extrait);
+  if (!(V > 0 && Q > 0)) return '';
+  var t = V / Q * 3600, fmt = function (s) { return 4 * t < 300 ? Math.round(s) + ' s' : omFr(s / 60, 1) + ' min'; }; // même unité pour les deux bornes
+  return '<div class="field-hint">' + ICONS.clock + ' Test au fumigène : avec ce débit, l’atmosphère devrait revenir à l’état initial en ' + fmt(3 * t) + ' à ' + fmt(4 * t) +
+    ' environ (3 à 4 fois V/Q, si l’air est bien brassé — INRS ED 768, § 5.1). Un temps très différent indique un débit réel différent de celui saisi.</div>';
+}
+
+// Aides sous un champ numérique de la fiche (js/wizard-engine.js)
+function omAideChampHtml(typeId, f, inst) {
+  return pitotAlerteHtml(typeId, f, inst) + omCdpRecoHtml(typeId, f, inst) + omDecapageFumigeneHtml(typeId, f, inst);
+}
+
+// ————————————————————————————————————————————
+// Tube de Pitot sous 4 m/s (INRS ED 695, § 10.3.1)
+// ————————————————————————————————————————————
+
+// Préfixe du conduit si ce champ est une vitesse moyenne en conduit, sinon null
+function omVitesseConduitPrefixe(typeId, key, d) {
+  if (typeId === 'cta' || typeId === 'menuiserie') {
+    if (/grille/i.test(d.mesure_debit || d.mesure_localisation || '')) return null; // mesure sur la grille
+  }
+  if (/^(vt_mesuree|vitesse_conduit|vitesse_directe)$/.test(key)) return '';
+  if (typeId === 'cta') { var c = /^((?:neuf|souf|rep)_)vitesse$/.exec(key); return c ? c[1] : null; }
+  var m = /^(.*)vitesse(_grid)?$/.exec(key);
+  if (!m || typeId === 'cabines_peinture') return null;
+  var t = getInstallationType(typeId);
+  return t && t.fields.some(function (f) { return f.key === m[1] + 'vitesse_mode'; }) ? m[1] : null;
+}
+
+function omPitotMission() {
+  var m = typeof getCurrentMission === 'function' ? getCurrentMission() : null;
+  return !!(m && (m.appareilsMesure || []).some(function (a) { return /pitot/i.test((a.designation || '') + ' ' + (a.marqueModele || '')); }));
+}
+
+// Sous un champ de vitesse en conduit (ou sous sa grille : moyenne calculée)
+function pitotAlerteHtml(typeId, f, inst) {
+  var d = inst.data, pre = omVitesseConduitPrefixe(typeId, f.key, d);
+  if (pre === null || !omPitotMission()) return '';
+  var s = f.type === 'grid' ? gridStats(d[f.key], d[f.rowsKey], d[f.colsKey]) : null;
+  var v = f.type === 'grid' ? (s && !s.incomplete ? s.moyenne : NaN) : num(d[f.key]);
+  if (!(v > 0 && v < 4)) return '';
+  return '<div class="field-hint field-hint-warn">' + ICONS.zap + ' Si cette vitesse a été lue au tube de Pitot : sous 4 m/s, la pression dynamique devient trop faible et l’erreur trop grande. Préférer l’anémomètre (INRS ED 695, § 10.3.1).</div>';
 }
 
 var OM_ICONE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M12 11v5"/></svg>';
@@ -431,12 +630,18 @@ function omSchemaConduit(d, typeId, pre) {
     (D > 0 && !(c2 > 0) ? ' Ici ' + amont + ' D = ' + omFr(amont * D / 100, 1) + ' m et ' + aval + ' D = ' + omFr(aval * D / 100, 1) + ' m.' : '') };
 }
 
-// Cabine de peinture : cas du protocole et positions des points le long d'une dimension (m)
+// Cabine de peinture : cas du protocole et positions des points le long d'une dimension (m).
+// Écart maximal entre deux points de la cabine vide : 1,50 m (ED 839), 2 m pour les cabines de camion
+// et d'encombrant comme le Rapso (Inserer_Annexes, DistanceEntreDeuxPoint). Fosse : une seule ligne de
+// points le long de la fosse (Rapso).
 function omCabineCas(d) {
-  return { poudre: d.pulverisation === 'Poudre', vertical: d.type_flux !== 'Horizontale', ouverte: d.type_cabine === 'Ouverte' };
+  var t = d.type_cabine || '';
+  return { poudre: d.pulverisation === 'Poudre', vertical: d.type_flux !== 'Horizontale' || t === 'Fosse', ouverte: t === 'Ouverte',
+    vehicule: t === 'Voiture' || t === 'Camion', camion: t === 'Camion', fosse: t === 'Fosse', pas: (t === 'Camion' || t === 'Encombrant') ? 2 : 1.5 };
 }
 
-function omCabinePositions(dim, poudre) {
+function omCabinePositions(dim, poudre, pas) {
+  pas = pas || 1.5;
   var out = [], i, n;
   if (poudre) { // bande de 0,25 m exclue, centres de rectangles, écart < 1,50 m, 2 points au moins
     var u = dim - 0.5;
@@ -445,8 +650,8 @@ function omCabinePositions(dim, poudre) {
     for (i = 0; i < n; i++) out.push(0.25 + (i + 0.5) * u / n);
     return out;
   }
-  if (dim <= 1) return [dim / 2]; // liquide : 0,50 m au moins des parois, 1,50 m au plus entre deux points
-  n = Math.ceil((dim - 1) / 1.5) + 1;
+  if (dim <= 1) return [dim / 2]; // liquide : 0,50 m au moins des parois, 1,50 m (ou 2 m) au plus entre deux points
+  n = Math.ceil((dim - 1) / pas - 1e-9) + 1;
   for (i = 0; i < n; i++) out.push(n === 1 ? dim / 2 : 0.5 + i * (dim - 1) / (n - 1));
   return out;
 }
@@ -457,9 +662,11 @@ function omSchemaCabine(d) {
   if (exemple) { l = 4; L = 6; }
   if (!(L > 0)) L = 6;
   var fr2 = function (v) { return omFr(v, 2); };
+  if (p.vehicule) return omSchemaCabineVehicule(p);
+  if (p.fosse) return omSchemaFosse(d);
   if (p.vertical) {
     var W = 260, Hh = Math.max(80, Math.min(200, W * l / L)), X = 50, Y = 24;
-    var pl = omCabinePositions(L, p.poudre), pw = omCabinePositions(l, p.poudre), marge = p.poudre ? 0.25 : 0.5;
+    var pl = omCabinePositions(L, p.poudre, p.pas), pw = omCabinePositions(l, p.poudre, p.pas), marge = p.poudre ? 0.25 : 0.5;
     s += omTxt(X + W / 2, 12, 'Vue de dessus : sol de la cabine vide', { gras: true, taille: 10 });
     s += omRect(X, Y, W, Hh, { fond: OM_BLEU, opacite: 0.05 });
     var mx = marge / L * W, my = marge / l * Hh;
@@ -481,6 +688,37 @@ function omSchemaCabine(d) {
   s += '<text x="40" y="' + (Yv + Hv / 2) + '" font-size="10" text-anchor="middle" fill="currentColor" transform="rotate(-90 40 ' + (Yv + Hv / 2) + ')">hauteur</text>';
   return { svg: omSvg(340, Yv + Hv + 30, s), legende: (exemple ? 'Exemple (4 m de large) : la largeur saisie remplace l’exemple. ' : '') +
     (nr === 0 ? 'Cases de moins de 0,60 m de côté' + larg + ' ; en hauteur, même règle.' : '3 × 3 points au moins, un au centre de chaque case.') + ' Air perpendiculaire au plan de mesure.' };
+}
+
+// Cabine pour voiture ou camion, vue de dessus : points autour du véhicule (ED 839, § 10.3.1)
+function omSchemaCabineVehicule(p) {
+  var s = '', X = 30, Y = 26, W = 280, H = 150;
+  s += omTxt(170, 12, p.camion ? 'Vue de dessus : cabine avec le camion' : 'Vue de dessus : cabine avec la voiture', { gras: true, taille: 10 });
+  s += omRect(X, Y, W, H, { fond: OM_BLEU, opacite: 0.05 });
+  var vx = p.camion ? 70 : 105, vw = p.camion ? 200 : 130, vy = Y + 50, vh = 50, m = 18; // véhicule et écart de 0,50 m dessiné
+  s += '<rect x="' + vx + '" y="' + vy + '" width="' + vw + '" height="' + vh + '" rx="10" fill="' + OM_GRIS + '" fill-opacity="0.35" stroke="currentColor" stroke-width="1.5"/>';
+  s += omTxt(vx + vw / 2, vy + vh / 2 + 4, p.camion ? 'camion' : 'voiture', { taille: 10 });
+  var cotes = p.camion ? 5 : 3, pts = [];
+  for (var i = 0; i < cotes; i++) { var x = vx + (i + 0.5) * vw / cotes; pts.push([x, vy - m], [x, vy + vh + m]); }
+  pts.push([vx - m, vy + 14], [vx - m, vy + vh - 14], [vx + vw + m, vy + 14], [vx + vw + m, vy + vh - 14]);
+  pts.forEach(function (q) { s += omPoint(q[0], q[1]); });
+  s += omLigne(vx, vy - m, vx, vy, { couleur: OM_GRIS }) + omTxt(vx - 4, vy - m + 4, '0,50 m', { taille: 9, ancre: 'end', couleur: OM_BLEU });
+  return { svg: omSvg(340, Y + H + 8, s), legende: p.camion
+    ? 'Points à 0,50 m du camion et à 1,50 m du sol : 2 à l’avant, 2 à l’arrière, 1,50 à 2 m entre les points sur les côtés (le Rapso en prévoit 12, 14 ou 16 selon la longueur du camion : moins de 10 m, 10 à 12 m, 12 à 14 m).'
+    : '10 points à 0,50 m de la voiture et à 0,90 m du sol : 3 de chaque côté, 2 à l’avant, 2 à l’arrière.' };
+}
+
+// Fosse, vue de dessus : une ligne de points le long de la fosse, à 1 m de son fond
+function omSchemaFosse(d) {
+  var L = num(d.longueur_cabine), exemple = !(L > 0), s = '';
+  if (exemple) L = 8;
+  var pos = omCabinePositions(L, false, 1.5), X = 30, Y = 34, W = 280, H = 50;
+  s += omTxt(170, 12, 'Vue de dessus de la fosse', { gras: true, taille: 10 });
+  s += omRect(X, Y, W, H, { fond: OM_GRIS, opacite: 0.2 });
+  pos.forEach(function (x) { s += omPoint(X + x / L * W, Y + H / 2); });
+  s += omLigne(X, Y + H + 10, X + W, Y + H + 10, { fleches: true }) + omTxt(X + W / 2, Y + H + 23, 'longueur ' + omFr(L, 2) + ' m', { taille: 10 });
+  return { svg: omSvg(340, Y + H + 30, s), legende: (exemple ? 'Exemple (8 m) : la longueur saisie remplace l’exemple. ' : '') +
+    pos.length + ' points sur une ligne, à 1 m du fond de la fosse, depuis une extrémité : ' + pos.map(function (v) { return omFr(v, 2); }).join(' · ') + ' m.' };
 }
 
 // Cuve de traitement de surface, vue de dessus : fentes le long du grand côté

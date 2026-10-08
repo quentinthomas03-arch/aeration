@@ -1881,7 +1881,10 @@ var PDF_TITRES_CABINE = {
   'Ouverte': 'CABINE DE PEINTURE OUVERTE',
   'Fermée': 'CABINE DE PEINTURE FERMEE',
   'Semi-fermée': 'CABINE DE PEINTURE SEMI-FERMEE',
-  'Encombrant': 'CABINE DE PEINTURE D\'ENCOMBRANT'
+  'Encombrant': 'CABINE DE PEINTURE D\'ENCOMBRANT',
+  'Voiture': 'CABINE DE PEINTURE DE VOITURE',
+  'Camion': 'CABINE DE PEINTURE DE CAMION',
+  'Fosse': 'FOSSE'
 };
 function pdfBuildAnnexeCabinesPeinture(list, logoDataUrl) {
   var titre = 'Cabine de peinture';

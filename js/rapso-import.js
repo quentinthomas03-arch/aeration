@@ -206,15 +206,21 @@ var RAPSO_FIELD_MAP = {
 
   cabines_peinture: [
     // Colonne "CDP" du Rapso : "CDP Ouverte" / "CDP Fermee" / "CDP Encombrant" (vérifié sur classeurs réels).
-    ['CDP', 'type_cabine', function (v) { var m = { 'cdp ouverte': 'Ouverte', 'cdp fermee': 'Fermée', 'cdp fermée': 'Fermée', 'cdp semi-fermee': 'Semi-fermée', 'cdp encombrant': 'Encombrant' }; return m[String(v || '').trim().toLowerCase()] || ''; }],
+    ['CDP', 'type_cabine', function (v) { var m = { 'cdp ouverte': 'Ouverte', 'cdp fermee': 'Fermée', 'cdp fermée': 'Fermée', 'cdp semi-fermee': 'Semi-fermée', 'cdp encombrant': 'Encombrant', 'cdp voiture': 'Voiture', 'cdp camion': 'Camion', 'cdp fosse': 'Fosse' }; return m[String(v || '').trim().toLowerCase()] || ''; }],
     ['Marque', 'marque'], ['Emplacement', 'batiment'], ['Date du contrôle', 'date_controle'],
     ['Description de la cabine', 'reference_equipement'],
     ['Nature des produits à peindre', 'nature_produits'],
     ['Subjectiles industriels divers ou véhicules', 'zone_travail'],
     ['Zone de travail', 'zone_travail'],
     ['Etat visuel de la cabine', 'etat_visuel_cabine'], ['Etat des filtres', 'etat_filtres'],
-    ['Valeur de référence_1', 'v1_reference'], ['Valeur recommandées par_1', 'v1_recommandee_par'],
-    ['Valeur de référence_2', 'v2_reference'], ['Valeur recommandées par_2', 'v2_recommandee_par'],
+    // Malgré son en-tête, « Valeur recommandées par_N » contient la VALEUR recommandée (0,3 ; 0,25) et
+    // « Normes » le texte de référence (« Norme 16985 ») — vérifié sur les classeurs réels le 2026-10-08,
+    // comme outils/non-regression-rapso/types.js. Blocs _1/_2 (cabine encombrante) ou _3/_4 (cabine vide)
+    // selon le type de cabine : le premier rempli l'emporte (une valeur posée n'est jamais écrasée).
+    ['Valeur de référence_1', 'v1_reference'], ['Valeur de référence_3', 'v1_reference'],
+    ['Valeur recommandées par_1', 'v1_valeur_recommandee'], ['Valeur recommandées par_3', 'v1_valeur_recommandee'], ['Normes', 'v1_recommandee_par'],
+    ['Valeur de référence_2', 'v2_reference'], ['Valeur de référence_4', 'v2_reference'],
+    ['Valeur recommandées par_2', 'v2_valeur_recommandee'], ['Valeur recommandées par_4', 'v2_valeur_recommandee'], ['Normes', 'v2_recommandee_par'],
     ['Largeur (m)/Hauteur (m)', 'largeur_cabine'], ['Longueur (m)', 'longueur_cabine'],
     ['Valeur de référence_5', 'debit_reference']
   ],
