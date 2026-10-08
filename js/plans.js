@@ -552,13 +552,14 @@ function buildPlanComposites(m) {
   })).then(function () { return out; });
 }
 
-function pdfBuildPlansSite(m) {
+// titre : intitulé de la première page (rapport annuel : « 4.2 PLAN DU SITE » ; dossier de valeurs de référence : annexe)
+function pdfBuildPlansSite(m, titre) {
   var content = [], first = true;
   var composites = (typeof PDF_ASSETS !== 'undefined' && PDF_ASSETS.plans) || {};
   missionPlans(m).forEach(function (plan) {
     var placed = planPlacedItems(m, plan.id);
     if (!placed.length || !composites[plan.id]) return;
-    content.push({ text: first ? '4.2 PLAN DU SITE' : '', bold: true, color: '#00B0F0', fontSize: 12, margin: [0, 30, 0, 10],
+    content.push({ text: first ? (titre || '4.2 PLAN DU SITE') : '', bold: true, color: '#00B0F0', fontSize: 12, margin: [0, 30, 0, 10],
       pageBreak: 'before', pageOrientation: 'portrait' });
     first = false;
     content.push({ text: plan.nom + ' — emplacement des installations contrôlées', bold: true, fontSize: 10.5, margin: [0, 0, 0, 8] });

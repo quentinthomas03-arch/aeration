@@ -4,10 +4,22 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '1.95';
+var APP_VERSION = '1.98';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '1.98', date: '07/10/2026', items: [
+    'Questions fréquentes : 47 fiches (locaux et air neuf, sanitaires, captage, recyclage, par installation, dossier et contrôles), chacune avec sa source — Code du travail, arrêté du 8 octobre 1987, guides INRS — ou signalée « sans source extérieure ».',
+    'Questions fréquentes : recherche par mot-clé de terrain (WC, CTA, soudage…) et mots proposés en un toucher.',
+    'Questions fréquentes : WC fermés dans un bloc sanitaire (débit du bloc ou 30 m³/h par cabine) posé en question ouverte, à trancher par la DT.'
+  ] },
+  { version: '1.97', date: '07/10/2026', items: [
+    'Questions fréquentes (accueil › FAQ) : les cas sur lesquels on hésite entre collègues, avec une réponse commune et sa source. Les réponses sans source extérieure sont signalées. Toutes sont à valider par la direction technique ; une nouvelle question se pose par mail.'
+  ] },
+  { version: '1.96', date: '07/10/2026', items: [
+    'Dossier de valeurs de référence : quand la prestation est cochée, la pression statique dans le conduit est demandée (points caractéristiques exigés par l’arrêté) ; le contrôle annuel seul reste inchangé.',
+    'Dossier de valeurs de référence : chaque installation indique son repère sur le plan du site et les schémas où elle figure ; plans et schémas sont joints en annexe.'
+  ] },
   { version: '1.95', date: '07/10/2026', items: [
     'Recyclage : fiche du contrôle semestriel refaite (arrêté du 8 octobre 1987, art. 4.2 b ; INRS ED 6008) — moyennes des canaux du DustTrak, concentration comparée au 1/5 de la VLEP de chaque polluant, test des systèmes de surveillance exigé (non testé = ne peut se prononcer), contrôle précédent rappelé.',
     'Recyclage : rapport semestriel à part (menu ⋯), ou directement par « Rapport PDF » si la mission ne compte que du recyclage.',

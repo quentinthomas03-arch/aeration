@@ -1035,7 +1035,8 @@ function buildSchemaComposites(m) {
   })).then(function () { return out; });
 }
 
-function pdfBuildSchemas(m) {
+// titre : intitulé de la première page (rapport annuel : « 4.3 SCHEMAS DES RESEAUX »)
+function pdfBuildSchemas(m, titre) {
   var assets = (typeof PDF_ASSETS !== 'undefined' && PDF_ASSETS.schemas) || {};
   var content = [], first = true;
   schemasPourRapport(m).forEach(function (s) {
@@ -1043,7 +1044,7 @@ function pdfBuildSchemas(m) {
     if (!a) return;
     var landscape = a.w > a.h * 1.15;
     var page = { stack: [], pageBreak: 'before', pageOrientation: landscape ? 'landscape' : 'portrait' };
-    page.stack.push({ text: first ? '4.3 SCHEMAS DES RESEAUX' : '', bold: true, color: '#00B0F0', fontSize: 12, margin: [0, 30, 0, 6] });
+    page.stack.push({ text: first ? (titre || '4.3 SCHEMAS DES RESEAUX') : '', bold: true, color: '#00B0F0', fontSize: 12, margin: [0, 30, 0, 6] });
     first = false;
     page.stack.push({ text: s.nom, bold: true, fontSize: 10.5, margin: [0, 0, 0, 2] });
     page.stack.push({ text: 'Schéma de principe établi sur site par le technicien SOCOTEC à partir des constatations visuelles, sans valeur de plan d’exécution ni de plan de récolement.', fontSize: 8, italics: true, margin: [0, 0, 0, 8] });

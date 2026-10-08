@@ -314,8 +314,13 @@ function exportDvrPdf(share) {
   if (!m) return;
   var analyse = dvrMode(m) === 'analyse';
   rapportProgres('Préparation du document…');
-  ensureLib('pdf').then(function () { return Promise.all([pdfFetchAsDataUrl(LOGO_PATH), pdfFetchAsDataUrl(BANNER_PATH)]); }).then(function (r) {
-    PDF_ASSETS.logo = r[0]; PDF_ASSETS.banner = r[1];
+  ensureLib('pdf').then(function () {
+    return Promise.all([pdfFetchAsDataUrl(LOGO_PATH), pdfFetchAsDataUrl(BANNER_PATH),
+      // Plans et schémas en annexe du dossier (js/plans.js, js/schemas.js)
+      typeof buildPlanComposites === 'function' ? buildPlanComposites(m) : {},
+      typeof buildSchemaComposites === 'function' ? buildSchemaComposites(m) : {}]);
+  }).then(function (r) {
+    PDF_ASSETS.logo = r[0]; PDF_ASSETS.banner = r[1]; PDF_ASSETS.plans = r[2]; PDF_ASSETS.schemas = r[3];
     var pdf = pdfMake.createPdf(dossierInstallationDocDefinition(m));
     rapportProgresFin();
     var name = (m.clientSite || 'Mission').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç\s-]/g, '').trim() + (analyse ? '_analyse_dossier_valeurs_reference.pdf' : '_dossier_valeurs_reference.pdf');

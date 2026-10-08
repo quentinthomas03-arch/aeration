@@ -1123,3 +1123,16 @@ select.tb-input { min-width: 108px; max-width: 150px; font-size: 13px; padding: 
 /* === Valeurs de référence du client (js/valeurs-reference.js) === */
 .vr-table td:first-child { width: 32px; }
 .vr-table input[type=checkbox] { width: 22px; height: 22px; }
+
+/* === Questions fréquentes (js/faq.js) === */
+.faq-cas summary { cursor: pointer; list-style-position: outside; line-height: 1.35; }
+.faq-cas[open] summary { margin-bottom: 8px; }
+.faq-reponse { font-weight: 600; margin: 0 0 6px; }
+.faq-source { font-size: 12px; color: var(--text-muted); margin: 6px 0 0; }
+.faq-pastille { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; background: var(--primary-pale); color: var(--text-dark); margin-right: 4px; }
+.faq-statut { font-size: 12px; font-style: italic; color: var(--text-muted); margin: 4px 0 0; }
+.faq-statut.faq-valide { color: #166534; font-style: normal; font-weight: 600; }
+.faq-pastille.faq-ouvert { background: #fef3c7; color: #92400e; }
+.faq-mots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.faq-mot { border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-dark); border-radius: 14px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+.faq-mot.active { background: var(--primary-pale); border-color: transparent; font-weight: 600; }

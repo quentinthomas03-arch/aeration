@@ -317,7 +317,8 @@ function fieldEmptyValue(val) {
 function fieldState(f, inst) {
   if (f.type === 'computed') return 'computed';
   var empty = fieldEmptyValue(inst.data[f.key]);
-  if (f.optional) return empty ? 'optional-empty' : 'optional-filled';
+  // Pression statique demandée quand la mission établit un dossier de valeurs de référence (js/dossier-installation.js)
+  if (f.optional && !(typeof dvrExigeChamp === 'function' && dvrExigeChamp(f))) return empty ? 'optional-empty' : 'optional-filled';
   return empty ? 'required-empty' : 'required-filled';
 }
 

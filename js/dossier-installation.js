@@ -36,6 +36,33 @@ function setDvrMode(mode) {
   render();
 }
 
+// Pression statique : facultative au contrôle annuel (comme le Rapso), mais demandée quand la mission
+// établit un dossier de valeurs de référence — l'arrêté (art. 3.1 et 4.1) y attend les pressions
+// statiques ou vitesses aux points caractéristiques, associées aux débits. Utilisé par fieldState
+// (js/installations.js) et la liste des cases manquantes (js/terrain-assist.js).
+function dvrExigeChamp(f) {
+  if (!f || !/(^|_)pression_statique$/.test(f.key || '')) return false;
+  var m = typeof getCurrentMission === 'function' ? getCurrentMission() : null;
+  return !!(m && m.dvr && m.dvr.actif && dvrMode(m) !== 'analyse');
+}
+
+// Repérage d'une installation : plan du site (numéro d'épingle, js/plans.js) et schémas de réseau
+// où elle figure (js/schemas.js)
+function dsReperage(m, inst) {
+  var parts = [], p = inst && inst.data && inst.data._plan;
+  if (p && typeof missionPlans === 'function') {
+    var plan = missionPlans(m).filter(function (x) { return x.id === p.id; })[0];
+    var rang = typeof planPlacedItems === 'function' ? planPlacedItems(m, p.id).filter(function (x) { return x.it.inst === inst; })[0] : null;
+    if (plan) parts.push('Plan « ' + plan.nom + ' »' + (rang ? ', repère n°' + rang.n : ''));
+  }
+  if (typeof missionSchemas === 'function' && inst) {
+    missionSchemas(m).forEach(function (s) {
+      if ((s.elements || []).some(function (e) { return e.k === 'inst' && e.inst === inst.id; })) parts.push('Schéma « ' + s.nom + ' »');
+    });
+  }
+  return parts.join(' ; ');
+}
+
 function setDvrChamp(key, value) {
   var m = getCurrentMission();
   if (!m) return;
@@ -348,7 +375,8 @@ function pdfBuildDossierDocDefinition(m) {
       var rows = dsDescriptif(x, m);
       c.push({ unbreakable: true, stack: [
         { text: x.it.type.label + ' — ' + verifInstallationTitle(x.it), bold: true, fontSize: 9.5, margin: [0, 8, 0, 3] },
-        pdfTable([170, '*'], rows.map(function (r) { return [dsB(r[0], { bold: true }), dsB(r[1])]; }).concat([[dsB('Repérage sur plan / schéma', { bold: true }), dsB('À compléter', { italics: true })]]))
+        pdfTable([170, '*'], rows.map(function (r) { return [dsB(r[0], { bold: true }), dsB(r[1])]; }).concat([[dsB('Repérage sur plan / schéma', { bold: true }),
+          dsReperage(m, x.it.inst) ? dsB(dsReperage(m, x.it.inst) + ' (annexe)') : dsB('À compléter', { italics: true })]]))
       ] });
     });
   }
@@ -364,7 +392,8 @@ function pdfBuildDossierDocDefinition(m) {
     if (!list.length) return;
     c.push(pdfHeading2(n + '.' + (DVR_CATEGORIES.indexOf(cat) + 1) + ' ' + cat.titre.toUpperCase()));
     list.forEach(function (x) {
-      var bloc = [{ text: x.it.type.label + ' — ' + verifInstallationTitle(x.it), bold: true, fontSize: 9.5, margin: [0, 4, 0, 2] }];
+      var rep = dsReperage(m, x.it.inst);
+      var bloc = [{ text: [x.it.type.label + ' — ' + verifInstallationTitle(x.it), rep ? { text: '   ·   ' + rep, bold: false, fontSize: 8.5, color: '#555555' } : ''], bold: true, fontSize: 9.5, margin: [0, 4, 0, 2] }];
       if (x.cfg.cat === 'sp') {
         var refEd = (typeof getEdReferenceForType === 'function' && getEdReferenceForType(x.it.type.id)) || null;
         bloc.push({ text: [{ text: 'Polluant(s) représentatif(s) : ', bold: true }, dvrPolluant(m, x.it.type, x.it.inst) || 'à préciser par le chef d’établissement',
@@ -441,6 +470,11 @@ function pdfBuildDossierDocDefinition(m) {
 
   c.push({ text: '', pageBreak: 'before' });
   c.push(dsValidation('Les valeurs proposées sont adoptées comme valeurs de référence de l’installation. Le présent dossier est intégré au dossier d’installation et tenu à la disposition de l’inspection du travail, des services de prévention des Carsat/Cramif/CGSS et des instances représentatives du personnel.' + (dv.valideLe ? ' Validé le ' + dv.valideLe + '.' : '')));
+
+  // Annexe : plans du site (installations repérées) et schémas de réseau, pour les points de mesure
+  // et le repérage cités plus haut (images préparées par exportDvrPdf, comme pour le rapport)
+  if (typeof pdfBuildPlansSite === 'function') c = c.concat(pdfBuildPlansSite(m, 'ANNEXE — PLAN DU SITE'));
+  if (typeof pdfBuildSchemas === 'function') c = c.concat(pdfBuildSchemas(m, 'ANNEXE — SCHEMAS DES RESEAUX'));
 
   return dsDocDefinition(m, mes
     ? { bandeau: 'Dossier technique', titre: 'DOSSIER D’INSTALLATION DE VENTILATION\nVALEURS DE RÉFÉRENCE À LA MISE EN SERVICE' }

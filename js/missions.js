@@ -37,6 +37,7 @@ function renderHome() {
   h += '<button type="button" class="home-tab-btn" onclick="state.view=\'profil-technicien\';render();">' + ICONS.user + '<span>Profil</span></button>';
   h += '<button type="button" class="home-tab-btn" onclick="state.view=\'guide-utilisation\';render();">' + ICONS.play + '<span>Guide</span></button>';
   h += '<button type="button" class="home-tab-btn" onclick="state.view=\'ed-reference\';render();">' + ICONS.clipboard + '<span>Aide-mémoire</span></button>';
+  h += '<button type="button" class="home-tab-btn" onclick="state.view=\'faq\';render();">' + ICONS.list + '<span>FAQ</span></button>'; // questions fréquentes (js/faq.js)
   h += '<button type="button" class="home-tab-btn" onclick="cycleTheme();">' + THEME_ICON + '<span>' + themeLabel() + '</span></button>';
   h += '<button type="button" class="home-tab-btn" onclick="state.view=\'a-propos\';render();">' + APROPOS_ICON + '<span>À propos</span></button>';
   if (typeof isFsaSupported === 'function' && isFsaSupported()) {

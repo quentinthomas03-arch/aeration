@@ -20,6 +20,7 @@ function render() {
     case 'bilan': h = renderBilan(); break;
     case 'compte-rendu': h = renderCompteRendu(); break;
     case 'dvr': h = renderDvr(); break;
+    case 'faq': h = renderFaq(); break;
     case 'a-propos': h = renderAPropos(); break;
     case 'preparation': h = renderPreparation(); break;
     case 'import-liste': h = renderImportListe(); break;
