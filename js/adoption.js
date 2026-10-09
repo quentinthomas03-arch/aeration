@@ -4,10 +4,14 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.4';
+var APP_VERSION = '2.5';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.5', date: '09/10/2026', items: [
+    'Local à pollution spécifique : le taux de renouvellement devient le critère, à l’extraction et au soufflage (débit / volume du local), comparé au taux à atteindre que vous retenez pour l’activité, avec sa source. Toujours au choix : extraction, soufflage ou les deux.',
+    'Local à pollution spécifique : l’effectif devient facultatif. S’il est renseigné, le minimum par occupant est vérifié en plus, mais il ne rend jamais satisfaisant un local dont le taux de renouvellement est insuffisant.'
+  ] },
   { version: '2.4', date: '08/10/2026', items: [
     'Bureaux et salles de réunion : le commentaire réglementaire du Rapso est rédigé automatiquement (« Effectif : 3 personne (s) max », « Ce volume permet d’accueillir 5 occupant(s) »…), selon le volume ou le débit d’air neuf. Il s’affiche dans la fiche et dans le rapport, suivi de votre commentaire.'
   ] },

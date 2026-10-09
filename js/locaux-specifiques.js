@@ -104,9 +104,11 @@ var TYPE_LOCAL_SPECIFIQUE = {
     { key: 'photo', label: 'Photo', type: 'photo' },
     { key: 'mesures_realisees', label: 'Mesures réalisées dans ce local', type: 'select', options: MESURES_LS },
 
-    { key: 'section_occupation', label: 'Occupation (Code du travail, R4222-6 et R4222-11)', type: 'section', showIf: LS_SI_AIR_NEUF },
-    { key: 'type_local', label: 'Désignation du local (R4222-6)', type: 'select', options: TYPES_LOCAL_R4222_6, showIf: LS_SI_AIR_NEUF },
-    { key: 'effectif', label: 'Effectif présent dans le local', type: 'number', showIf: LS_SI_AIR_NEUF },
+    // Facultatif (2026-10-09) : le minimum par occupant (R4222-11) n'est vérifié que si l'effectif est
+    // renseigné, et ne peut jamais rendre satisfaisant un local dont le taux de renouvellement est insuffisant
+    { key: 'section_occupation', label: 'Occupation, facultatif (Code du travail, R4222-6 et R4222-11)', type: 'section', showIf: LS_SI_AIR_NEUF },
+    { key: 'type_local', label: 'Désignation du local (R4222-6), si vous vérifiez aussi le minimum par occupant', type: 'select', options: TYPES_LOCAL_R4222_6, optional: true, showIf: LS_SI_AIR_NEUF },
+    { key: 'effectif', label: 'Effectif présent dans le local (facultatif)', type: 'number', optional: true, showIf: LS_SI_AIR_NEUF },
     { key: 'occupants_autres_locaux', label: 'Occupants des locaux à pollution non spécifique d’où provient l’air (si c’est le cas)', type: 'number', optional: true, showIf: LS_SI_AIR_NEUF },
 
     { key: 'section_extraction', label: 'Extraction (arrêté du 8 octobre 1987, art. 4)', type: 'section', showIf: LS_SI_EXTRACTION },
@@ -115,19 +117,24 @@ var TYPE_LOCAL_SPECIFIQUE = {
     { key: 'debit_global_extrait', label: 'Débit global d’air extrait (m³/h)', type: 'computed', showIf: LS_SI_EXTRACTION },
     { key: 'valeur_reference_extraction', label: 'Valeur de référence du débit global (m³/h, « / » si aucune)', type: 'text', showIf: LS_SI_EXTRACTION },
     { key: 'avis_extraction', label: 'Avis débit global extrait / valeur de référence', type: 'computed', showIf: LS_SI_EXTRACTION },
-    { key: 'volume', label: 'Volume du local (m³)', type: 'number', optional: true, showIf: LS_SI_EXTRACTION },
-    { key: 'taux_renouvellement', label: 'Taux de renouvellement (vol/h)', type: 'computed', showIf: LS_SI_EXTRACTION },
-    { key: 'taux_recommande', label: 'Taux de renouvellement recommandé (vol/h), si vous en retenez un', type: 'number', optional: true, showIf: LS_SI_EXTRACTION },
-    { key: 'referentiel_taux', label: 'Source du taux recommandé (guide INRS, dossier du client, installateur…)', type: 'text', optional: true, showIf: LS_SI_EXTRACTION },
-    { key: 'avis_taux', label: 'Avis taux de renouvellement / taux recommandé', type: 'computed', showIf: LS_SI_EXTRACTION },
 
     { key: 'section_air_neuf', label: 'Air neuf', type: 'section', showIf: LS_SI_AIR_NEUF },
     { key: 'mode_air_neuf', label: 'Introduction de l’air neuf', type: 'select', showIf: LS_SI_AIR_NEUF,
       options: ['Soufflage mécanique (CTA, centrale)', 'Bouches / grilles mesurées', 'Entrées d’air naturelles (non mesurables)'] },
     { key: 'debit_air_neuf', label: 'Débit d’air neuf introduit (m³/h)', type: 'number',
       showIf: { and: [LS_SI_AIR_NEUF, { key: 'mode_air_neuf', in: ['Soufflage mécanique (CTA, centrale)', 'Bouches / grilles mesurées'] }] } },
-    { key: 'debit_min_air_neuf', label: 'Débit minimal d’air neuf (R4222-6, m³/h)', type: 'computed', showIf: LS_SI_AIR_NEUF },
-    { key: 'avis_air_neuf', label: 'Avis air neuf / minimum réglementaire', type: 'computed', showIf: LS_SI_AIR_NEUF },
+    { key: 'debit_min_air_neuf', label: 'Débit minimal d’air neuf par occupant (R4222-6, m³/h), si l’effectif est renseigné', type: 'computed', showIf: LS_SI_AIR_NEUF },
+    { key: 'avis_air_neuf', label: 'Avis air neuf / minimum par occupant', type: 'computed', showIf: LS_SI_AIR_NEUF },
+
+    // Taux de renouvellement (2026-10-09) : critère principal du local, à l'extraction et au soufflage
+    { key: 'section_taux', label: 'Taux de renouvellement', type: 'section' },
+    { key: 'volume', label: 'Volume du local (m³)', type: 'number' },
+    { key: 'taux_renouvellement', label: 'Taux de renouvellement à l’extraction (vol/h)', type: 'computed', showIf: LS_SI_EXTRACTION },
+    { key: 'taux_air_neuf', label: 'Taux de renouvellement en air neuf soufflé (vol/h)', type: 'computed', showIf: LS_SI_AIR_NEUF },
+    // Facultatif : aucun taux par défaut, certains locaux n'en ont pas (soudage : jugé sur les captages)
+    { key: 'taux_recommande', label: 'Taux de renouvellement à atteindre (vol/h), s’il en existe un pour l’activité', type: 'number', optional: true },
+    { key: 'referentiel_taux', label: 'Source du taux à atteindre (demande du client, dossier de l’installation, guide INRS…)', type: 'text', optional: true },
+    { key: 'avis_taux', label: 'Avis taux de renouvellement / taux à atteindre', type: 'computed' },
 
     { key: 'section_conclusion', label: 'Conclusion', type: 'section' },
     { key: 'avis', label: 'Avis par rapport à la réglementation', type: 'computed' },
@@ -293,23 +300,37 @@ var CALC_LOCAL_SPECIFIQUE = [
       var e = num(d.debit_global_extrait), v = num(d.volume);
       return (!lsAvecExtraction(d) || isNaN(e) || isNaN(v) || v === 0) ? '' : e / v;
     } },
+  { target: 'taux_air_neuf', decimals: 1, fn: function (d) {
+      var q = num(d.debit_air_neuf), v = num(d.volume);
+      return (!lsAvecAirNeuf(d) || isNaN(q) || isNaN(v) || v === 0) ? '' : q / v;
+    } },
   // Aucun taux réglementaire pour un local à pollution spécifique : il dépend du polluant et du procédé.
   // Le technicien saisit celui qu'il retient (ex. 10 vol/h pour un laboratoire) et sa source ; sans
   // taux recommandé, le taux reste informatif (2026-10-05).
+  // Taux à atteindre : propre à l'activité (polluant, procédé), saisi avec sa source ; aucune valeur par
+  // défaut. Vérifié à l'extraction et au soufflage selon les mesures réalisées ; sans taux à atteindre, le
+  // taux reste informatif. Entrées d'air naturelles : taux en air neuf non mesurable.
   { target: 'avis_taux', fn: function (d) {
       var rec = num(d.taux_recommande);
-      if (!lsAvecExtraction(d) || isNaN(rec)) return '';
-      var t = num(d.taux_renouvellement);
-      if (isNaN(t)) return 'Impossible de se prononcer';
-      return t >= rec ? 'Satisfaisant' : 'Non Satisfaisant';
+      if (isNaN(rec)) return '';
+      var avis = [];
+      var juge = function (t) { t = num(t); return isNaN(t) ? 'Impossible de se prononcer' : (t >= rec ? 'Satisfaisant' : 'Non Satisfaisant'); };
+      if (lsAvecExtraction(d)) avis.push(juge(d.taux_renouvellement));
+      if (lsAvecAirNeuf(d)) avis.push(d.mode_air_neuf === 'Entrées d’air naturelles (non mesurables)' ? 'Impossible de se prononcer' : juge(d.taux_air_neuf));
+      return worstAvis(avis);
     } },
   { target: 'debit_min_air_neuf', decimals: 0, fn: function (d) { return lsAvecAirNeuf(d) ? debitMinR4222_6(d) : ''; } },
-  { target: 'avis_air_neuf', fn: function (d) { return lsAvecAirNeuf(d) ? avisAirNeuf(d) : ''; } },
+  // Minimum par occupant (R4222-11) seulement si l'effectif est renseigné
+  { target: 'avis_air_neuf', fn: function (d) {
+      if (!lsAvecAirNeuf(d) || String(d.effectif === undefined ? '' : d.effectif).trim() === '') return '';
+      return avisAirNeuf(d);
+    } },
+  // Le critère le moins favorable l'emporte : un minimum par occupant respecté ne valide jamais un taux
+  // de renouvellement insuffisant
   { target: 'avis', fn: function (d) {
-      var avis = [];
-      if (lsAvecExtraction(d)) avis.push(d.avis_extraction || 'Impossible de se prononcer', d.avis_taux);
+      var avis = [d.avis_taux];
+      if (lsAvecExtraction(d)) avis.push(d.avis_extraction || 'Impossible de se prononcer');
       if (lsAvecAirNeuf(d)) avis.push(d.avis_air_neuf);
-      // Extraction seule sans valeur de référence : le contrôle relève le débit, sans critère pour l'évaluer
       var vals = avis.filter(Boolean);
       if (vals.length && vals.every(function (v) { return v.indexOf('Sans Objet') === 0; })) return AVIS_SO_REF;
       return worstAvis(avis);
@@ -557,15 +578,16 @@ function pdfBuildAnnexeLocalSpecifique(list, logo) {
       ['Mesures réalisées', d.mesures_realisees || MESURES_LS[0]]], d.photo));
     content.push(H.gap(10));
     if (an) {
-      content.push(H.bar('Air neuf (Code du travail, art. R4222-11 et R4222-6)'));
+      content.push(H.bar('Air neuf soufflé'));
       content.push(H.t([270, 270], [
+        [H.L('Introduction de l’air neuf'), H.V(d.mode_air_neuf)],
+        [H.L('Débit d’air neuf introduit'), H.V(H.u(d.debit_air_neuf, 'm³/h'), { bold: true })]
+      ].concat(d.avis_air_neuf ? [
         [H.L('Désignation du local (R4222-6)'), H.V(d.type_local)],
         [H.L('Effectif' + (H.v(d.occupants_autres_locaux) !== '-' ? ' (+ occupants des locaux d’où provient l’air)' : '')), H.V(H.v(d.effectif) + (H.v(d.occupants_autres_locaux) !== '-' ? ' + ' + H.v(d.occupants_autres_locaux) : ''))],
-        [H.L('Introduction de l’air neuf'), H.V(d.mode_air_neuf)],
-        [H.L('Débit minimal d’air neuf réglementaire'), H.V(H.u(d.debit_min_air_neuf, 'm³/h'))],
-        [H.L('Débit d’air neuf introduit'), H.V(H.u(d.debit_air_neuf, 'm³/h'))],
-        [H.L('Avis air neuf / minimum réglementaire'), H.avis(d.avis_air_neuf)]
-      ]));
+        [H.L('Débit minimal d’air neuf par occupant (R4222-6 et R4222-11)'), H.V(H.u(d.debit_min_air_neuf, 'm³/h'))],
+        [H.L('Avis air neuf / minimum par occupant'), H.avis(d.avis_air_neuf)]
+      ] : [])));
       content.push(H.gap(8));
     }
     if (ext) {
@@ -576,15 +598,16 @@ function pdfBuildAnnexeLocalSpecifique(list, logo) {
         [H.L('Débit global d’air extrait'), H.V(H.u(d.debit_global_extrait, 'm³/h'), { bold: true })],
         [H.L('Valeur de référence'), H.V(H.u(d.valeur_reference_extraction, 'm³/h'))],
         [H.L('Avis débit global / valeur de référence'), H.avis(d.avis_extraction)]
-      ].concat(H.v(d.volume) !== '-' ? [
-        [H.L('Volume du local'), H.V(H.u(d.volume, 'm³'))],
-        [H.L('Taux de renouvellement'), H.V(H.u(d.taux_renouvellement, 'vol/h'), { bold: true })]
-      ] : []).concat(H.v(d.taux_recommande) !== '-' ? [
-        [H.L('Taux recommandé' + (d.referentiel_taux ? ' (' + d.referentiel_taux + ')' : '')), H.V(H.u(d.taux_recommande, 'vol/h'))],
-        [H.L('Avis taux de renouvellement'), H.avis(d.avis_taux)]
-      ] : [])));
+      ]));
       content.push(H.gap(10));
     }
+    content.push(H.bar('Taux de renouvellement'));
+    content.push(H.t([270, 270], [[H.L('Volume du local'), H.V(H.u(d.volume, 'm³'))]]
+      .concat(ext ? [[H.L('Taux de renouvellement à l’extraction'), H.V(H.u(d.taux_renouvellement, 'vol/h'), { bold: true })]] : [])
+      .concat(an ? [[H.L('Taux de renouvellement en air neuf soufflé'), H.V(H.u(d.taux_air_neuf, 'vol/h'), { bold: true })]] : [])
+      .concat([[H.L('Taux à atteindre' + (d.referentiel_taux ? ' (' + d.referentiel_taux + ')' : '')), H.V(H.u(d.taux_recommande, 'vol/h'))],
+        [H.L('Avis taux de renouvellement'), H.avis(d.avis_taux || 'Sans objet (aucun taux à atteindre retenu)')]])));
+    content.push(H.gap(10));
     var refs = [an ? 'Code du travail, art. R4222-6 et R4222-11' : '', ext ? 'arrêté du 8 octobre 1987, art. 4' : ''].filter(Boolean).join(' ; ');
     content.push(H.t([386, 154], [[H.V('Avis par rapport à la réglementation (' + refs + ') :', { alignment: 'left' }), H.avis(d.avis)]]));
     content.push(H.gap(8));
@@ -736,10 +759,10 @@ function pdfBuildAnnexeRecyclage(list, logo) {
   WIZARD_STEPS.local_specifique = [
     { title: 'Identification', fields: ['batiment', 'reference_local', 'activite', 'polluant', 'date_controle', 'photo'] },
     { title: 'Mesures à réaliser', fields: ['mesures_realisees'] },
-    { title: 'Occupation', fields: ['type_local', 'effectif', 'occupants_autres_locaux'] },
     { title: 'Extraction', fields: ['debit_captages', 'debit_extraction_generale', 'debit_global_extrait', 'valeur_reference_extraction', 'avis_extraction'] },
-    { title: 'Taux de renouvellement', fields: ['volume', 'taux_renouvellement', 'taux_recommande', 'referentiel_taux', 'avis_taux'] },
-    { title: 'Air neuf', fields: ['mode_air_neuf', 'debit_air_neuf', 'debit_min_air_neuf', 'avis_air_neuf'] },
+    { title: 'Air neuf soufflé', fields: ['mode_air_neuf', 'debit_air_neuf'] },
+    { title: 'Taux de renouvellement', fields: ['volume', 'taux_renouvellement', 'taux_air_neuf', 'taux_recommande', 'referentiel_taux', 'avis_taux'] },
+    { title: 'Occupation (facultatif)', fields: ['type_local', 'effectif', 'occupants_autres_locaux', 'debit_min_air_neuf', 'avis_air_neuf'] },
     { title: 'Conclusion', fields: ['avis', 'observation'] }
   ];
   WIZARD_STEPS.recyclage = [
@@ -794,7 +817,9 @@ function pdfBuildAnnexeRecyclage(list, logo) {
     DVR_CONFIG.local_specifique = { cat: 'sp', polluant: 'Selon l’activité du local', lignes: [
       { label: 'Débit global d’air extrait', mesure: 'debit_global_extrait', avis: 'avis_extraction', unit: 'm³/h', ref: 'valeur_reference_extraction' },
       { label: 'Débit minimal d’air neuf (R4222-6 / R4222-11)', role: 'mini', mini: 'debit_min_air_neuf', unit: 'm³/h' },
-      { label: 'Débit d’air neuf introduit', mesure: 'debit_air_neuf', avis: 'avis_air_neuf', role: 'point', unit: 'm³/h' }
+      { label: 'Débit d’air neuf introduit', mesure: 'debit_air_neuf', avis: 'avis_air_neuf', role: 'point', unit: 'm³/h' },
+      { label: 'Taux de renouvellement à l’extraction', mesure: 'taux_renouvellement', mini: 'taux_recommande', miniLabel: 'Taux à atteindre', avis: 'avis_taux', unit: 'vol/h' },
+      { label: 'Taux de renouvellement en air neuf soufflé', mesure: 'taux_air_neuf', mini: 'taux_recommande', miniLabel: 'Taux à atteindre', avis: 'avis_taux', unit: 'vol/h' }
     ] };
     DVR_CONFIG.recyclage = { cat: 'sp', polluant: 'Poussières', lignes: [
       { label: 'Débit d’air neuf introduit', mesure: 'debit_air_neuf', mini: 'debit_min_air_neuf', miniLabel: 'Minimum réglementaire (R4222-6)', avis: 'avis_air_neuf', unit: 'm³/h' },
