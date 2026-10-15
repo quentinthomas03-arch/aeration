@@ -4,10 +4,17 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.5';
+var APP_VERSION = '2.6';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.6', date: '15/10/2026', items: [
+    'Informations de mission : nouveau champ « Validé par (relecteur) », repris sur la page de garde du rapport.',
+    'Machines à bois : l’observation du Rapso est écrite automatiquement (« Vitesse de transport faible », débit minimum recommandé par l’INRS et débit mesuré), dans la fiche et dans le tableau de synthèse, suivie de votre observation.',
+    'Machine à bois de type « / » (aspirateur mobile…) : une fois mesurée, elle est terminée avec l’avis « Impossible de se prononcer », comme dans le Rapso, au lieu de rester « données incomplètes ».',
+    'Rapport : fiche machine à bois sur deux pages même avec de longues conditions de mesure, observation sous la conclusion ; « Mission réalisée le » pour une seule date ; n° d’affaire comme référence du contrat ; seuls les paragraphes de synthèse utiles ; « dossier de valeurs de référence non disponible » quand il est absent.',
+    'Rapport : un tableau de locaux plus long qu’une page (bureaux…) rappelle le bâtiment, le local et le type en haut de la page suivante, sans couper une ligne en deux.'
+  ] },
   { version: '2.5', date: '09/10/2026', items: [
     'Local à pollution spécifique : le taux de renouvellement devient le critère, à l’extraction et au soufflage (débit / volume du local), comparé au taux à atteindre que vous retenez pour l’activité, avec sa source. Toujours au choix : extraction, soufflage ou les deux.',
     'Local à pollution spécifique : l’effectif devient facultatif. S’il est renseigné, le minimum par occupant est vérifié en plus, mais il ne rend jamais satisfaisant un local dont le taux de renouvellement est insuffisant.'

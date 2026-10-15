@@ -223,6 +223,7 @@ function renderMissionForm() {
     { key: 'referenceOffre', label: 'Référence de l\u2019offre' },
     { key: 'numeroChrono', label: 'Numéro Chrono' },
     { key: 'auteurRapport', label: 'Auteur du rapport' },
+    { key: 'validePar', label: 'Validé par (relecteur)' },
     { key: 'telAuteur', label: 'Tel de l\u2019auteur' },
     { key: 'mailAgenceAuteur', label: 'Mail agence ou auteur' },
     { key: 'datesIntervention', label: 'Date(s) d\u2019intervention' },

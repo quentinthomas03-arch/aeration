@@ -85,7 +85,10 @@ function liveVerdictBarHtml(typeId, inst) {
   if (!key) return '';
   var val = inst.data[key];
   var cls, text, reasons = [];
-  if (val === undefined || val === '' || val === 'Impossible de se prononcer') {
+  if (val === 'Impossible de se prononcer' && typeof idspSansReference === 'function' && idspSansReference(type, inst.data)) {
+    cls = 'status-warn';
+    text = 'Avis : Impossible de se prononcer (aucune valeur de référence)';
+  } else if (val === undefined || val === '' || val === 'Impossible de se prononcer') {
     cls = 'status-warn';
     text = 'Avis : données incomplètes';
     reasons = verdictReasons(type, inst, key, 'Impossible de se prononcer');

@@ -146,6 +146,9 @@ function pdfNoticeTable(notice, observations) {
     body.push([C(i === 0 ? 'R4222-21' : ''), C(n.label, { bold: true }), X(n.presence === 'Présence'), X(n.presence === 'Absence'), X(n.presence === 'Sans objet'), C(n.commentaire || '-')]);
   });
   body.push([{ text: 'Observations', bold: true, fontSize: 8.5, color: '#FFFFFF', fillColor: PDF_ACCENT, colSpan: 6 }, {}, {}, {}, {}, {}]);
+  // Sans observation saisie et sans dossier de valeurs de référence, la phrase du Rapso
+  var dvrAbsent = (notice || []).some(function (n) { return /valeurs de r/i.test(n.label || '') && n.presence === 'Absence'; });
+  if (!String(observations || '').trim() && dvrAbsent) observations = 'Le dossier de valeurs de référence n’est pas disponible.';
   body.push([{ text: observations || '-', fontSize: 9.5, colSpan: 6, margin: [2, 14, 2, 14] }, {}, {}, {}, {}, {}]);
   return pdfTable([58, 122, 36, 36, 36, 252], body);
 }
@@ -284,6 +287,17 @@ function pdfCrosstabRows(rows, group) {
   return out;
 }
 
+// Nombre de lignes de tête (bandeaux et identification) en début de tableau
+function pdfCrosstabNbLignesTete(rows) {
+  var n = 0, dernier = 0;
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].subheader && i === 0) { n++; continue; }
+    if (!PDF_CROSSTAB_IDENTITY_KEYS[rows[i].key]) break;
+    n++; dernier = n;
+  }
+  return dernier;
+}
+
 function pdfCrosstabSection(titre, sousTitre, legalNodes, rows, list, logoDataUrl) {
   var content = [];
   if (legalNodes && legalNodes.length) {
@@ -304,7 +318,13 @@ function pdfCrosstabSection(titre, sousTitre, legalNodes, rows, list, logoDataUr
     }
     // Largeurs fixes du Rapso (libellés 129 pt, 77 pt par local), quel que soit le nombre de locaux.
     var widths = [PDF_CROSSTAB_LABEL_W].concat(group.map(function () { return PDF_CROSSTAB_COL_W; }));
-    content.push(pdfTable(widths, pdfCrosstabRows(rows, group)));
+    // Tableau plus long qu'une page (bureaux) : les lignes d'identification (bâtiment, local, type) se
+    // répètent en haut de la page suivante et aucune ligne n'est coupée en deux (2026-10-15).
+    var tab = pdfTable(widths, pdfCrosstabRows(rows, group));
+    var nbTete = pdfCrosstabNbLignesTete(rows);
+    if (nbTete) tab.table.headerRows = nbTete;
+    tab.table.dontBreakRows = true;
+    content.push(tab);
   }
   return content;
 }
@@ -720,7 +740,8 @@ function pdfBuildPageDeGarde(m, di, ic, is, isi, logoDataUrl, bannerDataUrl, opt
   // Visa du technicien (js/finitions.js) et relecteur (js/qualite.js) quand ils existent
   var visa = (typeof getVisa === 'function') ? getVisa() : '';
   var redige = visa ? { stack: [{ text: nomAuteur, fontSize: 9.6, alignment: 'center' }, { image: visa, fit: [110, 24], alignment: 'center', margin: [0, 2, 0, 0] }], margin: [0, 6, 0, 4] } : nomAuteur;
-  var valide = (m.relecture && m.relecture.statut === 'validee' && m.relecture.par) ? m.relecture.par : nomAuteur;
+  // « Validé par » : relecture terminée dans l'appli, sinon le relecteur saisi dans les infos de mission
+  var valide = (m.relecture && m.relecture.statut === 'validee' && m.relecture.par) ? m.relecture.par : (di.validePar || nomAuteur);
   content.push(pdfThreeColBlock(['Intervention sur site réalisée par', 'Rédigé par', 'Validé par'], [nomAuteur, redige, valide], 333));
   content.push(pdfThreeColBlock(['Date d\'édition du rapport', 'Référence du rapport (chrono)', 'Nature de la révision'],
     [di.dateRapport || '—', di.numeroChrono || '—', di.natureRevision || 'Version initiale'], 446));
@@ -729,7 +750,7 @@ function pdfBuildPageDeGarde(m, di, ic, is, isi, logoDataUrl, bannerDataUrl, opt
   content.push(at({ table: { widths: [PDF_COVER_W - 8], body: [[{
     stack: [
       { text: 'N° d\'Affaire : ' + (di.numeroAffaire || '—'), bold: true, fontSize: 8.6, color: '#FFFFFF' },
-      { text: 'Mission réalisée ' + (di.datesIntervention ? ('du ' + di.datesIntervention) : '—'), bold: true, fontSize: 8.6, color: '#FFFFFF' },
+      { text: 'Mission réalisée ' + (di.datesIntervention ? ((/^\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*$/.test(di.datesIntervention) ? 'le ' : 'du ') + di.datesIntervention) : '—'), bold: true, fontSize: 8.6, color: '#FFFFFF' },
       { text: '  La reproduction de ce document n’est autorisée que sous sa forme intégrale.', fontSize: 7.7, margin: [0, 14, 0, 0] }
     ], fillColor: '#00AFEF', margin: [10, 13, 10, 26]
   }]] }, layout: 'noBorders' }, PDF_COVER_X, 583));
@@ -799,7 +820,7 @@ function pdfBuildPresentationMission(m, di, ic, isi) {
   if (typeof pdfMentionsQualite === 'function') content = content.concat(pdfMentionsQualite(m)); // contre-visite, rapport vérifié (js/qualite.js)
   content.push(pdfSubHeading('Objectif'));
   var nomSite = ic.nomEntreprise || '—';
-  content.push({ text: 'Ce rapport présente les résultats de la vérification de l’aération et de l’assainissement des locaux de travail réalisée sur le site ' + nomSite + ', selon le contrat référencé ' + nomSite + '.', fontSize: 10, margin: [0, 10, 0, 10] });
+  content.push({ text: 'Ce rapport présente les résultats de la vérification de l’aération et de l’assainissement des locaux de travail réalisée sur le site ' + nomSite + ', selon le contrat référencé ' + (di.numeroAffaire || nomSite) + '.', fontSize: 10, margin: [0, 10, 0, 10] });
 
   content.push(pdfSubHeading('Demandeur'));
   content.push(pdfLabelValueLine('Nom du demandeur :', ic.nomDemandeur || '—'));
@@ -889,10 +910,14 @@ function pdfBuildDocumentsTransmis(m) {
 function pdfBuildSyntheseControle(m) {
   var content = [];
   content.push(pdfHeading1('4. SYNTHESE DU CONTROLE', { pageBreak: true, top: 30 }));
-  content.push({ text: 'Locaux à pollution non spécifique :', bold: true, fontSize: FS(20), margin: [0, 0, 0, PT(60)] });
-  content.push({ text: 'En présence du Dossier de Valeurs de Références, SOCOTEC compare les valeurs mesurées à celles-ci. En l’absence de ce Dossier, SOCOTEC évalue les conditions minimales de renouvellement d’air prescrites par l’article R.4222-6 du Code du Travail et par le règlement sanitaire départemental type sur la base des effectifs constatés ou estimés in situ pour chaque local, au moment du contrôle, et les compare aux valeurs mesurées.', fontSize: FS(20), margin: [0, 0, 0, PT(200)] });
-  content.push({ text: 'Locaux à pollution spécifique :', bold: true, fontSize: FS(20), margin: [0, 0, 0, PT(60)] });
-  content.push({ text: 'En présence du Dossier de Valeurs de Références, SOCOTEC compare les valeurs mesurées à celles-ci. En l’absence de celui-ci, SOCOTEC compare les valeurs mesurées à celles prescrites par l’article R.4212-6 du Code du Travail pour ce qui concerne les sanitaires et à celles prescrites par les normes ou les guides de l’INRS pour l’ensemble des locaux ou installations à pollution spécifique.', fontSize: FS(20), margin: [0, 0, 0, PT(240)] });
+  // Chaque paragraphe seulement si la mission compte des locaux de cette catégorie, comme le Rapso
+  var presents = INSTALLATION_TYPES.filter(function (t) { return ((m.installations && m.installations[t.id]) || []).length; }).map(function (t) { return t.id; });
+  var nonSpe = presents.some(function (id) { return TYPES_POLLUTION_NON_SPECIFIQUE.indexOf(id) !== -1; });
+  var spe = presents.some(function (id) { return TYPES_POLLUTION_NON_SPECIFIQUE.indexOf(id) === -1; });
+  if (nonSpe || !spe) content.push({ text: 'Locaux à pollution non spécifique :', bold: true, fontSize: FS(20), margin: [0, 0, 0, PT(60)] });
+  if (nonSpe || !spe) content.push({ text: 'En présence du Dossier de Valeurs de Références, SOCOTEC compare les valeurs mesurées à celles-ci. En l’absence de ce Dossier, SOCOTEC évalue les conditions minimales de renouvellement d’air prescrites par l’article R.4222-6 du Code du Travail et par le règlement sanitaire départemental type sur la base des effectifs constatés ou estimés in situ pour chaque local, au moment du contrôle, et les compare aux valeurs mesurées.', fontSize: FS(20), margin: [0, 0, 0, PT(200)] });
+  if (spe || !nonSpe) content.push({ text: 'Locaux à pollution spécifique :', bold: true, fontSize: FS(20), margin: [0, 0, 0, PT(60)] });
+  if (spe || !nonSpe) content.push({ text: 'En présence du Dossier de Valeurs de Références, SOCOTEC compare les valeurs mesurées à celles-ci. En l’absence de celui-ci, SOCOTEC compare les valeurs mesurées à celles prescrites par l’article R.4212-6 du Code du Travail pour ce qui concerne les sanitaires et à celles prescrites par les normes ou les guides de l’INRS pour l’ensemble des locaux ou installations à pollution spécifique.', fontSize: FS(20), margin: [0, 0, 0, PT(240)] });
   // Les tableaux de synthèse sont au format paysage dans le Rapso (pages dédiées).
   content.push({ text: '4.1 SYNTHESE DU CONTRÔLE', bold: true, color: '#00B0F0', fontSize: 12, margin: [0, 48, 0, 28],
     pageBreak: 'before', pageOrientation: 'landscape' });
@@ -2426,6 +2451,18 @@ function pdfBuildAnnexeMenuiserie(list, logoDataUrl) {
 // ————————————————————————————————————————————
 // 5.13 — Menuiserie (machines à bois)
 // ————————————————————————————————————————————
+// Cadre « Conditions de mesure » : hauteur constante (~120 pt) quel que soit le nombre de lignes
+function pdfMabMarge(texte) {
+  var n = String(texte || '-').split('\n').reduce(function (acc, l) { return acc + Math.max(1, Math.ceil(l.length / 42)); }, 0);
+  return Math.max(4, Math.round((108 - (n - 1) * 12) / 2));
+}
+
+// Masse volumique à 2 décimales, comme la fiche machine à bois du Rapso (1,21 kg/m3)
+function pdfMabMasse(x) {
+  var n = parseFloat(String(x === undefined || x === null ? '' : x).replace(',', '.'));
+  return isNaN(n) ? x : String(Math.round(n * 100) / 100).replace('.', ',');
+}
+
 function pdfBuildAnnexeMenuiserieMAB(list, logoDataUrl) {
   var titre = 'Machine à bois', sousTitre = 'Machine à bois';
   var legal = [
@@ -2469,40 +2506,46 @@ function pdfBuildAnnexeMenuiserieMAB(list, logoDataUrl) {
         gap(14),
         t([232], [[L('Etat  visuel du réseau d\'aspiration', { fontSize: 11 })], [V(v(d.etat_visuel_reseau), { margin: [2, 10, 2, 10] })]]),
         gap(26),
-        t([232], [[L('Conditions de mesure', { fontSize: 11 })], [V(v(d.simultaneites), { alignment: 'left', margin: [6, 54, 4, 54] })]])
+        // Cadre de hauteur fixe comme le Rapso : un texte long (liste de machines) ne pousse plus la
+        // conclusion sur la page suivante (Kingersheim, 2026-10-15).
+        t([232], [[L('Conditions de mesure', { fontSize: 11 })], [V(v(d.simultaneites), { alignment: 'left', margin: [6, pdfMabMarge(d.simultaneites), 4, pdfMabMarge(d.simultaneites)] })]])
       ] }
     ] });
-    content.push(gap(28));
+    content.push(gap(18));
 
     content.push(t([540], [[L('Mesure de la vitesse de transport', { fontSize: 11 })]]));
-    content.push(gap(14));
+    content.push(gap(8));
     content.push(t([127, 78, 78, 51, 103, 103], [
       [{ text: '', border: NONE }, L('Valeur mesurée', big), L('Type de polluants', { margin: [1, 6, 1, 6] }), L('Valeur de référence', { margin: [1, 6, 1, 6] }),
         L('Valeur recommandée par l\'INRS(ED750)', { margin: [1, 6, 1, 6] }), L('Avis par rapport aux valeurs de référence', { margin: [1, 6, 1, 6] })],
       [L('Vitesse moyenne(m/s)', big), V(v(d.vitesse_moyenne), big), V('-', big), V(v(d.vitesse_reference), big), V(v(d.vitesse_inrs_ed750), big), V(v(d.vitesse_avis), big)]
     ]));
-    content.push(gap(24));
+    content.push(gap(16));
     content.push(t([463], [[L('Calcul du débit', { fontSize: 11 })]]));
-    content.push(gap(14));
+    content.push(gap(8));
     content.push(t([127, 78, 52, 103, 103], [
       [{ text: '', border: NONE }, L('Valeur mesurée', big), L('Valeur de référence', { margin: [1, 6, 1, 6] }), L('Valeur recommandée par l\'INRS(ED750)', { margin: [1, 6, 1, 6] }),
         L('Avis par rapport aux valeurs de référence', { margin: [1, 6, 1, 6] })],
-      [L('Débit calculé (m3/h)', { fontSize: 11, margin: [1, 12, 1, 12] }), V(v(d.debit), big), V(v(d.debit_reference), big), V(v(d.debit_inrs_ed750), big), V(v(d.debit_avis), big)]
+      [L('Débit calculé (m3/h)', { fontSize: 11, margin: [1, 12, 1, 12] }), V(v(d.debit), big), V(v(d.debit_reference), big), V(d.debit_inrs_ed750 === '/' ? '-' : v(d.debit_inrs_ed750), big), V(v(d.debit_avis), big)]
     ]));
-    content.push(gap(24));
-    content.push(t([540], [[L('Conclusion', { fontSize: 11 })]]));
-    content.push(gap(14));
-    content.push(t([386, 154], [[V('Avis par rapport à la réglementation  et/ou aux préconisations (dossier de valeurs de référence si existant, normes, guide INRS) :', { alignment: 'left', margin: [4, 2, 4, 2] }),
-      V(v(d.conclusion_avis), { margin: [1, 7, 1, 7] })]]));
+    content.push(gap(16));
+    // Conclusion et observation ensemble, sous les mesures, comme le Rapso (jamais coupées).
+    content.push({ unbreakable: true, stack: [
+      t([540], [[L('Conclusion', { fontSize: 11 })]]),
+      gap(8),
+      t([386, 154], [[V('Avis par rapport à la réglementation  et/ou aux préconisations (dossier de valeurs de référence si existant, normes, guide INRS) :', { alignment: 'left', margin: [4, 2, 4, 2] }),
+        V(v(d.conclusion_avis), { margin: [1, 7, 1, 7] })]]),
+      gap(8),
+      t([540], [[L('Observation')], [V(v(d.observation_rapport !== undefined ? d.observation_rapport : d.observation), { alignment: 'left', margin: [8, 2, 4, 2] })]])
+    ] });
 
-    // ——— Page 2 : observation puis mesure dans le conduit ———
+    // ——— Page 2 : mesure dans le conduit ———
     content.push({ text: '', pageBreak: 'before' });
-    content.push(t([540], [[L('Observation')], [V(v(d.observation), { alignment: 'left', margin: [8, 2, 4, 2] })]]));
     if (d.forme_conduit) {
       var vitesse = d.vitesse_mode === 'Grille de points' ? null : d.vitesse_directe;
       content = content.concat(pdfConduitBlock({
         titre: 'Mesure de la vitesse de transport',
-        forme: d.forme_conduit, temperature: d.temperature_conduit, pression: d.pression_statique, masse: d.masse_volumique,
+        forme: d.forme_conduit, temperature: d.temperature_conduit, pression: d.pression_statique, masse: pdfMabMasse(d.masse_volumique),
         d1: d.diametre_cote1, d2: d.cote2, vitesse: vitesse || d.vitesse_moyenne, debit: d.debit,
         grid: d.vitesse_mode === 'Grille de points' ? d.vitesse_grid : null, nbAxes: d.vitesse_nb_axes, nbPoints: d.vitesse_nb_points,
         posDec: 0

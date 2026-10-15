@@ -44,6 +44,17 @@ function resolveAvisFieldKey(type) {
   return key;
 }
 
+// Mesure complète mais aucune valeur à laquelle la comparer : l'avis « Impossible de se prononcer »
+// est alors le résultat final, pas une saisie à compléter. Machine à bois de type « / » (aspirateur
+// mobile…) : pas de débit INRS ni de référence, avis débit impossible, comme le Rapso (2026-10-15).
+function idspSansReference(type, data) {
+  if (type.id === 'menuiserie_bis') {
+    return !isNaN(num(data.debit)) && (data.vitesse_avis === 'Satisfaisant' || data.vitesse_avis === 'Non Satisfaisant') &&
+      data.debit_avis === 'Impossible de se prononcer';
+  }
+  return false;
+}
+
 function installationStatus(type, inst) {
   var data = inst.data || {};
   // Installation non contrôlée (js/qualite.js) : terminée, avec son motif
@@ -56,6 +67,9 @@ function installationStatus(type, inst) {
   // de données pour conclure" côté formule métier — plusieurs types (bureaux, erp, ...) le renvoient
   // dès qu'un seul prérequis manque, y compris sur une installation à peine commencée. Le traiter
   // comme "en cours" plutôt que "terminé" évite d'afficher une installation vide comme terminée.
+  if (avisVal === 'Impossible de se prononcer' && idspSansReference(type, data)) {
+    return { state: 'done', cls: statusClass(avisVal), text: 'Terminé · ' + avisVal };
+  }
   if (avisVal === undefined || avisVal === '' || avisVal === 'Impossible de se prononcer') {
     var text = 'En cours';
     if (type.id === 'sanitaires') {

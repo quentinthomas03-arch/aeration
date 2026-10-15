@@ -245,6 +245,30 @@ function commentaireRapportLpns(d) {
   return (!auto || auto === '/') ? libre : auto + ' ' + libre;
 }
 
+// Machines à bois : observation écrite par le Rapso (relevée sur un rapport réel du 2026-10-15)
+//   « Vitesse de transport correct » / « Vitesse de transport faible », puis, débit non satisfaisant :
+//   « Débit minimum recommandé par l'INRS (ED750) : 1500 m3/h » et « Débit mesuré : 528,02 m3/h » ;
+//   débit sans valeur de comparaison : « / Impossible de se prononcer en l’absence de valeur de référence ».
+function observationRapsoMAB(d) {
+  var fr = function (x) { return String(Math.round(num(x) * 100) / 100).replace('.', ','); };
+  var l = d.vitesse_avis === 'Satisfaisant' ? 'Vitesse de transport correct' : (d.vitesse_avis === 'Non Satisfaisant' ? 'Vitesse de transport faible' : '');
+  if (d.debit_avis === 'Impossible de se prononcer' && !isNaN(num(d.debit))) {
+    return (l ? l + ' / ' : '') + 'Impossible de se prononcer en l’absence de valeur de référence';
+  }
+  var lignes = l ? [l] : [];
+  if (d.debit_avis === 'Non Satisfaisant') {
+    var ref = num(d.debit_reference);
+    lignes.push(!isNaN(ref) ? 'Débit de référence : ' + fr(ref) + ' m3/h' : 'Débit minimum recommandé par l\'INRS (ED750) : ' + fr(d.debit_inrs_ed750) + ' m3/h');
+    lignes.push('Débit mesuré : ' + fr(d.debit) + ' m3/h');
+  }
+  return lignes.join('\n');
+}
+
+function observationRapportMAB(d) {
+  var auto = observationRapsoMAB(d), libre = String(d.observation || '').trim();
+  return [auto, libre].filter(Boolean).join('\n');
+}
+
 // Cabines de peinture (Rapso, UserForm_CDP / Inserer_Annexes) : bloc « avec le véhicule ou l'encombrant »
 // pour voiture, camion, encombrant ; bloc « cabine vide » sauf voiture ou camion où l'on ne peint que des
 // véhicules (case « subjectiles industriels divers » non cochée).
@@ -885,7 +909,10 @@ var CALC_RULES = {
           return 'Impossible de se prononcer';
         }
         return (va === 'Satisfaisant' && db === 'Satisfaisant') ? 'Satisfaisant' : 'Non Satisfaisant';
-      } }
+      } },
+    // Observation et commentaire de synthèse du rapport : texte écrit par le Rapso, suivi de
+    // l'observation du technicien (comparaison du 2026-10-15, Commune de Kingersheim)
+    { target: 'observation_rapport', fn: function (d) { return observationRapportMAB(d); } }
   ],
 
   box_peinture: []

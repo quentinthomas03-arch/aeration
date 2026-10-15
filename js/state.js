@@ -166,6 +166,13 @@ function normalizeMission(m) {
     });
   }
 
+  // Machines à bois : observation du Rapso (ajoutée le 2026-10-15) calculée sur les dossiers déjà sauvegardés
+  if (m.installations && Array.isArray(m.installations.menuiserie_bis) && typeof observationRapportMAB === 'function') {
+    m.installations.menuiserie_bis.forEach(function (inst) {
+      if (inst && inst.data) inst.data.observation_rapport = observationRapportMAB(inst.data);
+    });
+  }
+
   // Cabines de peinture : force le recalcul de la conclusion (avis global) sur les dossiers déjà
   // sauvegardés. Contrairement à chambre_erp_individuelle, ce champ est un "computed" pur (jamais
   // saisi manuellement) — il n'y a donc aucune valeur explicite à protéger : la formule précédente
@@ -279,6 +286,7 @@ function createEmptyMission() {
       referenceOffre: '',
       numeroChrono: '',
       auteurRapport: '',
+      validePar: '',
       telAuteur: '',
       mailAgenceAuteur: '',
       datesIntervention: '',
