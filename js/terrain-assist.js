@@ -521,8 +521,8 @@ var REPRISE_VOISINE = {
     'local', 'paillasse', 'ouvrants', 'autres_sorbonnes', 'autres_dispositifs', 'zones_turbulentes', 'zones_mortes', 'perturbations',
     'verrouillage_paroi', 'parachute_paroi', 'mesure_vitesse_frontale', 'alarme_sonore', 'alarme_visuelle', 'eclairage_interieur',
     'vitesse_min_reference', 'vitesse_moy_reference', 'debit_reference'],
-  hottes: ['batiment', 'localisation', 'date_mesure', 'etat_visuel_reseau', 'test_fumigene', 'mesures_choisies', 'vpe_min_reference', 'vpe_min_inrs',
-    'vpe_moy_reference', 'vpe_moy_inrs', 'operateur_hors_volume', 'vt_type_polluant', 'vt_reference'],
+  hottes: ['batiment', 'localisation', 'date_mesure', 'etat_visuel_reseau', 'test_fumigene', 'mesures_choisies', 'vpe_min_reference',
+    'vpe_moy_reference', 'operateur_hors_volume', 'vt_type_polluant', 'vt_reference'],
   bras_aspiration: ['batiment', 'activite', 'atelier', 'adapte_situation', 'recyclage', 'etat_visuel', 'etat_conduits', 'test_fumigene', 'conditions_dispersion'],
   // Cabines (2026-10-08) : type de flux 4/4 cabines voisines, pulvérisation et zone de travail identiques
   // quand renseignées, valeurs recommandées et « Norme 16985 » 100 % (classeurs et rapports réels)
@@ -530,7 +530,7 @@ var REPRISE_VOISINE = {
     'v2_active', 'v2_reference', 'v2_valeur_recommandee', 'v2_recommandee_par', 'vehicules_subjectiles',
     'avec_moy_reference', 'avec_moy_reco', 'avec_min_reference', 'avec_min_reco', 'avec_recommandee_par'],
   installations_diverses: ['batiment', 'localisation', 'date_controle', 'etat_visuel_reseau', 'test_fumigene', 'mesures_choisies', 'vpe_conditions_dispersion',
-    'vpe_reference', 'vpe_inrs', 'vt_type_polluant', 'vt_reference'],
+    'vpe_reference', 'vt_type_polluant', 'vt_reference'],
   gaz_echappement: ['batiment', 'atelier', 'date_controle'],
   menuiserie: ['batiment', 'localisation', 'date_controle'],
   menuiserie_bis: ['date_controle', 'simultaneites', 'vitesse_reference', 'debit_reference', 'etat_visuel_reseau', 'forme_conduit', 'vitesse_mode', 'temperature_conduit'],

@@ -4,10 +4,16 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.6';
+var APP_VERSION = '2.7';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.7', date: '16/10/2026', items: [
+    'Valeur de référence laissée vide : traitée comme « / » (pas de référence), la mesure est alors comparée à la valeur recommandée par l’INRS, comme dans le Rapso. Avant, l’avis restait « Impossible de se prononcer ».',
+    'Hottes : valeurs recommandées INRS écrites d’office (0,25 m/s en vitesse minimale, 0,5 m/s en moyenne), comme dans le Rapso.',
+    'Installations diverses : la valeur recommandée INRS au point d’émission découle de la condition de dispersion choisie (ex. « 0,5 - 1 »), plus de saisie.',
+    'Gaz d’échappement : débit minimum préconisé INRS écrit d’office selon le véhicule et le captage (VL 400 / 1000 m³/h, PL et bus 1000 / 2000 m³/h). Avis comme le Rapso : référence d’abord, sinon INRS, sinon débit calculé ; captage non adapté = non satisfaisant.'
+  ] },
   { version: '2.6', date: '15/10/2026', items: [
     'Informations de mission : nouveau champ « Validé par (relecteur) », repris sur la page de garde du rapport.',
     'Machines à bois : l’observation du Rapso est écrite automatiquement (« Vitesse de transport faible », débit minimum recommandé par l’INRS et débit mesuré), dans la fiche et dans le tableau de synthèse, suivie de votre observation.',

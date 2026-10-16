@@ -72,6 +72,35 @@ INSTALLATION_TYPES.forEach(function (t) {
 
 var POURCENTAGE_REF = 0.8; // Pourcentage_Ref_TABx dans le VBA
 
+// Valeurs recommandées que le Rapso écrit lui-même dans la fiche (2026-10-16, signalé par Quentin :
+// l'appli les laissait à saisir, et une référence laissée vide donnait « Impossible de se prononcer »).
+// Hottes : 0,25 m/s (vitesse minimale) et 0,5 m/s (moyenne), valeurs par défaut du formulaire
+// UserForm_HOTTE, présentes sur toutes les hottes des classeurs réels.
+var HOTTE_VPE_MIN_INRS = '0,25', HOTTE_VPE_MOY_INRS = '0,5'; // texte, comme dans le Rapso et les missions déjà saisies
+// Installations diverses : feuille LISTE, plage LISTBOX_EQUIP_1_11 (condition de dispersion → plage INRS)
+var EQUIP_VPE_INRS = {
+  'Emission sans vitesse initiale en air calme': '0,25 - 0,5',
+  'Emission à faible vitesse en air modérément calme': '0,5 - 1',
+  'Génération active en zone agitée': '1 - 2,5',
+  'Emission à grande vitesse initiale dans une zone à mouvement d\'air très rapide': '2,5 - 10',
+  'Gaz et vapeurs': '/'
+};
+// Gaz d'échappement : UserForm_Choix_ECHAP (débit minimum préconisé INRS selon véhicule et captage) ;
+// pour les autres types de véhicule, le Rapso met « / ».
+function echapDebitMinInrs(d) {
+  var t = { 'VEHICULE LEGER': [400, 1000], 'POIDS-LOURD et BUS': [1000, 2000] }[d.type_vehicule];
+  if (!t) return d.type_vehicule ? '/' : '';
+  if (/enveloppant/i.test(d.type_captage || '')) return t[0];
+  if (/r[ée]cepteur/i.test(d.type_captage || '')) return t[1];
+  return '';
+}
+
+// Référence laissée vide = pas de référence : le Rapso pré-remplit « / » dans chaque champ de référence
+function refOuSlash(reference) {
+  var ref = String(reference === undefined || reference === null ? '' : reference).trim();
+  return ref === '' ? '/' : ref;
+}
+
 // Table LPNS (feuille F_LISTE) : type de local -> volume min/occupant (m³) et débit min/occupant (m³/h)
 // Valeurs extraites du classeur Rapso V29
 var LOCAL_LPNS = {
@@ -174,17 +203,42 @@ function avisSorbonneRef(mesuree, reference) {
   return mes >= num(ref) * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
 }
 
-// Avis vitesse (VBA) : réf = "/" -> mesuré >= INRS ; sinon mesuré >= réf × 0,8
+// Avis vitesse (VBA) : réf = "/" (ou vide) -> mesuré >= INRS ; sinon mesuré >= réf × 0,8
 function avisVitesse(mesuree, reference, inrs) {
   var mes = num(mesuree);
-  var ref = String(reference === undefined ? '' : reference).trim();
-  if (isNaN(mes) || ref === '' || (ref !== '/' && isNaN(num(ref)))) return 'Impossible de se prononcer';
+  var ref = refOuSlash(reference);
+  if (isNaN(mes) || (ref !== '/' && isNaN(num(ref)))) return 'Impossible de se prononcer';
   if (ref === '/') {
     var vi = num(inrs);
     if (isNaN(vi)) return 'Impossible de se prononcer';
     return mes >= vi ? 'Satisfaisant' : 'Non Satisfaisant';
   }
   return mes >= num(ref) * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
+}
+
+// Avis vitesse au point d'émission des installations diverses (VBA UserForm_EQUIP,
+// Caller_Resultat_TextBoxFrCXTABX) : sans référence, plage INRS « a - b » -> mesuré >= a ;
+// « < x » -> mesuré > x ; « / » (gaz et vapeurs) -> impossible de se prononcer.
+function avisVpeEquip(mesuree, reference, inrsStr) {
+  var mes = num(mesuree), ref = refOuSlash(reference), inrs = String(inrsStr || '').trim();
+  if (isNaN(mes) || inrs === '') return 'Impossible de se prononcer';
+  if (ref !== '/') {
+    if (isNaN(num(ref))) return 'Impossible de se prononcer';
+    return mes >= num(ref) * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
+  }
+  if (inrs.indexOf('<') !== -1) {
+    var seuil = num(inrs.split('<')[1]);
+    if (isNaN(seuil)) return 'Impossible de se prononcer';
+    return mes > seuil ? 'Satisfaisant' : 'Non Satisfaisant';
+  }
+  if (inrs.indexOf(' - ') !== -1) {
+    var debut = num(inrs.split(' - ')[0]);
+    if (isNaN(debut)) return 'Impossible de se prononcer';
+    return mes >= debut ? 'Satisfaisant' : 'Non Satisfaisant';
+  }
+  var vi = num(inrs);
+  if (!isNaN(vi)) return mes >= vi ? 'Satisfaisant' : 'Non Satisfaisant';
+  return 'Impossible de se prononcer';
 }
 
 // Commentaire réglementaire des locaux à pollution non spécifique, rédigé comme le Rapso (UserForm_LOC,
@@ -291,9 +345,9 @@ function cdpGrilleAvec(d) {
 // Avis vitesse de transport (VBA) : parse "X à Y", "> X", ou "pas de vitesse..."
 function avisTransport(mesuree, reference, inrsStr) {
   var mes = num(mesuree);
-  var ref = String(reference === undefined ? '' : reference).trim();
+  var ref = refOuSlash(reference);
   var inrs = String(inrsStr || '').trim();
-  if (inrs === '' || isNaN(mes) || ref === '') return 'Impossible de se prononcer';
+  if (inrs === '' || isNaN(mes)) return 'Impossible de se prononcer';
   if (inrs.indexOf('pas de vitesse de transport minimum nécessaire') !== -1) return '/';
   if (ref !== '/') {
     return mes >= num(ref) * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
@@ -769,17 +823,19 @@ var CALC_RULES = {
     { target: 'masse_volumique', decimals: 3, fn: function (d) {
         return masseVolumique(d.temperature_conduit, d.pression_statique);
       } },
+    { target: 'debit_min_inrs', fn: function (d) { return echapDebitMinInrs(d); } },
     { target: 'avis_constructeur', fn: function (d) {
-        // VBA : débit mesuré >= (référence × 0.8) ET >= débit min INRS ET >= débit min calculé
+        // VBA (UserForm_ECHAP, 2026-10-16) : captage non adapté -> Non Satisfaisant ; sinon le débit
+        // mesuré est comparé à la référence × 0,8 si elle existe, à défaut au débit minimum INRS, à
+        // défaut au débit minimum calculé (l'appli exigeait les trois à la fois).
+        if (d.type_captage_adapte === 'Non') return 'Non Satisfaisant';
         var debit = num(d.debit_mesure);
         if (isNaN(debit)) return 'Impossible de se prononcer';
         var ref = num(d.debit_reference), inrs = num(d.debit_min_inrs), calc = num(d.debit_min_calcule);
-        if (isNaN(ref) && isNaN(inrs) && isNaN(calc)) return 'Impossible de se prononcer';
-        var ok = true;
-        if (!isNaN(ref)) ok = ok && debit >= ref * POURCENTAGE_REF;
-        if (!isNaN(inrs)) ok = ok && debit >= inrs;
-        if (!isNaN(calc)) ok = ok && debit >= calc;
-        return ok ? 'Satisfaisant' : 'Non Satisfaisant';
+        if (!isNaN(ref)) return debit >= ref * POURCENTAGE_REF ? 'Satisfaisant' : 'Non Satisfaisant';
+        if (!isNaN(inrs)) return debit >= inrs ? 'Satisfaisant' : 'Non Satisfaisant';
+        if (!isNaN(calc)) return debit >= calc ? 'Satisfaisant' : 'Non Satisfaisant';
+        return 'Impossible de se prononcer';
       } }
   ],
 
@@ -1101,10 +1157,13 @@ var CALC_RULES = {
     { target: 'vt_inrs', fn: function (d) {
         return HOTTE_POLLUANTS[d.vt_type_polluant] || '';
       } },
+    { target: 'vpe_inrs', fn: function (d) {
+        return EQUIP_VPE_INRS[d.vpe_conditions_dispersion] || '';
+      } },
     { target: 'avis_vpe', fn: function (d) {
         var mesures = Array.isArray(d.mesures_choisies) ? d.mesures_choisies : [];
         if (mesures.indexOf("Vitesse au point d'émission") === -1) return '';
-        return avisVitesse(d.vpe_mesuree, d.vpe_reference, d.vpe_inrs);
+        return avisVpeEquip(d.vpe_mesuree, d.vpe_reference, d.vpe_inrs);
       } },
     { target: 'avis_vt', fn: function (d) {
         var mesures = Array.isArray(d.mesures_choisies) ? d.mesures_choisies : [];
@@ -1376,6 +1435,8 @@ var CALC_RULES = {
         var L = num(d.vpe_largeur_cm), H = num(d.vpe_hauteur_cm), V = (s && !s.incomplete) ? s.moyenne : NaN;
         return (isNaN(L) || isNaN(H) || isNaN(V)) ? NaN : (L / 100) * (H / 100) * V * 3600;
       } },
+    { target: 'vpe_min_inrs', fn: function () { return HOTTE_VPE_MIN_INRS; } },
+    { target: 'vpe_moy_inrs', fn: function () { return HOTTE_VPE_MOY_INRS; } },
     { target: 'avis_vpe_min', fn: function (d) {
         if (num(d.vpe_min) !== num(d.vpe_min)) return '';
         return avisVitesse(d.vpe_min, d.vpe_min_reference, d.vpe_min_inrs);
