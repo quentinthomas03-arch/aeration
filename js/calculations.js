@@ -263,6 +263,7 @@ function commentaireLpns(d) {
   var vt = d.type_ventilation;
   if (vt === 'Nat sans ouvrants') {
     if (d.entree_air_permanente === 'Non') return 'Ouvrants ne donnant pas sur l\'extérieur ou non accessibles et absence de ventilation mécanique';
+    if (d.entree_air_permanente !== 'Oui') return 'Impossible de se prononcer (présence d\'une entrée d\'air permanente non renseignée)';
     return parVolume();
   }
   if (vt === 'Nat avec ouvrants') return parVolume();
@@ -557,6 +558,10 @@ var CALC_RULES = {
         // ventilation mécanique") force Non Satisfaisant, mais uniquement si explicitement répondu
         // "Non" — champ ajouté après coup, ne pas pénaliser un dossier où il n'a jamais été demandé.
         if (d.type_ventilation === 'Nat sans ouvrants' && d.entree_air_permanente === 'Non') return 'Non Satisfaisant';
+        // Sans réponse, le Rapso (UserForm_LOC, bouton à « Non » par défaut) conclut non satisfaisant ; ici
+        // la question reste à poser, mais un local sans ouvrant n'est plus jugé satisfaisant sur son seul
+        // volume tant qu'elle n'a pas de réponse (retour terrain du 2026-10-20).
+        if (d.type_ventilation === 'Nat sans ouvrants' && d.entree_air_permanente !== 'Oui') return 'Impossible de se prononcer';
 
         // Ventilation naturelle : le critère est uniquement le volume du local (pas de débit à mesurer).
         if (d.type_ventilation === 'Nat sans ouvrants' || d.type_ventilation === 'Nat avec ouvrants') {
@@ -664,6 +669,10 @@ var CALC_RULES = {
         var vol = num(d.volume), volMin = num(d.volume_min);
 
         if (d.type_ventilation === 'Nat sans ouvrants' && d.entree_air_permanente === 'Non') return 'Non Satisfaisant';
+        // Sans réponse, le Rapso (UserForm_LOC, bouton à « Non » par défaut) conclut non satisfaisant ; ici
+        // la question reste à poser, mais un local sans ouvrant n'est plus jugé satisfaisant sur son seul
+        // volume tant qu'elle n'a pas de réponse (retour terrain du 2026-10-20).
+        if (d.type_ventilation === 'Nat sans ouvrants' && d.entree_air_permanente !== 'Oui') return 'Impossible de se prononcer';
 
         if (d.type_ventilation === 'Nat sans ouvrants' || d.type_ventilation === 'Nat avec ouvrants') {
           if (isNaN(volMin) || isNaN(vol)) return 'Impossible de se prononcer';
@@ -1207,7 +1216,10 @@ var CALC_RULES = {
         // Surface recalculée en pleine précision plutôt que relue depuis surface_bouche (arrondie à
         // 4 décimales pour l'affichage) : sur une petite bouche (Ø 5 cm, 0,00196 m² arrondi à 0,0020)
         // l'arrondi faussait le débit de ~2 % — écart trouvé le 2026-10-03 contre les classeurs Rapso.
-        var s = surfaceBoucheBOA(d), v = num(d.vitesse_moyenne);
+        // Vitesse mesurée dans le conduit (Rapso « Localisation du point de mesure » = Conduit) : débit sur
+        // la section du conduit ; la distance de captage reste calculée sur la surface de la bouche.
+        var s = d.localisation_point_mesure === 'Conduit' ? Math.PI * Math.pow(num(d.diametre_conduit) / 200, 2) : surfaceBoucheBOA(d);
+        var v = num(d.vitesse_moyenne);
         return (isNaN(s) || isNaN(v)) ? '' : s * v * 3600;
       } },
     { target: 'distance_max_captage', decimals: 0, fn: function (d) {

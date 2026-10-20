@@ -103,7 +103,7 @@ var WIZARD_STEPS = {
     { title: 'Adaptation & recyclage', fields: ['adapte_situation', 'recyclage', 'commentaire_1'] },
     { title: 'État visuel', fields: ['etat_visuel', 'etat_conduits', 'test_fumigene', 'conditions_dispersion'] },
     { title: "Bouche d'aspiration — forme", fields: ['type_bouche', 'forme_bouche', 'diametre_bouche', 'largeur_bouche_ovale', 'longueur_bouche_ovale', 'surface_bouche_autre', 'surface_bouche'] },
-    { title: "Bouche d'aspiration — implantation", fields: ['diametre_conduit', 'localisation_point_mesure', 'diametre_bras_cone'] },
+    { title: "Bouche d'aspiration — implantation", fields: ['localisation_point_mesure', 'diametre_conduit', 'diametre_bras_cone'] },
     { title: 'Mesures & captage', fields: ['vitesse_moyenne', 'debit_calcule', 'vitesse_captage', 'distance_max_captage', 'distance_utilisation', 'conclusion_distance'] },
     // Rapso : l'évolution des valeurs est un cadre secondaire (bouton) — regroupée avec la conclusion
     { title: 'Évolution & conclusion', fields: ['debit_precedent', 'evolution_pct', 'commentaire_2', 'conclusion'] }

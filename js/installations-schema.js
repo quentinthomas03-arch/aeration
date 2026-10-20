@@ -51,6 +51,8 @@ Object.keys(MACHINE_BOIS_DEBIT_REF).forEach(function (k) {
 // Conditions de dispersion du polluant, reprises de la feuille LISTE du Rapso V29 (libellés exacts) :
 //  - bras d'aspiration (LISTBOX_BOA_1_6) : vitesse de captage imposée, en m/s ;
 //  - installations diverses (LISTBOX_EQUIP_1_11) : plage recommandée par l'INRS (ED 695), en m/s.
+var VOLUME_INUTILE_NAT = { and: [{ key: 'type_ventilation', equals: 'Nat sans ouvrants' }, { key: 'entree_air_permanente', equals: 'Non' }] };
+
 var BOA_VITESSE_CAPTAGE = {
   'Emission sans vitesse initiale en air calme': 0.25,
   'Emission à faible vitesse en air modérément calme': 0.5,
@@ -285,7 +287,8 @@ var INSTALLATION_TYPES = [
                   'Ateliers ou Locaux avec Travail Physique Léger',
                   'Autres ateliers et locaux',
                   'Local occupé occasionnellement'] },
-      { key: 'volume', label: 'Volume (m³)', type: 'number' },
+      // Inutile sans ouvrant ni entrée d'air permanente : non satisfaisant quel que soit le volume (le Rapso grise la case)
+      { key: 'volume', label: 'Volume (m³)', type: 'number', optionalIf: VOLUME_INUTILE_NAT },
       { key: 'effectif', label: 'Effectif', type: 'number' },
       { key: 'volume_min', label: 'Volume minimal à respecter (m³)', type: 'computed' },
       { key: 'debit_min_air_neuf', label: "Débit minimum d'air neuf à respecter (m³/h)", type: 'computed' },
@@ -523,7 +526,8 @@ var INSTALLATION_TYPES = [
                   'Locaux d\u2019hébergement (chambre de une ou deux personnes)',
                   'Locaux d\u2019hébergement (chambres collectives, dortoirs, cellules — plus de 3 personnes)',
                   'Local occupé occasionnellement'] },
-      { key: 'volume', label: 'Volume (m³)', type: 'number' },
+      // Inutile sans ouvrant ni entrée d'air permanente : non satisfaisant quel que soit le volume (le Rapso grise la case)
+      { key: 'volume', label: 'Volume (m³)', type: 'number', optionalIf: VOLUME_INUTILE_NAT },
       { key: 'travailleur', label: 'Nombre de travailleurs', type: 'number' },
       { key: 'public', label: 'Nombre de public', type: 'number' },
       { key: 'volume_min', label: 'Volume minimal à respecter (m³)', type: 'computed' },
@@ -757,7 +761,8 @@ var INSTALLATION_TYPES = [
       { key: 'recyclage', label: 'Recyclage', type: 'select', options: ['Oui', 'Non'] },
       { key: 'etat_visuel', label: 'État visuel', type: 'select', options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués'] },
       { key: 'etat_conduits', label: 'État des conduits aérauliques', type: 'select', options: ['En bon état', 'Le réseau est encrassé', 'Les tuyaux sont troués'] },
-      { key: 'test_fumigene', label: 'Test fumigène — Visualisation fumigène à 20 cm', type: 'text' },
+      // Liste du Rapso (feuille LISTE, LISTBOX_BOA_1_3), saisie libre jusqu'au 2026-10-20
+      { key: 'test_fumigene', label: 'Test fumigène — Visualisation fumigène à 20 cm', type: 'select', options: ['Bon', 'Moyen', 'Insuffisant', 'Insatisfaisant', 'Non réalisé'] },
       // Liste du Rapso (feuille LISTE, LISTBOX_BOA_1_6) : chaque condition impose la vitesse de captage
       // (BOA_VITESSE_CAPTAGE), affichée à côté du choix et reportée dans « Vitesse de captage recherchée »
       { key: 'conditions_dispersion', label: 'Conditions de dispersion du polluant', type: 'select',
@@ -771,15 +776,21 @@ var INSTALLATION_TYPES = [
       { key: 'longueur_bouche_ovale', label: 'Longueur de la bouche si ovale (cm)', type: 'number', showIf: { key: 'forme_bouche', equals: 'Ovale' } },
       { key: 'surface_bouche_autre', label: 'Surface de la bouche (m²)', type: 'number', showIf: { key: 'forme_bouche', equals: 'Autre (surface connue)' } },
       { key: 'surface_bouche', label: 'Surface de la bouche calculée (m²)', type: 'computed' },
-      { key: 'diametre_conduit', label: 'Diamètre du conduit (cm)', type: 'number' },
-      { key: 'localisation_point_mesure', label: 'Localisation du point de mesure', type: 'text' },
-      { key: 'diametre_bras_cone', label: 'Diamètre du bras au niveau du cône (cm)', type: 'number' },
+      // Rapso (LISTBOX_BOA_1_5) : la vitesse est mesurée à la bouche ou dans le conduit, et le débit est
+      // calculé sur la section correspondante (Caller_Distance) — texte libre jusqu'au 2026-10-20
+      { key: 'localisation_point_mesure', label: 'Localisation du point de mesure', type: 'select', options: ['Bouche', 'Conduit'] },
+      { key: 'diametre_conduit', label: 'Diamètre du conduit (cm)', type: 'number', optional: true, showIf: { or: [{ key: 'localisation_point_mesure', equals: 'Conduit' }, { anyFilled: ['diametre_conduit'] }] } },
+      // Plus demandé (2026-10-20) : le Rapso l'efface toujours (Txb_RMVDA_8), doublon du diamètre de la
+      // bouche ou du conduit. Gardé pour les fiches où il a été saisi (tableau « cône » du rapport).
+      { key: 'diametre_bras_cone', label: 'Diamètre du bras au niveau du cône (cm)', type: 'number', optional: true, showIf: { anyFilled: ['diametre_bras_cone'] } },
 
       { key: 'section_mesures', label: 'Mesures', type: 'section' },
       { key: 'vitesse_moyenne_n1', label: 'Vitesse moyenne mesurée année N-1 (m/s)', type: 'number' },
       { key: 'vitesse_moyenne', label: 'Vitesse moyenne mesurée (m/s)', type: 'number' },
       { key: 'debit_calcule', label: 'Débit calculé (m³/h)', type: 'computed' },
-      { key: 'vitesse_captage', label: 'Vitesse de captage recherchée (m/s)', type: 'number' },
+      // Imposée par la condition de dispersion (comme le Rapso, qui n'a pas de case à saisir) : demandée
+      // seulement quand la condition n'en impose pas (gaz et vapeurs), doublon sinon (2026-10-20)
+      { key: 'vitesse_captage', label: 'Vitesse de captage recherchée (m/s)', type: 'number', showIf: { or: [{ key: 'conditions_dispersion', equals: 'Gaz et vapeurs' }, { key: 'conditions_dispersion', equals: '' }] } },
       { key: 'distance_max_captage', label: 'Distance maximum de captage (cm)', type: 'computed' },
       { key: 'distance_utilisation_n1', label: "Distance d'utilisation année N-1 (cm)", type: 'number' },
       { key: 'distance_utilisation', label: "Distance d'utilisation (cm)", type: 'number' },

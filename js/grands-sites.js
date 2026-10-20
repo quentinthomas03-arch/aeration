@@ -121,6 +121,8 @@ function gsLigneFicheHtml(t, inst) {
     item('gsDupliquerSerie(\'' + t.id + '\',' + idx + ');', ICONS.copy, 'Dupliquer en série') +
     item('gsBasculerRevoir(\'' + t.id + '\');', GS_REVOIR_ICON, revoir ? 'Retirer la marque « à revoir »' : 'Marquer à revoir') +
     (inst.data._plan ? item('gsVoirSurPlan(\'' + t.id + '\',' + idx + ');', PLAN_ICON, 'Voir sur le plan') : '') +
+    // Supprimer sans repasser par la liste du type (retour terrain du 2026-10-20), annulable quelques secondes
+    item('deleteInstallation(\'' + t.id + '\',' + idx + ');', ICONS.trash, 'Supprimer cette installation') +
     '</div>';
 }
 

@@ -235,8 +235,11 @@ function rapportAnalyser(lignes) {
     });
   });
   out.forEach(function (l) { delete l.p; delete l.i; delete l.debits; });
-  // Types rencontrés sans aucune installation lisible : une ligne à compléter
-  f.typesVus.forEach(function (t) { if (!dans[t.id]) out.push({ texte: t.label, type: t, nb: 1, bat: '', nom: '' }); });
+  // Types rencontrés sans aucune installation lisible : une ligne à compléter, seulement si le rapport
+  // n'a rien donné de lisible (mise en page d'un autre organisme). Dans un rapport dont les fiches se
+  // lisent, un titre seul n'est pas une installation : le titre « MENUISERIE » qui précède les fiches
+  // « Machine à bois » créait une menuiserie qui n'existait pas (retour terrain du 2026-10-20).
+  if (!out.length) f.typesVus.forEach(function (t) { out.push({ texte: t.label, type: t, nb: 1, bat: '', nom: '' }); });
   return out;
 }
 

@@ -32,6 +32,7 @@ function pqLocaux(typeId, d) {
   };
 
   if (vt === 'Nat sans ouvrants' && d.entree_air_permanente === 'Non') return ['Ventilation naturelle sans ouvrant ni entrée d’air permanente : aucun renouvellement d’air, non satisfaisant.'];
+  if (vt === 'Nat sans ouvrants' && d.entree_air_permanente !== 'Oui') return ['Ventilation naturelle sans ouvrant : indiquez s’il existe une entrée d’air permanente donnant directement sur l’extérieur. Sans elle, le local est non satisfaisant quel que soit son volume.'];
   if (vt === 'Nat sans ouvrants' || vt === 'Nat avec ouvrants') return ['Ventilation naturelle : seul le volume du local compte.', phraseVolume()];
   if (vt === 'Extraction' && d.ouvrant_exterieur === 'Non' && d.entree_air_exterieur === 'Non') {
     return ['Extraction sans ouvrant ni entrée d’air donnant sur l’extérieur : l’air extrait ne vient pas de l’extérieur, il n’y a pas d’apport d’air neuf. Non satisfaisant, quel que soit le débit.'];

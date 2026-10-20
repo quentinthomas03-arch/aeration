@@ -4,10 +4,17 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.7';
+var APP_VERSION = '2.8';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.8', date: '20/10/2026', items: [
+    'Supprimer une installation depuis sa fiche : menu ⋯ en haut de la fiche, « Supprimer cette installation » (annulable quelques secondes).',
+    'Reprise du rapport PDF de l’an dernier : un titre de partie sans fiche derrière (ex. « MENUISERIE » avant les machines à bois) ne crée plus d’installation qui n’existe pas.',
+    'Autres locaux et ERP en ventilation naturelle sans ouvrant : tant que la présence d’une entrée d’air permanente n’est pas renseignée, l’avis reste « Impossible de se prononcer » (avant, le local était jugé sur son seul volume). Sans entrée d’air permanente, le volume n’est plus demandé : le local est non satisfaisant quel que soit son volume, comme dans le Rapso.',
+    'Sanitaires et vestiaires sans WC, douche ni lavabo : une fois le débit saisi, la fiche est terminée (avis « Impossible de se prononcer », comme dans le Rapso) au lieu de rester « en cours ».',
+    'Bras d’aspiration, comme le Rapso : « Localisation du point de mesure » se choisit (Bouche ou Conduit) et, mesuré dans le conduit, le débit est calculé sur sa section ; le diamètre du conduit n’est demandé que dans ce cas ; le diamètre du bras au cône n’est plus demandé ; la vitesse de captage n’est à saisir que pour « Gaz et vapeurs » (sinon elle découle de la condition de dispersion) ; test fumigène en liste (Bon, Moyen, Insuffisant, Insatisfaisant, Non réalisé).'
+  ] },
   { version: '2.7', date: '16/10/2026', items: [
     'Valeur de référence laissée vide : traitée comme « / » (pas de référence), la mesure est alors comparée à la valeur recommandée par l’INRS, comme dans le Rapso. Avant, l’avis restait « Impossible de se prononcer ».',
     'Hottes : valeurs recommandées INRS écrites d’office (0,25 m/s en vitesse minimale, 0,5 m/s en moyenne), comme dans le Rapso.',

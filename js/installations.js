@@ -226,12 +226,17 @@ function duplicateInstallation(typeId, idx) {
 }
 
 function deleteInstallation(typeId, idx) {
-  if (!confirm('Supprimer cette installation ?')) return;
+  if (!confirm('Supprimer cette installation ?')) { render(); return; }
   var m = getCurrentMission();
   var list = m.installations[typeId];
   var removed = list[idx];
   list.splice(idx, 1);
   persistMissions();
+  // Supprimée depuis sa fiche (menu ⋯, retour terrain du 2026-10-20) : retour à la vue d'où elle a été ouverte
+  if (state.view === 'installation-form') {
+    state.ficheMenu = null;
+    state.view = typeof vueRetourFiche === 'function' ? vueRetourFiche() : 'type-list';
+  }
 
   var missionId = m.id;
   scheduleUndo('Installation supprimée.', function () {
@@ -319,6 +324,8 @@ function fieldState(f, inst) {
   var empty = fieldEmptyValue(inst.data[f.key]);
   // Pression statique demandée quand la mission établit un dossier de valeurs de référence (js/dossier-installation.js)
   if (f.optional && !(typeof dvrExigeChamp === 'function' && dvrExigeChamp(f))) return empty ? 'optional-empty' : 'optional-filled';
+  // Champ qui ne sert pas dans ce cas (ex. volume d'un local sans ouvrant ni entrée d'air permanente)
+  if (f.optionalIf && evalShowIf(f.optionalIf, inst.data)) return empty ? 'optional-empty' : 'optional-filled';
   return empty ? 'required-empty' : 'required-filled';
 }
 

@@ -171,6 +171,7 @@ function verifMissingFields(t, inst) {
   function check(f, stepIdx, stepTitle) {
     if (!f || f.type === 'section' || f.type === 'computed') return;
     if (f.optional && !(typeof dvrExigeChamp === 'function' && dvrExigeChamp(f))) return; // pression statique : dossier de valeurs de référence
+    if (f.optionalIf && evalShowIf(f.optionalIf, inst.data)) return;
     if (isRemarkField(f) || n1Only[f.key]) return;
     if (f.showIf && !evalShowIf(f.showIf, inst.data)) return;
     if (fieldEmptyValue(inst.data[f.key])) missing.push({ label: f.label, stepIdx: stepIdx, stepTitle: stepTitle });

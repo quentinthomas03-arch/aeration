@@ -52,6 +52,11 @@ function idspSansReference(type, data) {
     return !isNaN(num(data.debit)) && (data.vitesse_avis === 'Satisfaisant' || data.vitesse_avis === 'Non Satisfaisant') &&
       data.debit_avis === 'Impossible de se prononcer';
   }
+  // Vestiaire ou local sans WC, douche ni lavabo (tout à 0) : pas de débit réglementaire, avis impossible
+  // comme le Rapso, mais la fiche est finie dès que le débit est saisi (retour terrain du 2026-10-20)
+  if (type.id === 'sanitaires') {
+    return !isNaN(num(data.debit_mesure)) && data.chambre_erp_individuelle !== 'Oui' && num(data.debit_min_reglementaire) === 0;
+  }
   return false;
 }
 
