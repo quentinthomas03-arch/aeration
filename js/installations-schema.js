@@ -958,17 +958,21 @@ var INSTALLATION_TYPES = [
       { key: 'observation', label: 'Observation', type: 'textarea' },
       { key: 'remarque', label: 'Remarque', type: 'textarea' },
 
-      { key: 'section_conduit', label: 'Mesure dans le conduit', type: 'section' },
-      { key: 'gaine', label: 'Gaine', type: 'text' },
+      { key: 'section_conduit', label: 'Mesure dans le conduit', type: 'section',
+        showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
+      { key: 'gaine', label: 'Gaine', type: 'text', showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
       // Conduit de la vitesse de transport : présents dans le Rapso et son rapport (débit), ajoutés le
-      // 2026-10-03 lors de l'alignement du PDF.
-      { key: 'forme_section', label: 'Forme du conduit', type: 'select', options: ['Circulaire', 'Rectangulaire'] },
-      { key: 'diametre_cote1', label: 'Diamètre ou côté 1 (cm)', type: 'number' },
-      { key: 'cote2', label: 'Côté 2 (cm)', type: 'number', showIf: { key: 'forme_section', equals: 'Rectangulaire' } },
-      { key: 'debit_vt', label: 'Débit (m³/h)', type: 'computed' },
-      { key: 'temperature_conduit', label: 'Température dans le conduit (°C)', type: 'number' },
-      { key: 'pression_statique', label: 'Pression statique dans le conduit (Pa)', type: 'number' },
-      { key: 'masse_volumique', label: 'Masse volumique dans les conditions réelles (kg/m³)', type: 'computed' }
+      // 2026-10-03 lors de l'alignement du PDF. Comme dans le Rapso (colonnes « Mesure de la vitesse de
+      // transport »), ils ne sont demandés que si la vitesse de transport est cochée (retour terrain 28/10).
+      { key: 'forme_section', label: 'Forme du conduit', type: 'select', options: ['Circulaire', 'Rectangulaire'],
+        showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
+      { key: 'diametre_cote1', label: 'Diamètre ou côté 1 (cm)', type: 'number', showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
+      { key: 'cote2', label: 'Côté 2 (cm)', type: 'number',
+        showIf: { and: [{ key: 'mesures_choisies', contains: 'Vitesse de transport' }, { key: 'forme_section', equals: 'Rectangulaire' }] } },
+      { key: 'debit_vt', label: 'Débit (m³/h)', type: 'computed', showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
+      { key: 'temperature_conduit', label: 'Température dans le conduit (°C)', type: 'number', showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
+      { key: 'pression_statique', label: 'Pression statique dans le conduit (Pa)', type: 'number', showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } },
+      { key: 'masse_volumique', label: 'Masse volumique dans les conditions réelles (kg/m³)', type: 'computed', showIf: { key: 'mesures_choisies', contains: 'Vitesse de transport' } }
     ]
   },
   {

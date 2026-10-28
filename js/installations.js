@@ -498,8 +498,10 @@ function renderFieldInput(typeId, f, inst) {
           ICONS.trash + '</button></div>';
     });
     if (photos.length < PHOTO_MAX_PER_INSTALLATION) {
+      // Pas de capture="environment" : il imposait l'appareil photo et fermait l'accès à la galerie
+      // (retour terrain du 28/10). Sans lui, le téléphone propose « Appareil photo » ou « Galerie ».
       h += '<label class="photo-add-btn">' + ICONS.plus +
-        '<input type="file" accept="image/*" capture="environment" ' +
+        '<input type="file" accept="image/*" multiple ' +
         'onchange="handleInstallationPhoto(\'' + typeId + '\',\'' + f.key + '\',this);"></label>';
     }
     h += '</div>';
@@ -589,17 +591,22 @@ function toggleInstallationCheckbox(typeId, key, option, checked) {
 // dans les données de mission. Protection dossiers existants : migration automatique au chargement,
 // voir js/photos.js migrateLegacyPhotos.
 function handleInstallationPhoto(typeId, key, input) {
-  var file = input.files[0];
+  var files = Array.prototype.slice.call(input.files || []); // plusieurs photos possibles depuis la galerie
   input.value = '';
-  if (!file) return;
-  compressImageFile(file).then(function (blob) {
-    var id = generatePhotoId();
-    return savePhotoBlob(id, blob).then(function () { return id; });
-  }).then(function (id) {
+  if (!files.length) return;
+  var ids = [];
+  files.reduce(function (p, file) {
+    return p.then(function () { return compressImageFile(file); }).then(function (blob) {
+      var id = generatePhotoId();
+      return savePhotoBlob(id, blob).then(function () { ids.push(id); });
+    });
+  }, Promise.resolve()).then(function () {
     var m = getCurrentMission();
     var inst = m.installations[typeId][state.currentInstIndex];
     var photos = Array.isArray(inst.data[key]) ? inst.data[key] : [];
-    inst.data[key] = photos.concat([{ id: id }]).slice(0, PHOTO_MAX_PER_INSTALLATION);
+    var place = Math.max(0, PHOTO_MAX_PER_INSTALLATION - photos.length);
+    ids.slice(place).forEach(deletePhotoBlob); // au-delà du maximum : non gardées
+    inst.data[key] = photos.concat(ids.slice(0, place).map(function (id) { return { id: id }; }));
     touchInstallation(inst);
     persistMissions();
     render();

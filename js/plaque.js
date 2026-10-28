@@ -15,11 +15,11 @@ function plaqueHtml(typeId, inst) {
   if (id) {
     h += '<img class="plaque-vignette" alt="Plaque signalétique" data-photo-src="' + escapeHtml(id) + '" onclick="openPhotoViewer(\'' + escapeHtml(id) + '\');">' +
       '<div class="plaque-texte"><b>Plaque signalétique</b><span class="subtitle">Touchez la photo pour l’agrandir. Reprise à la visite suivante.</span></div>' +
-      '<div class="plaque-actions"><label class="btn btn-gray btn-small">Reprendre<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="plaqueAjouter(\'' + typeId + '\',this);"></label>' +
+      '<div class="plaque-actions"><label class="btn btn-gray btn-small">Reprendre<input type="file" accept="image/*" style="display:none;" onchange="plaqueAjouter(\'' + typeId + '\',this);"></label>' +
       '<button type="button" class="btn btn-gray btn-small" onclick="plaqueSupprimer(\'' + typeId + '\');">' + ICONS.trash + '</button></div>';
   } else {
     h += '<label class="plaque-ajout">' + ICONS.plus + '<span><b>Photographier la plaque signalétique</b><span class="subtitle">Marque, modèle, débit nominal : reprise l’an prochain, hors rapport.</span></span>' +
-      '<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="plaqueAjouter(\'' + typeId + '\',this);"></label>';
+      '<input type="file" accept="image/*" style="display:none;" onchange="plaqueAjouter(\'' + typeId + '\',this);"></label>';
   }
   return h + '</div>';
 }

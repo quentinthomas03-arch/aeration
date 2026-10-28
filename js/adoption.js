@@ -4,10 +4,14 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.8';
+var APP_VERSION = '2.9';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.9', date: '28/10/2026', items: [
+    'Installations diverses, comme le Rapso : avec la seule vitesse au point d’émission, la mesure dans le conduit (forme, diamètre, température, pression) n’est plus demandée ; elle ne l’est qu’avec la vitesse de transport.',
+    'Photos : le bouton + propose maintenant l’appareil photo ou la galerie du téléphone (avant, seul l’appareil photo s’ouvrait), et plusieurs photos peuvent être choisies d’un coup. Idem pour la plaque signalétique.'
+  ] },
   { version: '2.8', date: '20/10/2026', items: [
     'Supprimer une installation depuis sa fiche : menu ⋯ en haut de la fiche, « Supprimer cette installation » (annulable quelques secondes).',
     'Reprise du rapport PDF de l’an dernier : un titre de partie sans fiche derrière (ex. « MENUISERIE » avant les machines à bois) ne crée plus d’installation qui n’existe pas.',
