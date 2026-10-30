@@ -4,10 +4,13 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.10';
+var APP_VERSION = '2.11';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.11', date: '30/10/2026', items: [
+    'Placement sur le plan : un bouton de retour reste affiché en haut de l’écran (vers la liste, la fiche ou le plan, selon d’où vous venez), à la place du bouton « Annuler ».'
+  ] },
   { version: '2.10', date: '30/10/2026', items: [
     'Liste des installations : sur un site avec des plans, chaque ligne indique le plan et le n° de l’épingle (un toucher pour la voir). Une installation pas encore placée a un bouton pour la placer directement.',
     'Fiche d’une installation : bouton « Placer sur le plan » en haut de la fiche (une fois placée, le nom du plan). L’appli ouvre le plan le plus probable d’après le niveau, le bâtiment et les installations voisines ; touchez l’emplacement puis revenez à la fiche.',

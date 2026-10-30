@@ -179,6 +179,9 @@ function renderPlanView(m, items, visibles) {
   var placed = toutes ? placedAll : placedAll.filter(function (p) { return cles.indexOf(planCle(p.it)) !== -1; });
   var zoom = planZoomBorne(state.planZoom);
 
+  // Pendant un placement, les boutons de vue sont masqués : ce retour reste toujours visible
+  if (placing) h += '<button type="button" class="back-btn" id="plan-placement-retour" onclick="planFinPlacement();">' + ICONS.arrowLeft + ' ' + planRetourLibelle(pp) + '</button>';
+
   var nbParPlan = {};
   Object.keys(index).forEach(function (k) { var id = index[k].plan.id; nbParPlan[id] = (nbParPlan[id] || 0) + 1; });
   h += '<div class="plan-tabs">';
@@ -253,6 +256,12 @@ function renderPlanView(m, items, visibles) {
   return h + (placing ? '' : planSchemasBlock(m));
 }
 
+function planRetourLibelle(pp) {
+  var r = pp.retour;
+  if (!r || r.mode === 'plan' && r.view !== 'installation-form') return 'Retour au plan';
+  return r.view === 'installation-form' ? 'Retour à la fiche' : 'Retour à la liste';
+}
+
 // Bandeau au-dessus du plan : ce que l'on place, visible en même temps que le plan
 function planPlacingBarHtml(m, pp, plan, items, index) {
   var cible = items.filter(function (it) { return planCle(it) === pp.key; })[0];
@@ -269,10 +278,8 @@ function planPlacingBarHtml(m, pp, plan, items, index) {
   if (rep && !ici) h += '<div class="subtitle">Actuellement sur « ' + escapeHtml(rep.plan.nom) + ' » : elle passera sur ce plan.</div>';
   else if (!rep && pp.unique && missionPlans(m).length > 1) h += '<div class="subtitle">Pas le bon plan ? Choisissez-le au-dessus.</div>';
   if (pp.unique) {
-    var r = pp.retour || {};
-    var libelle = r.view === 'installation-form' ? 'Retour à la fiche' : r.mode === 'plan' ? 'Retour au plan' : 'Retour à la liste';
-    h += '<div class="row plan-placing-actions">' + (rep ? '<button class="btn btn-gray btn-small" onclick="planRetirer();">Retirer du plan</button>' : '') +
-      '<button class="btn ' + (rep ? 'btn-primary' : 'btn-gray') + ' btn-small" onclick="planFinPlacement();">' + (rep ? ICONS.check + ' ' + libelle : 'Annuler') + '</button></div>';
+    if (rep) h += '<div class="row plan-placing-actions"><button class="btn btn-gray btn-small" onclick="planRetirer();">Retirer du plan</button>' +
+      '<button class="btn btn-primary btn-small" onclick="planFinPlacement();">' + ICONS.check + ' ' + planRetourLibelle(pp) + '</button></div>';
   } else if (!rep && restantes.length > 1) {
     h += '<button type="button" class="btn btn-gray btn-small" onclick="planPasser();">Passer</button>';
   }
@@ -303,7 +310,7 @@ function planBoutonPlacerHtml(it) {
 }
 
 function planVersBandeau() {
-  var el = document.getElementById('plan-placing-bar');
+  var el = document.getElementById('plan-placement-retour');
   if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
 }
 
