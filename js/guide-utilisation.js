@@ -45,7 +45,7 @@ var GUIDE_UTILISATION_ETAPES = [
   {
     icon: 'map',
     titre: '9. Plan du site',
-    texte: 'Onglet « Plan » : photographiez le plan d’évacuation ou importez celui du client, puis « Placer des installations » et touchez le plan pour chacune. Les épingles prennent la couleur de l’avis ; toucher une épingle ouvre la fiche. Une installation découverte sur place se crée sans quitter le plan. Le plan figure dans le rapport (4.2).'
+    texte: 'Onglet « Plan » : photographiez le plan d’évacuation ou importez celui du client, puis « Placer des installations » et touchez le plan pour chacune. Depuis la liste ou une fiche, le bouton « Placer sur le plan » place une seule installation. Les épingles prennent la couleur de l’avis ; toucher une épingle affiche son nom, un second toucher ouvre la fiche. Une installation découverte sur place se crée sans quitter le plan. Le plan figure dans le rapport (4.2).'
   },
   {
     icon: 'share',

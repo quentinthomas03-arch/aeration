@@ -244,13 +244,15 @@ var OVERVIEW_FILTRES = [
   { k: 'inprogress', label: 'En cours', cls: 'status-warn' },
   { k: 'bad', label: 'Non satisf.', cls: 'status-bad' },
   { k: 'done', label: 'Terminé', cls: 'status-ok' },
-  { k: 'revoir', label: 'À revoir', cls: 'status-warn', siPresent: true } // affiché seulement s'il y en a
+  { k: 'revoir', label: 'À revoir', cls: 'status-warn', siPresent: true }, // affiché seulement s'il y en a
+  { k: 'aplacer', label: 'À placer', cls: 'status-muted', siPresent: true } // sans épingle, s'il y a un plan
 ];
 
 function overviewFiltreMatch(it, k) {
   if (!k) return true;
   if (k === 'bad') return it.status.cls === 'status-bad';
   if (k === 'revoir') return !!(it.inst.data && it.inst.data._aRevoir);
+  if (k === 'aplacer') { var m = getCurrentMission(); return !!(m && (m.plans || []).length) && !planDe(m, it.inst); }
   return it.status.state === k;
 }
 
@@ -343,6 +345,12 @@ function overviewRowTitle(it) {
 var OVERVIEW_TITLE_KEYS = ['reference_equipement', 'reference_local', 'repere', 'reference_machine', 'activite_reference_local',
   'nom_local', 'localisation', 'atelier'];
 
+// Repères de plan des lignes (js/plans.js), calculés une fois par écran ; null si le site n'a pas de plan
+var _overviewPlanIndex = null;
+function overviewPreparerPlans(m) {
+  _overviewPlanIndex = (m.plans || []).length ? planIndex(m) : null;
+}
+
 // Le titre passe désormais sur plusieurs lignes plutôt que d'être tronqué par "..." pile sur la
 // partie qui identifie l'installation, illisible sur site dès que le repère est un peu long
 // (retour utilisateur du 19/09/2026).
@@ -354,10 +362,13 @@ function renderOverviewRow(it, mode) {
   var kicker = mode === 'sous' ? '' : mode === 'batiment' ? '<div class="overview-row-kicker">' + escapeHtml(it.type.label) + '</div>'
     : (lieu ? '<div class="overview-row-kicker">' + escapeHtml(lieu) + '</div>' : '');
   if (it.inst.data && it.inst.data._aRevoir) kicker += '<div class="overview-row-revoir">' + GS_REVOIR_ICON + ' À revoir</div>';
+  // Sur un site avec des plans : repère de l'installation placée, ou bouton pour la placer
+  var rep = _overviewPlanIndex && _overviewPlanIndex[it.type.id + ':' + it.idx];
   return '<div class="overview-row ' + it.status.cls + '" onclick="openOverviewInstallation(\'' + it.type.id + '\',' + it.idx + ');">' +
     '<span class="status-dot ' + it.status.cls + '"></span>' +
     '<div class="overview-row-body">' + kicker + '<div class="overview-row-title">' + escapeHtml(title) + '</div>' +
-    '<div class="overview-row-status ' + it.status.cls + '">' + escapeHtml(it.status.text) + '</div></div>' +
+    '<div class="overview-row-status ' + it.status.cls + '">' + escapeHtml(it.status.text) + '</div>' + (rep ? planRepereHtml(it, rep) : '') + '</div>' +
+    (_overviewPlanIndex && !rep ? planBoutonPlacerHtml(it) : '') +
     '<button type="button" class="overview-row-duplicate" title="Dupliquer cette installation" aria-label="Dupliquer cette installation" ' +
       'onclick="event.stopPropagation();duplicateInstallation(\'' + it.type.id + '\',' + it.idx + ');">' +
       ICONS.copy + '</button>' +
@@ -482,6 +493,9 @@ function renderSiteOverview(m) {
   var filtre = state.overviewFiltre || null;
   var filteredItems = filterOverviewItems(items, search).filter(function (it) { return overviewFiltreMatch(it, filtre); });
   var mode = state.overviewMode || 'batiment';
+  // Pendant un placement : le plan seul, sans les compteurs ni la recherche au-dessus
+  if (mode === 'plan' && planPlacementActif(m)) return renderPlanView(m, items, filteredItems);
+  overviewPreparerPlans(m);
   var focus = !!(search.trim() || filtre);
   var groups = (mode === 'batiment') ? groupByBatiment(filteredItems) : groupByType(filteredItems, typesAffiches);
   if (focus) groups = groups.filter(function (g) { return g.items.length > 0; });
@@ -544,6 +558,7 @@ function renderSiteOverviewGroupFull() {
     return h;
   }
   var agg = aggregateStatus(g.items);
+  overviewPreparerPlans(m);
   h += '<div class="card"><h1>' + (mode === 'type' ? getIcon(g.icon) : getIcon('building')) + ' ' + escapeHtml(g.label) + '</h1>' +
     '<p class="subtitle">' + agg.done + '/' + agg.total + ' terminé(s)</p></div>';
   h += '<div class="card overview-group">';

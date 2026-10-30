@@ -108,9 +108,14 @@ function gsBasculerRevoir(typeId) {
 // Sous l'en-tête : le menu ⋯ quand il est ouvert, sinon seulement la marque « À revoir » si elle est posée
 function gsLigneFicheHtml(t, inst) {
   if (!inst) return '';
-  var idx = state.currentInstIndex, revoir = !!inst.data._aRevoir;
+  var idx = state.currentInstIndex, revoir = !!inst.data._aRevoir, cible = '\'' + t.id + '\',' + idx;
+  var m = getCurrentMission(), plans = m ? missionPlans(m) : [], plan = m ? planDe(m, inst) : null;
   if (state.ficheMenu !== t.id + ':' + idx) {
-    return revoir ? '<div class="gs-fiche-actions"><button type="button" class="gs-chip actif" onclick="gsBasculerRevoir(\'' + t.id + '\');" title="Retirer la marque">' + GS_REVOIR_ICON + ' À revoir ✕</button></div>' : '';
+    // Sur un site avec des plans : où est l'installation, ou le bouton pour la placer (2026-10-30)
+    var chipPlan = plan ? '<button type="button" class="gs-chip" onclick="gsVoirSurPlan(' + cible + ');" title="Voir sur le plan">' + PLAN_ICON + ' ' + escapeHtml(plan.nom) + '</button>'
+      : plans.length ? '<button type="button" class="gs-chip" onclick="planPlacerDepuis(' + cible + ');">' + PLAN_PLACER_ICON + ' Placer sur le plan</button>' : '';
+    var chipRevoir = revoir ? '<button type="button" class="gs-chip actif" onclick="gsBasculerRevoir(\'' + t.id + '\');" title="Retirer la marque">' + GS_REVOIR_ICON + ' À revoir ✕</button>' : '';
+    return chipPlan || chipRevoir ? '<div class="gs-fiche-actions">' + chipRevoir + chipPlan + '</div>' : '';
   }
   var item = function (onclick, icone, label) {
     return '<button type="button" class="fiche-menu-item" onclick="state.ficheMenu=null;' + onclick + '">' + icone + '<span>' + label + '</span></button>';
@@ -120,7 +125,8 @@ function gsLigneFicheHtml(t, inst) {
     item('duplicateInstallation(\'' + t.id + '\',' + idx + ');', ICONS.copy, 'Dupliquer') +
     item('gsDupliquerSerie(\'' + t.id + '\',' + idx + ');', ICONS.copy, 'Dupliquer en série') +
     item('gsBasculerRevoir(\'' + t.id + '\');', GS_REVOIR_ICON, revoir ? 'Retirer la marque « à revoir »' : 'Marquer à revoir') +
-    (inst.data._plan ? item('gsVoirSurPlan(\'' + t.id + '\',' + idx + ');', PLAN_ICON, 'Voir sur le plan') : '') +
+    (plan ? item('gsVoirSurPlan(' + cible + ');', PLAN_ICON, 'Voir sur le plan') : '') +
+    (plans.length ? item('planPlacerDepuis(' + cible + ');', PLAN_PLACER_ICON, plan ? 'Déplacer sur le plan' : 'Placer sur le plan') : '') +
     // Supprimer sans repasser par la liste du type (retour terrain du 2026-10-20), annulable quelques secondes
     item('deleteInstallation(\'' + t.id + '\',' + idx + ');', ICONS.trash, 'Supprimer cette installation') +
     '</div>';

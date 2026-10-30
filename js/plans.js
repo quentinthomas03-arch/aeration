@@ -15,6 +15,7 @@
 var PLAN_MAX_DIMENSION = 2200;
 var PLAN_PIN_COLORS = { 'status-ok': '#16a34a', 'status-bad': '#e5484d', 'status-warn': '#d97706', 'status-muted': '#8a94a3' };
 var PLAN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>';
+var PLAN_PLACER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.4 7-12a7 7 0 1 0-14 0c0 5.6 7 12 7 12z"/><path d="M12 7v6M9 10h6"/></svg>';
 
 function missionPlans(m) {
   if (!Array.isArray(m.plans)) m.plans = [];
@@ -26,12 +27,38 @@ function planImageSrc(plan) {
   return '';
 }
 
-// Installations de la mission placées sur un plan, dans l'ordre de la vue d'ensemble : leur rang
-// donne le numéro de l'épingle (le même dans l'appli et dans le rapport).
-function planPlacedItems(m, planId) {
-  var items = (typeof overviewOrderedItems === 'function') ? overviewOrderedItems(m) : [];
-  return items.filter(function (it) { var p = it.inst.data && it.inst.data._plan; return p && p.id === planId; })
+// Toujours rangées par bâtiment, quel que soit le mode de la vue d'ensemble : suivre « Par type » ou
+// « Par bâtiment » changeait le numéro des épingles, y compris dans le rapport (constaté le 2026-10-30).
+function planItemsOrdonnes(m) {
+  var sel = m.typesSelectionnes || [], out = [];
+  groupByBatiment(listAllInstallations(m, INSTALLATION_TYPES.filter(function (t) { return sel.indexOf(t.id) !== -1; })))
+    .forEach(function (g) { out = out.concat(g.items); });
+  return out;
+}
+
+// Installations de la mission placées sur un plan : leur rang donne le numéro de l'épingle (le même
+// dans l'appli et dans le rapport). `items` : liste déjà calculée (planIndex), sinon recalculée.
+function planPlacedItems(m, planId, items) {
+  return (items || planItemsOrdonnes(m)).filter(function (it) { var p = it.inst.data && it.inst.data._plan; return p && p.id === planId; })
     .map(function (it, i) { return { it: it, n: i + 1, x: it.inst.data._plan.x, y: it.inst.data._plan.y }; });
+}
+
+// Repère de chaque installation placée, calculé une fois par écran (listes de 200 lignes) :
+// { 'typeId:idx': { plan, n } }
+function planIndex(m) {
+  var out = {}, plans = missionPlans(m);
+  if (!plans.length) return out;
+  var items = planItemsOrdonnes(m);
+  plans.forEach(function (plan) {
+    planPlacedItems(m, plan.id, items).forEach(function (p) { out[planCle(p.it)] = { plan: plan, n: p.n }; });
+  });
+  return out;
+}
+
+// Une épingle dont le plan n'existe plus ne compte pas : l'installation reste à placer
+function planDe(m, inst) {
+  var p = inst.data && inst.data._plan;
+  return p ? missionPlans(m).filter(function (x) { return x.id === p.id; })[0] || null : null;
 }
 
 function currentPlan(m) {
@@ -51,6 +78,10 @@ function currentPlan(m) {
 //  - les compteurs-filtres et la recherche de la vue d'ensemble s'appliquent aussi aux épingles ;
 //  - placement à la chaîne par bâtiment : on choisit un bâtiment, l'appli propose ses installations à
 //    placer une par une (« Passer » pour en laisser une de côté).
+// Sites à plusieurs plans (2026-10-30) :
+//  - placer une seule installation depuis sa ligne, sa fiche ou son épingle (planPlacerDepuis) ;
+//  - pendant le placement, l'écran se réduit au plan et aux onglets de plans, qui restent utilisables ;
+//  - toucher une épingle affiche son nom sous le doigt, un second toucher ouvre la fiche.
 // Paliers des boutons ; le pincement donne n'importe quelle valeur entre le premier et le dernier
 // (× 6 sur un téléphone ≈ la résolution de l'image, PLAN_MAX_DIMENSION)
 var PLAN_ZOOMS = [1, 1.5, 2, 3, 4, 6];
@@ -78,8 +109,53 @@ function planBatimentDe(it) {
 
 // Installations à placer, dans l'ordre de la vue d'ensemble, limitées au bâtiment choisi
 function planAPlacer(m, bat) {
-  return overviewOrderedItems(m).filter(function (it) { return !it.inst.data._plan && (!bat || planBatimentDe(it) === bat); });
+  return overviewOrderedItems(m).filter(function (it) { return !planDe(m, it.inst) && (!bat || planBatimentDe(it) === bat); });
 }
+
+// Sites à plusieurs plans (2026-10-30) : le plan le plus probable d'une installation, d'après son nom
+// (niveau, bâtiment) et les installations voisines déjà placées ; à égalité, le plan affiché.
+function planNorm(s) { return String(s || '').trim().toLowerCase(); }
+
+function planSuggere(m, inst) {
+  var plans = missionPlans(m), courant = currentPlan(m), d = inst.data || {};
+  var bat = planNorm(d.batiment), niv = planNorm(d.niveau), meilleur = courant, score = 0;
+  var dansNom = function (mot, nom) { return mot.length > 1 && nom.indexOf(mot) !== -1; };
+  [courant].concat(plans.filter(function (p) { return p !== courant; })).forEach(function (plan) {
+    var nom = planNorm(plan.nom), s = (dansNom(niv, nom) ? 100 : 0) + (dansNom(bat, nom) ? 100 : 0);
+    Object.keys(m.installations).forEach(function (t) {
+      (m.installations[t] || []).forEach(function (x) {
+        var p = x.data && x.data._plan;
+        if (!p || p.id !== plan.id || !bat || planNorm(x.data.batiment) !== bat) return;
+        s += planNorm(x.data.niveau) === niv ? 10 : 1;
+      });
+    });
+    if (s > score) { score = s; meilleur = plan; }
+  });
+  return meilleur;
+}
+
+// Bâtiment proposé au placement à la chaîne : le dernier choisi sur ce plan, sinon celui que nomme le plan
+function planBatInitial(m, plan) {
+  var memo = state.planBatParPlan && state.planBatParPlan[plan.id];
+  var vus = {}, nom = planNorm(plan.nom), meilleur = '', score = 0;
+  planAPlacer(m, '').forEach(function (it) { vus[planBatimentDe(it)] = it; });
+  if (memo !== undefined && (!memo || vus[memo])) return memo;
+  Object.keys(vus).forEach(function (b) {
+    var d = vus[b].inst.data, bat = planNorm(d.batiment), niv = planNorm(d.niveau);
+    var s = (bat.length > 1 && nom.indexOf(bat) !== -1 ? 1 : 0) + (niv.length > 1 && nom.indexOf(niv) !== -1 ? 1 : 0);
+    if (s > score) { score = s; meilleur = b; }
+  });
+  return meilleur;
+}
+
+function planPlacementActif(m) {
+  var pp = state.planPlacement;
+  return !!(pp && (state.overviewMode === 'plan') && missionPlans(m).some(function (p) { return p.id === pp.planId; }));
+}
+
+// Largeur / hauteur des images déjà affichées : le cadre garde sa hauteur pendant le rechargement de
+// l'image à chaque rendu (sinon la page et le plan zoomé sautaient à chaque épingle posée)
+var _planRatios = {};
 
 function renderPlanView(m, items, visibles) {
   var plans = missionPlans(m);
@@ -91,55 +167,62 @@ function renderPlanView(m, items, visibles) {
   }
   var plan = currentPlan(m);
   state.planCourant = plan.id;
-  var placing = state.planPlacement && state.planPlacement.planId === plan.id;
+  var placing = planPlacementActif(m) && state.planPlacement.planId === plan.id;
+  var pp = placing ? state.planPlacement : null, unique = !!(pp && pp.unique);
   var cles = visibles ? visibles.map(planCle) : null;
+  var index = planIndex(m);
   var placedAll = planPlacedItems(m, plan.id);
-  // En placement, toutes les épingles restent visibles (on place par rapport aux autres)
-  var placed = (placing || !cles) ? placedAll : placedAll.filter(function (p) { return cles.indexOf(planCle(p.it)) !== -1; });
+  var aPlacer = items.filter(function (it) { return !index[planCle(it)]; });
+  // En placement, toutes les épingles restent visibles (on place par rapport aux autres) ; de même avec
+  // le filtre « À placer », qui ne vise par définition aucune épingle
+  var toutes = placing || !cles || state.overviewFiltre === 'aplacer';
+  var placed = toutes ? placedAll : placedAll.filter(function (p) { return cles.indexOf(planCle(p.it)) !== -1; });
   var zoom = planZoomBorne(state.planZoom);
 
+  var nbParPlan = {};
+  Object.keys(index).forEach(function (k) { var id = index[k].plan.id; nbParPlan[id] = (nbParPlan[id] || 0) + 1; });
   h += '<div class="plan-tabs">';
   plans.forEach(function (p) {
-    h += '<button type="button" class="home-filter' + (p.id === plan.id ? ' active' : '') + '" onclick="state.planCourant=\'' + p.id + '\';state.planPlacement=null;state.planScroll=null;render();">' + escapeHtml(p.nom) + '</button>';
+    h += '<button type="button" class="home-filter' + (p.id === plan.id ? ' active' : '') + '" onclick="planChoisir(\'' + p.id + '\');">' + escapeHtml(p.nom) +
+      ' <span class="plan-tab-n">' + (nbParPlan[p.id] || 0) + '</span></button>';
   });
-  h += planAddButtonHtml('home-filter plan-add') + '</div>';
+  if (!placing) h += planAddButtonHtml('home-filter plan-add');
+  h += '</div>';
 
+  if (placing) h += planPlacingBarHtml(m, pp, plan, items, index);
   h += planZoomBarHtml(zoom);
 
-  h += '<div class="plan-viewport" id="plan-viewport" onscroll="planMemoriserScroll(this);">';
+  h += '<div class="plan-cadre"><div class="plan-viewport" id="plan-viewport" onscroll="planMemoriserScroll(this);">';
   // Beaucoup d'épingles en vue entière : épingles réduites (taille normale dès le zoom × 2)
   var dense = placed.length > 60 && zoom < 2;
-  h += '<div class="plan-stage' + (placing ? ' placing' : '') + (dense ? ' plan-dense' : '') + '" data-nb-pins="' + placed.length + '" style="width:' + Math.round(zoom * 100) + '%;" onclick="planStageClick(event,\'' + plan.id + '\');">';
-  h += plan.photoId ? '<img class="plan-img" alt="" data-photo-src="' + escapeHtml(plan.photoId) + '">' : '<img class="plan-img" alt="" src="' + planImageSrc(plan) + '">';
+  h += '<div class="plan-stage' + (placing ? ' placing' : '') + (unique ? ' placing-unique' : '') + (dense ? ' plan-dense' : '') + '" data-nb-pins="' + placed.length + '" style="width:' + Math.round(zoom * 100) + '%;" onclick="planStageClick(event,\'' + plan.id + '\');">';
+  var ratio = _planRatios[plan.id] ? ' style="aspect-ratio:' + _planRatios[plan.id] + ';"' : '';
+  h += plan.photoId ? '<img class="plan-img" alt="" data-plan="' + plan.id + '"' + ratio + ' data-photo-src="' + escapeHtml(plan.photoId) + '">' : '<img class="plan-img" alt="" data-plan="' + plan.id + '"' + ratio + ' src="' + planImageSrc(plan) + '">';
+  var focusPin = null;
   placed.forEach(function (p) {
-    var sel = placing ? state.planPlacement.key === planCle(p.it) : state.planFocus === planCle(p.it);
+    var sel = placing ? pp.key === planCle(p.it) : state.planFocus === planCle(p.it);
+    if (sel && !placing) focusPin = p;
     h += '<button type="button" class="plan-pin ' + p.it.status.cls + (sel ? ' selected' : '') + '" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%;" ' +
       'title="' + escapeHtml(p.it.type.label + ' — ' + overviewRowTitle(p.it)) + '" onclick="event.stopPropagation();planPinClick(\'' + p.it.type.id + '\',' + p.it.idx + ',\'' + plan.id + '\');">' + p.n + '</button>';
   });
-  h += '</div></div>';
+  h += '</div></div>' + (focusPin ? planPinBarHtml(focusPin) : '') + '</div>';
 
+  if (unique) return h;
   if (placing) {
-    var pp = state.planPlacement, bat = pp.bat || '';
-    var toutes = planAPlacer(m, '');
+    var bat = pp.bat || '';
+    var toutesAPlacer = planAPlacer(m, '');
     var restantes = planAPlacer(m, bat);
     var cible = items.filter(function (it) { return planCle(it) === pp.key; })[0];
     // Bâtiments qui ont encore des installations à placer
     var parBat = {};
-    toutes.forEach(function (it) { var b = planBatimentDe(it); parBat[b] = (parBat[b] || 0) + 1; });
+    toutesAPlacer.forEach(function (it) { var b = planBatimentDe(it); parBat[b] = (parBat[b] || 0) + 1; });
     var bats = Object.keys(parBat); // dans l'ordre de la vue d'ensemble (ordre de visite)
     if (bats.length > 1) {
-      h += '<div class="plan-bats"><button type="button" class="home-filter' + (!bat ? ' active' : '') + '" onclick="planChoisirBatiment(\'\');">Tous (' + toutes.length + ')</button>';
+      h += '<div class="plan-bats"><button type="button" class="home-filter' + (!bat ? ' active' : '') + '" onclick="planChoisirBatiment(\'\');">Tous (' + toutesAPlacer.length + ')</button>';
       bats.forEach(function (b) {
         h += '<button type="button" class="home-filter' + (bat === b ? ' active' : '') + '" onclick="planChoisirBatiment(\'' + escapeHtml(jsSafeStr(b)) + '\');">' + escapeHtml(b) + ' (' + parBat[b] + ')</button>';
       });
       h += '</div>';
-    }
-    if (cible) {
-      h += '<div class="plan-placing-bar"><div>Touchez le plan à l’emplacement de :</div><b>' + escapeHtml(cible.type.label + ' — ' + overviewRowTitle(cible)) + '</b>' +
-        (cible.inst.data.batiment ? '<div class="subtitle">' + escapeHtml(cible.inst.data.batiment) + '</div>' : '') +
-        (!cible.inst.data._plan && restantes.length > 1 ? '<button type="button" class="btn btn-gray btn-small" onclick="planPasser();">Passer</button>' : '') + '</div>';
-    } else {
-      h += '<div class="plan-placing-bar">' + (restantes.length ? 'Choisissez une installation à placer' : 'Toutes les installations' + (bat ? ' de ' + escapeHtml(bat) : '') + ' sont placées.') + '</div>';
     }
     h += '<p class="subtitle plan-info">' + restantes.length + ' à placer' + (bat ? ' dans ce bâtiment' : '') + '. Touchez une épingle pour la déplacer.</p>';
     h += '<select class="input" onchange="state.planPlacement.key=this.value;render();">';
@@ -148,26 +231,131 @@ function renderPlanView(m, items, visibles) {
       return '<option value="' + k + '"' + (k === pp.key ? ' selected' : '') + '>' + escapeHtml(it.type.label + ' — ' + overviewRowTitle(it) + (!bat && it.inst.data.batiment ? ' (' + it.inst.data.batiment + ')' : '') + suffixe) + '</option>';
     };
     var dansBat = items.filter(function (it) { return !bat || planBatimentDe(it) === bat; });
-    var nonPlacees = dansBat.filter(function (it) { return !it.inst.data._plan; });
-    var deja = dansBat.filter(function (it) { return it.inst.data._plan; });
+    var nonPlacees = dansBat.filter(function (it) { return !index[planCle(it)]; });
+    var deja = dansBat.filter(function (it) { return index[planCle(it)]; });
     h += '<option value="">—</option>';
     if (nonPlacees.length) h += '<optgroup label="À placer (' + nonPlacees.length + ')">' + nonPlacees.map(function (it) { return opt(it, ''); }).join('') + '</optgroup>';
-    if (deja.length) h += '<optgroup label="Déjà placées (déplacer)">' + deja.map(function (it) { return opt(it, ' ✓'); }).join('') + '</optgroup>';
+    if (deja.length) h += '<optgroup label="Déjà placées (déplacer)">' + deja.map(function (it) { return opt(it, ' ✓ ' + index[planCle(it)].plan.nom); }).join('') + '</optgroup>';
     h += '</select>';
     if (typeof creationRapideHtml === 'function') h += creationRapideHtml(m, 'plan', m.typesSelectionnes || []);
     h += '<div class="row" style="margin-top:8px;">';
-    if (cible && cible.inst.data._plan) h += '<button class="btn btn-gray btn-small" onclick="planRetirer();">Retirer du plan</button>';
-    h += '<button class="btn btn-primary btn-small" onclick="state.planPlacement=null;render();">' + ICONS.check + ' Terminer le placement</button></div>';
+    if (cible && index[pp.key]) h += '<button class="btn btn-gray btn-small" onclick="planRetirer();">Retirer du plan</button>';
+    h += '<button class="btn btn-primary btn-small" onclick="planFinPlacement();">' + ICONS.check + ' Terminer le placement</button></div>';
   } else {
-    var filtreActif = cles && cles.length !== items.length;
+    var filtreActif = cles && cles.length !== items.length && state.overviewFiltre !== 'aplacer';
     h += '<p class="subtitle plan-info">' + (filtreActif ? placed.length + ' épingle(s) affichée(s) avec ce filtre, sur ' + placedAll.length + ' placée(s).'
-      : placedAll.length + ' installation(s) placée(s) sur ce plan sur ' + items.length + '.') + ' Touchez une épingle pour ouvrir sa fiche.</p>';
+      : placedAll.length + ' sur ce plan, ' + aPlacer.length + ' encore à placer sur le site.') + ' Touchez une épingle pour voir son nom.</p>';
     h += '<div class="row plan-actions">';
-    h += '<button class="btn btn-primary btn-small" onclick="planDemarrerPlacement(\'' + plan.id + '\');">' + PLAN_ICON + ' Placer des installations</button>';
+    h += '<button class="btn btn-primary btn-small" onclick="planDemarrerPlacement(\'' + plan.id + '\');">' + PLAN_ICON + ' Placer des installations' + (aPlacer.length ? ' (' + aPlacer.length + ')' : '') + '</button>';
     h += '<button class="btn btn-gray btn-small" onclick="planRenommer(\'' + plan.id + '\');">' + ICONS.edit + ' Renommer</button>';
     h += '<button class="btn btn-gray btn-small" onclick="planSupprimer(\'' + plan.id + '\');">' + ICONS.trash + ' Supprimer</button></div>';
   }
   return h + (placing ? '' : planSchemasBlock(m));
+}
+
+// Bandeau au-dessus du plan : ce que l'on place, visible en même temps que le plan
+function planPlacingBarHtml(m, pp, plan, items, index) {
+  var cible = items.filter(function (it) { return planCle(it) === pp.key; })[0];
+  var restantes = planAPlacer(m, pp.bat || '');
+  var h = '<div class="plan-placing-bar" id="plan-placing-bar">';
+  if (!cible) {
+    return h + (restantes.length ? 'Choisissez une installation à placer' : 'Toutes les installations' + (pp.bat ? ' de ' + escapeHtml(pp.bat) : '') + ' sont placées.') + '</div>';
+  }
+  var rep = index[pp.key], ici = rep && rep.plan.id === plan.id;
+  var lieu = [cible.inst.data.batiment, cible.inst.data.niveau].filter(Boolean).join(' · ');
+  h += '<div>' + (ici ? 'Placée ici (n° ' + rep.n + '). Touchez ailleurs pour la déplacer :' : 'Touchez le plan à l’emplacement de :') + '</div>' +
+    '<b>' + escapeHtml(cible.type.label + ' — ' + overviewRowTitle(cible)) + '</b>' +
+    (lieu ? '<div class="subtitle">' + escapeHtml(lieu) + '</div>' : '');
+  if (rep && !ici) h += '<div class="subtitle">Actuellement sur « ' + escapeHtml(rep.plan.nom) + ' » : elle passera sur ce plan.</div>';
+  else if (!rep && pp.unique && missionPlans(m).length > 1) h += '<div class="subtitle">Pas le bon plan ? Choisissez-le au-dessus.</div>';
+  if (pp.unique) {
+    var r = pp.retour || {};
+    var libelle = r.view === 'installation-form' ? 'Retour à la fiche' : r.mode === 'plan' ? 'Retour au plan' : 'Retour à la liste';
+    h += '<div class="row plan-placing-actions">' + (rep ? '<button class="btn btn-gray btn-small" onclick="planRetirer();">Retirer du plan</button>' : '') +
+      '<button class="btn ' + (rep ? 'btn-primary' : 'btn-gray') + ' btn-small" onclick="planFinPlacement();">' + (rep ? ICONS.check + ' ' + libelle : 'Annuler') + '</button></div>';
+  } else if (!rep && restantes.length > 1) {
+    h += '<button type="button" class="btn btn-gray btn-small" onclick="planPasser();">Passer</button>';
+  }
+  return h + '</div>';
+}
+
+// Épingle touchée : qui est-ce, sans quitter le plan. Second toucher (ou bouton) : la fiche. La barre
+// se place du côté opposé à l'épingle pour ne pas la cacher.
+function planPinBarHtml(p) {
+  var it = p.it, cible = '\'' + it.type.id + '\',' + it.idx;
+  var lieu = [it.inst.data.batiment, it.inst.data.niveau].filter(Boolean).join(' · ');
+  return '<div class="plan-pin-bar' + (p.y > 0.5 ? ' en-haut' : '') + '"><div class="plan-pin-bar-txt"><b>' + p.n + ' · ' + escapeHtml(overviewRowTitle(it)) + '</b>' +
+    '<span>' + escapeHtml([it.type.label, lieu, it.status.text].filter(Boolean).join(' · ')) + '</span></div>' +
+    '<div class="plan-pin-bar-btns"><button type="button" class="btn btn-primary btn-small" onclick="openOverviewInstallation(' + cible + ');">Ouvrir la fiche</button>' +
+    '<button type="button" class="btn btn-gray btn-small" onclick="planPlacerDepuis(' + cible + ');">Déplacer</button>' +
+    '<button type="button" class="btn btn-gray btn-small" aria-label="Fermer" onclick="state.planFocus=null;render();">✕</button></div></div>';
+}
+
+// Repère d'une ligne de liste : le plan et le numéro si l'installation est placée
+function planRepereHtml(it, rep) {
+  return '<button type="button" class="overview-row-plan" title="Voir sur le plan" ' +
+    'onclick="event.stopPropagation();gsVoirSurPlan(\'' + it.type.id + '\',' + it.idx + ');">' + PLAN_ICON + escapeHtml(rep.plan.nom) + ' · n° ' + rep.n + '</button>';
+}
+
+function planBoutonPlacerHtml(it) {
+  return '<button type="button" class="overview-row-duplicate overview-row-placer" title="Placer sur le plan" aria-label="Placer sur le plan" ' +
+    'onclick="event.stopPropagation();planPlacerDepuis(\'' + it.type.id + '\',' + it.idx + ');">' + PLAN_PLACER_ICON + '</button>';
+}
+
+function planVersBandeau() {
+  var el = document.getElementById('plan-placing-bar');
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
+}
+
+// Placer (ou déplacer) une seule installation, depuis sa ligne, sa fiche ou son épingle : on ouvre le
+// plan le plus probable, le technicien touche l'emplacement et revient d'où il venait.
+function planPlacerDepuis(typeId, idx) {
+  var m = getCurrentMission(), inst = m && m.installations[typeId] && m.installations[typeId][idx];
+  if (!inst || !missionPlans(m).length) return;
+  var plan = planDe(m, inst) || planSuggere(m, inst), p = inst.data._plan;
+  var retour = { view: state.view, mode: state.overviewMode, scroll: window.scrollY, zoom: state.planZoom, planScroll: state.planScroll };
+  state.planPlacement = { planId: plan.id, bat: '', key: typeId + ':' + idx, unique: true, retour: retour };
+  state.planCourant = plan.id;
+  state.planFocus = null;
+  state.overviewMode = 'plan';
+  state.view = 'mission-detail';
+  if (planDe(m, inst)) { state.planZoom = Math.max(2, planZoomBorne(state.planZoom)); state.planScroll = { cx: p.x, cy: p.y }; } // déplacement : zoomé sur l'épingle
+  else { state.planZoom = 1; state.planScroll = null; }
+  render();
+  planVersBandeau();
+}
+
+function planFinPlacement() {
+  var r = state.planPlacement && state.planPlacement.retour;
+  state.planPlacement = null;
+  if (r) {
+    state.overviewMode = r.mode;
+    state.view = r.view;
+    state.planZoom = r.zoom;
+    state.planScroll = r.planScroll;
+    if (r.view === 'mission-detail' && r.mode !== 'plan') state._overviewScroll = r.scroll;
+  }
+  render();
+}
+
+// Changer de plan : en placement, on continue sur l'autre plan au lieu de tout abandonner
+function planChoisir(planId) {
+  var m = getCurrentMission(), pp = planPlacementActif(m) ? state.planPlacement : null;
+  var plan = missionPlans(m).filter(function (p) { return p.id === planId; })[0];
+  if (!plan) return;
+  state.planCourant = planId;
+  state.planZoom = 1; // l'autre plan s'ouvre en entier
+  state.planScroll = null;
+  state.planFocus = null;
+  if (pp) {
+    pp.planId = planId;
+    if (!pp.unique) {
+      pp.bat = planBatInitial(m, plan);
+      var liste = planAPlacer(m, pp.bat).map(planCle);
+      if (liste.indexOf(pp.key) === -1) pp.key = liste[0] || '';
+    }
+  }
+  render();
 }
 
 // Zoom : sens -1 / +1, 0 pour revenir au plan entier ; le centre de la vue reste au même endroit
@@ -262,21 +450,28 @@ function planMemoriserScroll(vp) {
 // être encore chargée (photo en IndexedDB) : on recommence à son chargement.
 function planRestaurerScroll() {
   var vp = document.getElementById('plan-viewport'), s = state.planScroll;
-  if (vp) planInitGestes(vp);
-  if (!vp || !s) return;
+  if (!vp) return;
+  planInitGestes(vp);
   var appliquer = function () {
+    if (!s) return;
     vp.scrollLeft = Math.max(0, s.cx * vp.scrollWidth - vp.clientWidth / 2);
     vp.scrollTop = Math.max(0, s.cy * vp.scrollHeight - vp.clientHeight / 2);
   };
   appliquer();
   var img = vp.querySelector('.plan-img');
-  if (img && !img.complete) img.addEventListener('load', appliquer, { once: true });
+  // Pas de test sur img.complete : une image sans src (photo pas encore lue) passe pour chargée
+  if (img) img.addEventListener('load', function () {
+    if (img.naturalWidth) _planRatios[img.getAttribute('data-plan')] = img.naturalWidth / img.naturalHeight;
+    appliquer();
+  }, { once: true });
 }
 
 function planChoisirBatiment(bat) {
   var m = getCurrentMission(), pp = state.planPlacement;
   if (!pp) return;
   pp.bat = bat;
+  if (!state.planBatParPlan) state.planBatParPlan = {};
+  state.planBatParPlan[pp.planId] = bat;
   var premiere = planAPlacer(m, bat)[0];
   pp.key = premiere ? planCle(premiere) : '';
   render();
@@ -308,10 +503,12 @@ function planAddButtonHtml(cls) {
 }
 
 function planDemarrerPlacement(planId) {
-  var m = getCurrentMission();
-  var premiere = planAPlacer(m, '')[0];
-  state.planPlacement = { planId: planId, bat: '', key: premiere ? planCle(premiere) : '' };
+  var m = getCurrentMission(), plan = missionPlans(m).filter(function (p) { return p.id === planId; })[0];
+  var bat = planBatInitial(m, plan), premiere = planAPlacer(m, bat)[0];
+  state.planPlacement = { planId: planId, bat: bat, key: premiere ? planCle(premiere) : '' };
+  state.planFocus = null;
   render();
+  planVersBandeau();
 }
 
 function planInstFromKey(m, key) {
@@ -321,10 +518,14 @@ function planInstFromKey(m, key) {
 }
 
 // Toucher le plan en mode placement : pose l'épingle de l'installation choisie, puis passe à la
-// suivante non placée (placement d'un site entier en quelques touchers)
+// suivante non placée (placement d'un site entier en quelques touchers). Placement d'une seule
+// installation : on reste dessus, un nouveau toucher corrige l'emplacement.
 function planStageClick(ev, planId) {
   var p = state.planPlacement;
-  if (!p || p.planId !== planId || !p.key) return;
+  if (!p || p.planId !== planId || !p.key) {
+    if (state.planFocus) { state.planFocus = null; render(); }
+    return;
+  }
   if (state._planPincementFin && Date.now() - state._planPincementFin < 400) return;
   var m = getCurrentMission(), inst = planInstFromKey(m, p.key);
   if (!inst) return;
@@ -335,18 +536,23 @@ function planStageClick(ev, planId) {
   inst.data._plan = { id: planId, x: Math.round(x * 10000) / 10000, y: Math.round(y * 10000) / 10000 };
   if (typeof touchInstallation === 'function') touchInstallation(inst);
   persistMissions();
-  var suivante = planAPlacer(m, p.bat || '')[0];
-  p.key = suivante ? planCle(suivante) : '';
+  if (!p.unique) {
+    var suivante = planAPlacer(m, p.bat || '')[0];
+    p.key = suivante ? planCle(suivante) : '';
+  }
   render();
 }
 
 function planPinClick(typeId, idx, planId) {
+  var k = typeId + ':' + idx;
   if (state.planPlacement && state.planPlacement.planId === planId) {
-    state.planPlacement.key = typeId + ':' + idx; // sélectionne l'installation pour la déplacer
+    state.planPlacement.key = k; // sélectionne l'installation pour la déplacer
     render();
     return;
   }
-  openOverviewInstallation(typeId, idx);
+  if (state.planFocus === k) { openOverviewInstallation(typeId, idx); return; }
+  state.planFocus = k;
+  render();
 }
 
 function planRetirer() {

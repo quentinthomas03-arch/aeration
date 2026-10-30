@@ -4,10 +4,19 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.9';
+var APP_VERSION = '2.10';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.10', date: '30/10/2026', items: [
+    'Liste des installations : sur un site avec des plans, chaque ligne indique le plan et le n° de l’épingle (un toucher pour la voir). Une installation pas encore placée a un bouton pour la placer directement.',
+    'Fiche d’une installation : bouton « Placer sur le plan » en haut de la fiche (une fois placée, le nom du plan). L’appli ouvre le plan le plus probable d’après le niveau, le bâtiment et les installations voisines ; touchez l’emplacement puis revenez à la fiche.',
+    'Nouveau compteur « À placer » dans la vue d’ensemble, pour voir ce qu’il reste à épingler.',
+    'Plans : le nombre d’installations est affiché sur chaque onglet, et on peut changer de plan pendant le placement sans tout recommencer. Le bâtiment proposé suit le nom du plan.',
+    'Pendant le placement, l’écran se réduit au plan et ce que vous placez s’affiche au-dessus, sans avoir à descendre.',
+    'Toucher une épingle affiche son nom, avec « Ouvrir la fiche » et « Déplacer » ; un second toucher ouvre la fiche.',
+    'Corrigé : le numéro des épingles changeait selon la vue choisie (« Par type » ou « Par bâtiment »), y compris dans le rapport. Il suit maintenant toujours l’ordre par bâtiment.'
+  ] },
   { version: '2.9', date: '28/10/2026', items: [
     'Installations diverses, comme le Rapso : avec la seule vitesse au point d’émission, la mesure dans le conduit (forme, diamètre, température, pression) n’est plus demandée ; elle ne l’est qu’avec la vitesse de transport.',
     'Photos : le bouton + propose maintenant l’appareil photo ou la galerie du téléphone (avant, seul l’appareil photo s’ouvrait), et plusieurs photos peuvent être choisies d’un coup. Idem pour la plaque signalétique.'

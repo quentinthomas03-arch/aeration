@@ -701,6 +701,26 @@ textarea.input { font-family: inherit; line-height: 1.4; }
 .plan-info { margin: 8px 2px; }
 .plan-actions .btn { flex: 1 1 auto; }
 .plan-actions .btn svg { width: 14px; height: 14px; }
+/* Sites à plusieurs plans (2026-10-30) */
+.plan-tab-n { margin-left: 2px; font-weight: 800; opacity: 0.75; }
+.plan-cadre { position: relative; }
+.plan-stage.placing-unique .plan-pin { pointer-events: none; }
+.plan-placing-bar { margin-top: 0; scroll-margin-top: 8px; }
+.plan-placing-actions { margin-top: 8px; }
+.plan-placing-actions .btn { margin: 0; }
+.plan-pin-bar { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px;
+  background: var(--bg-card); border: 1px solid var(--border-subtle); box-shadow: 0 2px 10px rgba(0,0,0,0.25); font-size: 13px; }
+.plan-pin-bar.en-haut { top: 8px; bottom: auto; }
+.plan-pin-bar-txt { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.plan-pin-bar-txt span { font-size: 12px; color: var(--text-muted); }
+.plan-pin-bar-btns { display: flex; gap: 6px; }
+.plan-pin-bar-btns .btn { margin: 0; width: auto; }
+/* Listes : repère de plan et bouton de placement */
+.overview-row-plan { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 3px 8px; max-width: 100%; border: none; border-radius: 8px;
+  background: var(--primary-pale); color: var(--primary-dark); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; }
+.overview-row-plan svg { width: 13px; height: 13px; flex-shrink: 0; }
+.overview-row-placer { color: var(--primary-dark); }
+.overview-row-placer svg { width: 21px; height: 21px; }
 
 /* === Documents joints (js/documents-joints.js) et schémas de réseau (js/schemas.js) === */
 .docs-joints .subtitle { margin-bottom: 8px; }
