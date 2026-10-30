@@ -4,10 +4,13 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.11';
+var APP_VERSION = '2.12';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.12', date: '30/10/2026', items: [
+    'Autres locaux : le commentaire indique toujours l’effectif que permet le local, y compris quand le débit d’air neuf est suffisant (il affichait « / »).'
+  ] },
   { version: '2.11', date: '30/10/2026', items: [
     'Placement sur le plan : un bouton de retour reste affiché en haut de l’écran (vers la liste, la fiche ou le plan, selon d’où vous venez), à la place du bouton « Annuler ».'
   ] },

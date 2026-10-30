@@ -273,6 +273,14 @@ function commentaireLpns(d) {
   // Ventilation mécanique : débit d\'air neuf (extraction : débit total mesuré), puis volume
   var debit = (vt === 'Extraction') ? num(d.debit_total_mesure) : debitAirNeufMesure(d), min = num(d.debit_min_air_neuf);
   var sansVolume = parOcc === null || parOcc === undefined;
+  // Débit suffisant : le Rapso écrit « / », l'appli donne l'effectif que permet le local (demande de
+  // Quentin du 2026-10-30). Le plus grand des deux critères, comme l'avis où le volume compense le débit.
+  var effectifPermis = function () {
+    if (forfait) return '/';
+    var n = Math.floor(debit / t.debit);
+    if (!sansVolume && !isNaN(vol)) n = Math.max(n, nbVol());
+    return 'Effectif : ' + n + ' personne (s) max';
+  };
   if (isNaN(min) || (!sansVolume && (isNaN(volMin) || volMin === 0))) return 'Impossible de se prononcer (Effectif : 0 occupant)';
   var parDebit = function () {
     return forfait ? 'Le débit minimal d\'air neuf n\'est pas suffisant.'
@@ -280,17 +288,18 @@ function commentaireLpns(d) {
   };
   if (sansVolume) {
     if (isNaN(debit)) return 'Le débit du local n\'a pas pu être mesuré.';
-    return debit >= min ? '/' : parDebit();
+    return debit >= min ? effectifPermis() : parDebit();
   }
   if (isNaN(debit)) {
     if (isNaN(vol)) return 'Le débit et le volume du local n\'ont pas pu être mesurés';
     return vol >= volMin ? 'Le débit minimal d\'air neuf n\'est pas mesurable. Cependant le volume du local permet d\'accueillir ' + nbVol() + ' occupant(s).'
       : 'Le débit minimal d\'air neuf n\'est pas mesurable. Le volume du local n\'est pas suffisant non plus. Limite son accès à ' + nbVol() + ' occupant(s).';
   }
-  if (debit >= min) return '/';
+  if (debit >= min) return effectifPermis();
   if (isNaN(vol)) return parDebit();
-  return vol >= volMin ? 'Le débit minimal d\'air neuf n\'est pas suffisant. Cependant le volume du local permet d\'accueillir ' + nbVol() + ' occupant(s).'
-    : 'Le débit minimal d\'air neuf et le volume du local ne sont pas suffisants. Ce volume permet d\'accueillir ' + nbVol() + ' occupant(s).';
+  if (vol >= volMin) return 'Le débit minimal d\'air neuf n\'est pas suffisant. Cependant le volume du local permet d\'accueillir ' + nbVol() + ' occupant(s).';
+  var nbDebit = Math.floor(debit / t.debit);
+  return 'Le débit minimal d\'air neuf et le volume du local ne sont pas suffisants. ' + (nbDebit > nbVol() ? 'Ce débit permet d\'accueillir ' + nbDebit : 'Ce volume permet d\'accueillir ' + nbVol()) + ' occupant(s).';
 }
 
 // Commentaire du rapport : celui du Rapso, suivi du commentaire du technicien s'il y en a un
