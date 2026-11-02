@@ -4,10 +4,13 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.12';
+var APP_VERSION = '2.13';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.13', date: '02/11/2026', items: [
+    'Autres locaux : l’appli écrit toujours son commentaire dans le rapport ; la case du dessous sert seulement à ajouter autre chose. Une phrase de l’appli recopiée à la main n’y apparaît plus en double.'
+  ] },
   { version: '2.12', date: '30/10/2026', items: [
     'Autres locaux : le commentaire indique toujours l’effectif que permet le local, y compris quand le débit d’air neuf est suffisant (il affichait « / »).'
   ] },

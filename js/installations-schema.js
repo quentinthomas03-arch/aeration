@@ -332,8 +332,8 @@ var INSTALLATION_TYPES = [
       { key: 'section_conclusion', label: 'Conclusion', type: 'section' },
       { key: 'avis', label: "Avis (débit d'air neuf vs valeur à respecter)", type: 'computed' },
       // Commentaire du Rapso (UserForm_LOC) : effectif maximal que permettent le volume ou le débit d’air neuf
-      { key: 'commentaire_rapso', label: 'Commentaire réglementaire (effectif maximal)', type: 'computed' },
-      { key: 'commentaire', label: 'Commentaire', type: 'textarea' }
+      { key: 'commentaire_rapso', label: 'Commentaire de l’appli (écrit dans le rapport)', type: 'computed' },
+      { key: 'commentaire', label: 'Commentaire à ajouter à la suite', type: 'textarea' }
     ]
   },
   {

@@ -302,11 +302,29 @@ function commentaireLpns(d) {
   return 'Le débit minimal d\'air neuf et le volume du local ne sont pas suffisants. ' + (nbDebit > nbVol() ? 'Ce débit permet d\'accueillir ' + nbDebit : 'Ce volume permet d\'accueillir ' + nbVol()) + ' occupant(s).';
 }
 
-// Commentaire du rapport : celui du Rapso, suivi du commentaire du technicien s'il y en a un
+// Phrases que l'appli écrit elle-même. Recopiées dans le commentaire du technicien, même avec un autre
+// chiffre, elles ne sortent qu'une fois au rapport : c'est la valeur calculée qui reste (retour terrain du 2026-11-02).
+var PHRASES_AUTO_LPNS = [
+  /Effectif\s*:\s*\d+\s*personne\s*\(?s?\)?\s*max\.?/gi,
+  /Le débit minimal d['’]air neuf (n['’]est pas (suffisant|mesurable)|et le volume du local ne sont pas suffisants)\.?/gi,
+  /(Cependant le volume du local|Ce volume|Ce débit|Il|Cependant le débit) permet d['’]accueillir \d+ occupant\(s\)\.?/gi,
+  /Le volume du local n['’]est pas suffisant non plus\.?/gi,
+  /Limite son accès à \d+ occupant\(s\)\.?/gi
+];
+function commentaireLibreLpns(libre, auto) {
+  var s = String(libre || '');
+  if (auto && auto !== '/') s = s.split(auto).join(' ');
+  PHRASES_AUTO_LPNS.forEach(function (re) { s = s.replace(re, ' '); });
+  s = s.replace(/[ \t]{2,}/g, ' ').replace(/^[\s.,;:/–—-]+/, '').trim();
+  return s;
+}
+
+// Commentaire du rapport : la phrase de l'appli, suivie de ce que le technicien a ajouté
 function commentaireRapportLpns(d) {
-  var auto = commentaireLpns(d), libre = String(d.commentaire || '').trim();
+  var auto = commentaireLpns(d), libre = commentaireLibreLpns(d.commentaire, auto);
   if (!libre) return auto;
-  return (!auto || auto === '/') ? libre : auto + ' ' + libre;
+  if (!auto || auto === '/') return libre;
+  return auto + (/\.$/.test(auto) ? ' ' : '. ') + libre;
 }
 
 // Machines à bois : observation écrite par le Rapso (relevée sur un rapport réel du 2026-10-15)
