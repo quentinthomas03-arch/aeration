@@ -257,6 +257,16 @@ test('valeurs de référence : dossier (installation existante, mise en service)
   assert(texte(dd).includes('Q = Qréf × √(P / Préf)'), 'suivi par la pression statique');
   let pages = pageCount(await pdfBuffer(ctx.pdfMake.createPdf(dd)));
   assert(pages >= 8 && pages <= 30, 'pages (existante) : ' + pages);
+  // Pression statique : facultative au contrôle annuel, demandée quand on établit le dossier
+  const ext = ctx.getInstallationType('extracteur');
+  const pression = () => ctx.verifMissingFields(ext, { data: {} }).some(f => /Pression statique/.test(f.label));
+  ctx.dvrData(m).actif = false; assert(!pression(), 'pression facultative hors dossier');
+  ctx.dvrData(m).actif = true; assert(pression(), 'pression demandée pour le dossier');
+  ctx.dvrData(m).mode = 'analyse'; assert(!pression(), 'pas pour une analyse de dossier');
+  ctx.dvrData(m).mode = 'existante';
+  // Repérage sur le plan du site (épingles de la démo)
+  const placee = ctx.overviewOrderedItems(m).find(it => it.inst.data._plan);
+  assert(/^Plan « .+ », repère n°\d+/.test(ctx.dsReperage(m, placee.inst)), 'repérage : ' + ctx.dsReperage(m, placee.inst));
   // Mise en service : descriptif en plus
   ctx.dvrData(m).mode = 'mise_en_service'; ctx.dvrData(m).dateMiseEnService = '01/09/2026';
   dd = ctx.dossierInstallationDocDefinition(m);
@@ -339,6 +349,36 @@ test('local spécifique : air neuf R4222-11 / R4222-6, extraction, choix des mes
   assert(h.includes('10 vol/h — Analyses chimiques (choix du technicien)'), 'taux proposé : ' + h);
   ctx.lsReprendreTaux(0);
   eq([m.installations.local_specifique[1].data.taux_recommande, m.installations.local_specifique[1].data.referentiel_taux], ['10', 'choix du technicien'], 'taux repris avec sa source');
+});
+
+test('valeurs INRS écrites par l’appli comme le Rapso, référence vide = « / »', ctx => {
+  const grille = [['0,3', '0,3'], ['0,3', '0,3']];
+  const hotte = { mesures_choisies: ["Vitesse au point d'émission"], vpe_nb_points_hauteur: '2', vpe_nb_points_largeur: '2', vpe_grid: grille };
+  let d = calc(ctx, 'hottes', hotte);
+  eq([d.vpe_min_inrs, d.vpe_moy_inrs], ['0,25', '0,5'], 'hotte : 0,25 / 0,5 m/s sans saisie');
+  eq([d.avis_vpe_min, d.avis_vpe_moy], ['Satisfaisant', 'Non Satisfaisant'], 'hotte sans référence : comparée à l’INRS');
+  d = calc(ctx, 'hottes', Object.assign({}, hotte, { vpe_min_reference: '/', vpe_moy_reference: '/' }));
+  eq([d.avis_vpe_min, d.avis_vpe_moy], ['Satisfaisant', 'Non Satisfaisant'], 'hotte : « / » et vide donnent le même avis');
+  d = calc(ctx, 'hottes', Object.assign({}, hotte, { vpe_moy_reference: '0,35' }));
+  eq(d.avis_vpe_moy, 'Satisfaisant', 'hotte : référence client 0,35 × 0,8');
+  d = calc(ctx, 'hottes', { mesures_choisies: ['Vitesse de transport'], vt_type_polluant: 'Fumées', vt_mesuree: '6' });
+  eq(d.avis_vt, 'Non Satisfaisant', 'hotte : vitesse de transport sans référence, 6 < 7 m/s');
+
+  const equip = { mesures_choisies: ["Vitesse au point d'émission"], vpe_conditions_dispersion: 'Emission à faible vitesse en air modérément calme', vpe_mesuree: '0,35' };
+  d = calc(ctx, 'installations_diverses', equip);
+  eq([d.vpe_inrs, d.avis_vpe], ['0,5 - 1', 'Non Satisfaisant'], 'installation diverse : plage INRS de la condition de dispersion');
+  d = calc(ctx, 'installations_diverses', Object.assign({}, equip, { vpe_mesuree: '0,6', vpe_reference: '/' }));
+  eq(d.avis_vpe, 'Satisfaisant', 'installation diverse : ≥ début de plage');
+  d = calc(ctx, 'installations_diverses', Object.assign({}, equip, { vpe_conditions_dispersion: 'Gaz et vapeurs' }));
+  eq(d.avis_vpe, 'Impossible de se prononcer', 'gaz et vapeurs : pas de valeur INRS');
+
+  const echap = { type_vehicule: 'VEHICULE LEGER', type_captage: 'Captage récepteur (non fixé à l’échappement)', type_captage_adapte: 'Oui',
+    forme_section: 'Circulaire', diametre_cote1: '10', vitesse_mode: 'Vitesse moyenne directe', vitesse: '15' };
+  d = calc(ctx, 'gaz_echappement', echap);
+  eq([Number(d.debit_min_inrs), d.avis_constructeur], [1000, 'Non Satisfaisant'], 'échappement VL récepteur : 1000 m³/h (classeur Verdun)');
+  eq(Number(calc(ctx, 'gaz_echappement', Object.assign({}, echap, { type_vehicule: 'POIDS-LOURD et BUS', type_captage: 'Captage enveloppant (fixé à l’échappement)' })).debit_min_inrs), 1000, 'PL enveloppant');
+  eq(calc(ctx, 'gaz_echappement', Object.assign({}, echap, { debit_reference: '500' })).avis_constructeur, 'Satisfaisant', 'référence client prioritaire sur l’INRS (Rapso)');
+  eq(calc(ctx, 'gaz_echappement', Object.assign({}, echap, { type_captage_adapte: 'Non', debit_reference: '500' })).avis_constructeur, 'Non Satisfaisant', 'captage non adapté');
 });
 
 test('recyclage : R4222-10 (4 et 0,9 mg/m³), R4222-14, contrôle semestriel', ctx => {
@@ -756,6 +796,23 @@ test('fiches alignées sur le Rapso : cases réclamées, listes avec valeur impo
   assert(ctx.selectOptionsHtml(cond, 'Projection à grande vitesse').includes('selected>Projection à grande vitesse'), 'ancienne valeur conservée');
 });
 
+test('installations diverses : le conduit n’est demandé qu’avec la vitesse de transport (retour terrain 28/10)', ctx => {
+  const t = ctx.getInstallationType('installations_diverses');
+  const vis = (key, data) => { const f = t.fields.find(x => x.key === key); return ctx.evalShowIf(f.showIf, data); };
+  const vpe = { mesures_choisies: ["Vitesse au point d'émission"] }, vt = { mesures_choisies: ['Vitesse de transport'] };
+  ['gaine', 'forme_section', 'diametre_cote1', 'temperature_conduit', 'pression_statique', 'masse_volumique', 'debit_vt'].forEach(k => {
+    assert(!vis(k, vpe), k + ' masqué avec la seule vitesse au point d’émission');
+    assert(vis(k, vt), k + ' affiché avec la vitesse de transport');
+  });
+  assert(!vis('cote2', { mesures_choisies: ["Vitesse au point d'émission"], forme_section: 'Rectangulaire' }), 'côté 2 masqué sans vitesse de transport');
+  assert(vis('cote2', { mesures_choisies: ['Vitesse de transport'], forme_section: 'Rectangulaire' }), 'côté 2 affiché en rectangulaire');
+  const d = { batiment: 'H', localisation: 'Banc', date_controle: '01/10/2026', reference_equipement: 'B1', etat_visuel_reseau: 'En bon état',
+    test_fumigene: 'Toute la fumée a été aspirée', mesures_choisies: ["Vitesse au point d'émission"], vpe_mesuree: '10',
+    vpe_conditions_dispersion: 'Emission à faible vitesse en air modérément calme', vpe_reference: '/' };
+  const manques = ctx.verifMissingFields(t, { data: d }).map(m => m.key || m.label || String(m));
+  assert(!manques.some(m => /temperature|pression|forme_section|diametre|Température|Pression|Forme|Diamètre/.test(m)), 'conduit encore réclamé : ' + manques.join(', '));
+});
+
 test('torches : un point tant que le nombre n’est pas choisi ; reprise depuis une installation voisine', ctx => {
   const t = ctx.getInstallationType('torches_aspirantes');
   const vis = (key, data) => { const f = t.fields.find(x => x.key === key); return ctx.evalShowIf(f.showIf, data); };
@@ -823,6 +880,33 @@ test('recyclage : rapport semestriel autonome, synthèse sans « conforme » non
   assert(pages >= 6 && pages <= 12, 'pages : ' + pages);
   // Mission « recyclage seul » : le bouton Rapport PDF produit ce rapport
   assert(ctx.rrMissionRecyclageSeule({ typesSelectionnes: ['recyclage'] }) && !ctx.rrMissionRecyclageSeule(m), 'recyclage seul');
+});
+
+test('questions fréquentes : chaque fiche sourcée ou signalée, recherche', ctx => {
+  const ids = new Set();
+  ctx.FAQ_CAS.forEach(c => {
+    assert(c.id && !ids.has(c.id), 'identifiant unique : ' + c.id); ids.add(c.id);
+    assert(c.q && c.r && c.pourquoi && c.source, 'fiche complète : ' + c.id);
+    assert(ctx.FAQ_THEMES.includes(c.theme), 'thème connu : ' + c.id);
+    assert(c.nature === 'texte' || c.nature === 'interne', 'nature : ' + c.id);
+    // Une fiche « source extérieure » cite un texte ou un guide
+    if (c.nature === 'texte') assert(/Code du travail|arrêté|INRS|ED \d/i.test(c.source), 'source extérieure citée : ' + c.id);
+  });
+  assert(ctx.faqFiltrer('climatisé', '').map(c => c.id).includes('bureau-climatise'), 'recherche sans accent');
+  assert(ctx.faqFiltrer('', 'Recyclage').every(c => c.theme === 'Recyclage'), 'filtre par thème');
+  // Recherche par mots-clés de terrain (synonymes absents de la question)
+  assert(ctx.faqFiltrer('toilettes', '').map(c => c.id).includes('sanitaires-tableau'), 'mot-clé synonyme');
+  assert(ctx.faqFiltrer('WC bloc', '').map(c => c.id).includes('wc-cabines-bloc'), 'cas des WC en bloc');
+  ctx.FAQ_MOTS_RAPIDES.forEach(mo => assert(ctx.faqFiltrer(mo, '').length > 0, 'mot rapide sans résultat : ' + mo));
+  ctx.FAQ_THEMES.forEach(t => assert(ctx.faqFiltrer('', t).length > 0, 'thème vide : ' + t));
+  // Une question ouverte reste une pratique interne et n'est jamais présentée comme validée
+  ctx.FAQ_CAS.filter(c => c.ouvert).forEach(c => assert(c.nature === 'interne' && !c.valide, 'question ouverte : ' + c.id));
+  const html = ctx.faqListeHtml(ctx.FAQ_CAS);
+  assert(html.includes('Proposition interne, sans source extérieure : à valider par la DT') && html.includes('Proposition, à valider par la DT') && html.includes('Question ouverte : aucune source ne tranche'), 'statuts affichés');
+  ctx.state.faqRecherche = 'soudage'; ctx.state.faqTheme = '';
+  assert(ctx.renderFaq().includes('faq-mot active'), 'mot rapide actif');
+  ctx.state.faqRecherche = ''; ctx.state.faqTheme = '';
+  assert(ctx.renderFaq().includes('Poser une question à trancher'), 'écran');
 });
 
 test('plans en PDF : nom du niveau lu dans la page', ctx => {
@@ -954,6 +1038,57 @@ test('plan du site : épingles, visite suivante, fusion, page du rapport', async
   // Sans image composée (pas de navigateur), pas de page vide
   ctx.PDF_ASSETS.plans = {};
   eq(ctx.pdfBuildPlansSite(m).length, 0);
+});
+
+test('plusieurs plans : repères, placement depuis une installation, numéros stables', ctx => {
+  const m = loadDemo(ctx);
+  ctx.state.missions = [m]; ctx.state.currentMissionId = m.id; ctx.state.view = 'mission-detail';
+  ctx.state.overviewMode = 'batiment';
+  const p1 = m.plans[0], p2 = { id: 'pl_r1', nom: 'Bâtiment B — R+1', svg: '<svg xmlns="http://www.w3.org/2000/svg"/>' };
+  m.plans.push(p2);
+  // Le numéro des épingles ne dépend pas du mode de la vue d'ensemble
+  const numeros = () => ctx.planPlacedItems(m, p1.id).map(p => ctx.planCle(p.it)).join();
+  const parBatiment = numeros();
+  ctx.state.overviewMode = 'type';
+  eq(numeros(), parBatiment, 'numéros identiques par type et par bâtiment');
+  ctx.state.overviewMode = 'batiment';
+  // Index des repères : une entrée par installation placée
+  const items = ctx.planItemsOrdonnes(m), it = items[0], cle = ctx.planCle(it);
+  const index = ctx.planIndex(m);
+  eq(Object.keys(index).length, 27, 'repères');
+  eq(index[cle].plan.id, p1.id, 'plan du repère');
+  // Filtre « À placer » et bouton de la ligne
+  delete it.inst.data._plan;
+  it.inst.data.batiment = 'Bâtiment B'; it.inst.data.niveau = 'R+1';
+  assert(ctx.overviewFiltreMatch(it, 'aplacer'), 'installation à placer');
+  ctx.overviewPreparerPlans(m);
+  assert(ctx.renderOverviewRow(it, 'batiment').includes('Placer sur le plan'), 'bouton de placement sur la ligne');
+  const placee = items[1];
+  assert(ctx.renderOverviewRow(placee, 'batiment').includes(ctx.escapeHtml(p1.nom) + ' · n° '), 'repère sur la ligne');
+  // Épingle dont le plan n'existe plus : à placer de nouveau
+  it.inst.data._plan = { id: 'disparu', x: 0.5, y: 0.5 };
+  assert(ctx.overviewFiltreMatch(it, 'aplacer'), 'épingle orpheline');
+  delete it.inst.data._plan;
+  // Le plan proposé suit le niveau et le bâtiment
+  eq(ctx.planSuggere(m, it.inst).id, p2.id, 'plan suggéré');
+  // Placement d'une seule installation : on reste dessus, on peut changer de plan, on revient à la liste
+  ctx.state.view = 'mission-detail';
+  ctx.planPlacerDepuis(it.type.id, it.idx);
+  const pp = ctx.state.planPlacement;
+  assert(pp.unique && pp.key === cle && pp.planId === p2.id, 'placement ouvert sur le plan suggéré');
+  eq(ctx.state.overviewMode, 'plan');
+  assert(ctx.renderPlanView(m, ctx.overviewOrderedItems(m)).includes('Retour à la liste'), 'retour visible pendant le placement');
+  ctx.planChoisir(p1.id);
+  assert(ctx.state.planPlacement.key === cle && ctx.state.planPlacement.planId === p1.id, 'placement conservé au changement de plan');
+  it.inst.data._plan = { id: p1.id, x: 0.2, y: 0.3 };
+  ctx.planFinPlacement();
+  assert(ctx.state.planPlacement === null, 'placement terminé');
+  eq(ctx.state.overviewMode, 'batiment', 'retour à la liste');
+  // Sans plan : rien sur la ligne
+  m.plans = [];
+  ctx.overviewPreparerPlans(m);
+  assert(!ctx.renderOverviewRow(it, 'batiment').includes('Placer sur le plan'), 'pas de bouton sans plan');
+  assert(!ctx.overviewFiltreMatch(it, 'aplacer'), 'pas de filtre sans plan');
 });
 
 test('documents joints et schéma de réseau : rattachements, visite suivante, fusion, rapport, fichier piégé', async ctx => {
@@ -1447,6 +1582,51 @@ test('sanitaires à usage individuel : débit minimal limité à 15 m³/h (R4212
   eq(f({ douches: '4', individuel_collectif: 'Individuel' }), 90, 'douches groupées : tableau');
 });
 
+test('retours terrain du 2026-10-20 : suppression, import PDF, autres locaux, vestiaires, bras', ctx => {
+  // Supprimer depuis la fiche ouverte : retour à la vue d'ensemble
+  const m = ctx.createEmptyMission();
+  m.installations.bureaux = [{ id: 1, data: { batiment: 'A' } }, { id: 2, data: { batiment: 'B' } }];
+  ctx.state.missions = [m]; ctx.state.currentMissionId = m.id;
+  Object.assign(ctx.state, { view: 'installation-form', retourVue: 'mission-detail', currentTypeId: 'bureaux', currentInstIndex: 1 });
+  ctx.deleteInstallation('bureaux', 1);
+  eq([ctx.state.view, m.installations.bureaux.length], ['mission-detail', 1], 'supprimée depuis sa fiche');
+  ctx.performUndo();
+  eq(m.installations.bureaux.length, 2, 'annulation');
+
+  // Import du rapport PDF : un titre sans fiche n'ajoute pas d'installation quand les fiches se lisent
+  const L = (p, s) => ({ p, s });
+  const res = ctx.rapportAnalyser([L(2, 'ANNEXES'), L(3, 'MENUISERIE'), L(3, 'MACHINE A BOIS'), L(3, 'Bâtiment | Atelier'), L(3, 'Référence de l\'équipement | Scie 1')]);
+  eq(res.map(r => r.type.id), ['menuiserie_bis'], 'pas de menuiserie fantôme');
+  eq(ctx.rapportAnalyser([L(2, 'ANNEXES'), L(3, 'CABINES DE PEINTURE')]).map(r => r.type.id), ['cabines_peinture'], 'rapport illisible : type à compléter');
+
+  // Autres locaux sans ouvrant : jugés sur le volume seulement avec une entrée d'air permanente
+  const loc = { type_local: 'Bureaux', effectif: '2', volume: '100', type_ventilation: 'Nat sans ouvrants' };
+  eq(calc(ctx, 'bureaux', loc).avis, 'Impossible de se prononcer', 'entrée d’air permanente non renseignée');
+  eq(calc(ctx, 'bureaux', Object.assign({ entree_air_permanente: 'Oui' }, loc)).avis, 'Satisfaisant', 'entrée permanente : volume');
+  eq(calc(ctx, 'bureaux', Object.assign({ entree_air_permanente: 'Non' }, loc)).avis, 'Non Satisfaisant', 'ni ouvrant ni entrée');
+  eq(calc(ctx, 'erp', { type_local: 'Bureaux', travailleur: '2', volume: '100', type_ventilation: 'Nat sans ouvrants' }).avis, 'Impossible de se prononcer', 'ERP, même règle');
+  const fVol = ctx.getInstallationType('bureaux').fields.find(f => f.key === 'volume');
+  eq(ctx.fieldState(fVol, { data: { type_ventilation: 'Nat sans ouvrants', entree_air_permanente: 'Non' } }), 'optional-empty', 'volume inutile sans ouvrant ni entrée');
+  eq(ctx.fieldState(fVol, { data: { type_ventilation: 'Nat avec ouvrants' } }), 'required-empty', 'volume demandé avec ouvrants');
+
+  // Vestiaire sans équipement : terminé une fois le débit saisi
+  const tSan = ctx.getInstallationType('sanitaires');
+  const san = d => ctx.installationStatus(tSan, { data: calc(ctx, 'sanitaires', Object.assign({ batiment: 'A', nom_usage: 'Vest. Homme', chambre_erp_individuelle: 'Non' }, d)) });
+  eq(san({ debit_mesure: '0' }).state, 'done', 'vestiaire, débit 0');
+  eq(san({}).state, 'inprogress', 'débit pas encore saisi');
+  eq(san({ debit_mesure: '20', wc_urinoirs: '1' }).text, 'Terminé · Non Satisfaisant', 'avec un WC : débit comparé');
+
+  // Bras : vitesse mesurée dans le conduit, débit sur la section du conduit
+  const bras = { forme_bouche: 'Circulaire', diametre_bouche: '20', diametre_conduit: '10', vitesse_moyenne: '10', type_bouche: 'Sans collerette', conditions_dispersion: 'Emission sans vitesse initiale en air calme' };
+  eq(calc(ctx, 'bras_aspiration', Object.assign({ localisation_point_mesure: 'Bouche' }, bras)).debit_calcule, '1131', 'bouche Ø 20');
+  eq(calc(ctx, 'bras_aspiration', Object.assign({ localisation_point_mesure: 'Conduit' }, bras)).debit_calcule, '283', 'conduit Ø 10');
+  const fB = k => ctx.getInstallationType('bras_aspiration').fields.find(f => f.key === k);
+  eq(ctx.evalShowIf(fB('vitesse_captage').showIf, bras), false, 'vitesse de captage imposée : pas de saisie');
+  eq(ctx.evalShowIf(fB('vitesse_captage').showIf, { conditions_dispersion: 'Gaz et vapeurs' }), true, 'gaz et vapeurs : saisie');
+  eq(ctx.evalShowIf(fB('diametre_bras_cone').showIf, {}), false, 'diamètre au cône plus demandé');
+  eq(fB('test_fumigene').options, ['Bon', 'Moyen', 'Insuffisant', 'Insatisfaisant', 'Non réalisé'], 'liste du Rapso');
+});
+
 test('valeurs de référence : sanitaires classés en pollution spécifique (R4222-3)', ctx => {
   eq(ctx.DVR_CONFIG.sanitaires.cat, 'sp');
 });
@@ -1475,7 +1655,249 @@ test('local spécifique et recyclage : rapport PDF, synthèse, anciennes mission
 // ————————————————————————————————————————————
 
 // Écarts connus et expliqués au 2026-10-03 (cf. en-tête de compare.js) : le test échoue s'il y en a plus.
-const ECARTS_RAPSO_CONNUS = 12;
+const ECARTS_RAPSO_CONNUS = 17; // dont 3 commentaires de bureaux en soufflage sans % d’air neuf (règle du 05/10/2026), 3 installations diverses à référence vide comparées à l’INRS (16/10/2026), 1 hotte de Verdun à valeurs INRS / référence inversées
+
+test('où et comment mesurer : schémas proposés aux bonnes étapes, tracés sans valeur manquante', ctx => {
+  const m = loadDemo(ctx);
+  const etape = (type, champ) => ctx.WIZARD_STEPS[type].findIndex(st => st.fields.includes(champ));
+  const fiches = (type, champ, data) => ctx.omFichesEtape(type, ctx.WIZARD_STEPS[type], etape(type, champ), { data: data || m.installations[type][0].data })
+    .map(o => o.k).join();
+  assert(fiches('sorbonnes', 'grille') === 'sorbonne', 'sorbonne : grille de points');
+  assert(fiches('hottes', 'vpe_grid') === 'hotte', 'hotte : grille VPE');
+  assert(fiches('bras_aspiration', 'vitesse_moyenne') === 'bras', 'bras : mesures');
+  assert(fiches('sorbonnes', 'batiment') === '', 'rien à l’identification');
+  assert(fiches('cabines_peinture', 'vitesse_grid') === 'cabine', 'cabine : grille');
+  assert(fiches('tts', 'vitesse_fentes', { mesure_mode: ['Mesure dans les ouvertures'] }) === 'cuve', 'cuve : fentes');
+  assert(fiches('torches_aspirantes', 'torche1_vitesse_centre', {}) === 'torche', 'torche : point 1');
+  assert(fiches('bureaux', 'debit_total_mesure') === 'bouche', 'bureaux : bouches');
+  assert(fiches('cta', 'neuf_vitesse', { mesure_debit: 'Dans le conduit' }) === 'conduit', 'CTA : conduit');
+  assert(fiches('cta', 'neuf_vitesse', { mesure_debit: 'Sur la surface de la grille' }) === 'bouche', 'CTA : grille');
+  assert(fiches('installations_diverses', 'vpe_mesuree', { mesures_choisies: ["Vitesse au point d'émission"] }) === 'emission', 'point d’émission');
+  // Toutes les étapes de tous les types, données de la démo puis fiche vide : contenu sourcé, schéma sans valeur manquante
+  const cas = {
+    tts: [{ mesure_mode: ['Mesure dans les ouvertures'], type_ventilation: 'Extraction bilatérale', nb_fentes: '2' }],
+    decapage: [{ type_installation: ctx.DEC_CABINE, deplacement_air: ctx.DEC_HORIZONTAL }, { type_installation: ctx.DEC_CAISSON }],
+    fluide_coupe: [{ type_captage: ctx.FC_ENVELOPPANT }],
+    poste_solvant: ctx.PS_DISPOSITIFS.map(t => ({ type_dispositif: t })),
+    cabines_peinture: [{ pulverisation: 'Poudre', type_flux: 'Verticale', largeur_cabine: '3', longueur_cabine: '8' },
+      { pulverisation: 'Poudre', type_flux: 'Horizontale', type_cabine: 'Ouverte', largeur_cabine: '2,5' }, { type_flux: 'Horizontale' }],
+    torches_aspirantes: [{ nombre_points_mesure: '2', torche1_diametre_tube: '32', torche1_distance_l: '50' }],
+    locaux_charge: [{ grille1_largeur: '20', grille1_longueur: '30' }]
+  };
+  let vus = new Set();
+  Object.keys(ctx.WIZARD_STEPS).forEach(type => {
+    const datas = (m.installations[type] || []).map(i => i.data).concat([{}], cas[type] || []);
+    datas.forEach(data => ctx.WIZARD_STEPS[type].forEach((st, i) => {
+      ctx.omFichesEtape(type, ctx.WIZARD_STEPS[type], i, { data }).forEach(o => {
+        vus.add(o.k);
+        const c = ctx.omContenu(o.k, data, type), sc = ctx.OM_SCHEMAS[o.k](data, type, o.pre);
+        assert(c.titre && c.consignes.length && /INRS ED \d/.test(c.source), 'contenu sourcé : ' + type + ' / ' + o.k);
+        assert(!/NaN|undefined|Infinity/.test(sc.svg + sc.legende), 'schéma sans valeur manquante : ' + type + ' / ' + o.k);
+      });
+    }));
+  });
+  assert(Object.keys(ctx.OM_FICHES).every(k => vus.has(k)), 'chaque fiche proposée quelque part : ' + Object.keys(ctx.OM_FICHES).filter(k => !vus.has(k)).join());
+  // Cabine vide, peinture liquide à flux vertical : 0,50 m des parois, 1,50 m au plus entre points
+  const pos = ctx.omCabinePositions(4, false);
+  assert(pos[0] === 0.5 && Math.abs(pos[pos.length - 1] - 3.5) < 1e-9 && pos.every((x, i) => !i || x - pos[i - 1] <= 1.5), 'cabine liquide : positions');
+  const pp = ctx.omCabinePositions(6, true);
+  assert(pp.length >= 2 && pp.every((x, i) => !i || x - pp[i - 1] < 1.5) && pp[0] > 0.25, 'cabine poudre : positions');
+});
+
+test('tube de Pitot sous 4 m/s et grille du protocole des cabines', ctx => {
+  const m = loadDemo(ctx);
+  ctx.state.missions = [m]; ctx.state.currentMissionId = m.id;
+  const champ = (type, key) => ctx.getInstallationType(type).fields.find(f => f.key === key);
+  const alerte = (type, key, data) => ctx.pitotAlerteHtml(type, champ(type, key), { data });
+  m.appareilsMesure = [{ id: 1, designation: 'Anémomètre à fil chaud' }];
+  assert(alerte('extracteur', 'vitesse', { vitesse_mode: 'Vitesse moyenne directe', vitesse: '3' }) === '', 'pas de Pitot dans la mission : rien');
+  m.appareilsMesure.push({ id: 2, designation: 'Tube de Pitot' });
+  assert(/4 m\/s/.test(alerte('extracteur', 'vitesse', { vitesse: '3,2' })), 'extracteur à 3,2 m/s : alerte');
+  assert(alerte('extracteur', 'vitesse', { vitesse: '6' }) === '', 'extracteur à 6 m/s : rien');
+  assert(/4 m\/s/.test(alerte('cta', 'neuf_vitesse', { mesure_debit: 'Dans le conduit', neuf_vitesse: '2' })), 'CTA en conduit : alerte');
+  assert(alerte('cta', 'neuf_vitesse', { mesure_debit: 'Sur la surface de la grille', neuf_vitesse: '2' }) === '', 'CTA sur la grille : rien');
+  assert(/4 m\/s/.test(alerte('extracteur', 'vitesse_grid', { vitesse_nb_axes: '1', vitesse_nb_points: '2', vitesse_grid: [['3', '3,5']] })), 'grille : moyenne sous 4 m/s');
+  assert(alerte('bras_aspiration', 'vitesse_moyenne', { vitesse_moyenne: '2' }) === '', 'bras (bouche) : rien');
+  // Grille du protocole : liquide, flux vertical, 4 × 7 m → 5 axes (longueur) × 3 points (largeur)
+  const g = ctx.omCabineGrilleProtocole({ type_flux: 'Verticale', pulverisation: 'Liquide', largeur_cabine: '4', longueur_cabine: '7' });
+  assert(g && g.axes === 5 && g.points === 3, 'cabine 4 × 7 m : 5 × 3');
+  assert(ctx.omCabineGrilleProtocole({ type_flux: 'Verticale', largeur_cabine: '4', longueur_cabine: '20' }) === null, 'au-delà de 7 points : pas de bouton');
+  assert(ctx.omCabineGrilleProtocole({ type_flux: 'Horizontale' }).axes === 3, 'flux horizontal : 3 × 3');
+  assert(ctx.omCabineGrilleBoutonHtml({ type_flux: 'Horizontale', vitesse_nb_axes: '3', vitesse_nb_points: '3' }) === '', 'grille déjà au protocole : pas de bouton');
+  assert(ctx.omCabineGrilleBoutonHtml({ type_flux: 'Verticale', largeur_cabine: '1,6', longueur_cabine: '3', vitesse_nb_axes: '2', vitesse_nb_points: '3' }) === '', 'grille au protocole dans l’autre sens : pas de bouton');
+});
+
+test('cabines : valeur recommandée du Rapso, voiture, camion, fosse ; fumigène du décapage', ctx => {
+  const props = (d, r, b) => ctx.omCdpPropositions(d, r, b).map(p => p.par + '=' + p.valeur + (p.precision ? '(' + p.precision + ')' : '')).join(' ; ');
+  assert(props({ type_cabine: 'Fermée', type_flux: 'Verticale', pulverisation: 'Liquide' }, 0) === 'Norme 16985=0,3', 'fermée verticale liquide, moyenne : guide INRS sans valeur');
+  assert(props({ type_cabine: 'Fermée', type_flux: 'Verticale', pulverisation: 'Liquide' }, 1) === 'Norme 16985=0,25 ; Guide INRS ED 839=0,3', 'fermée verticale liquide, minimale');
+  assert(props({ type_cabine: 'Ouverte', type_flux: 'Verticale', pulverisation: 'Liquide', zone_travail: 'Extérieure' }, 0) === 'Norme 16985=0,4', 'ouverte extérieure');
+  assert(props({ type_cabine: 'Ouverte', type_flux: 'Verticale', pulverisation: 'Liquide' }, 0) === '', 'ouverte sans zone de travail : rien');
+  assert(props({ type_cabine: 'Voiture', vehicules_subjectiles: 'Véhicules' }, 0, 'avec') === 'Norme 16985=0,3 ; Guide INRS ED 839=0,4', 'voiture, avec le véhicule');
+  assert(props({ type_cabine: 'Voiture', vehicules_subjectiles: 'Subjectiles industriels divers' }, 0, 'vide') === 'Norme 16985=0,3', 'voiture, cabine vide');
+  assert(props({ type_cabine: 'Encombrant' }, 1) === 'Norme 16985=0,25 ; Guide INRS ED 906=0,3', 'encombrant');
+  assert(/Ascendant|ascendant/.test(props({ type_cabine: 'Fosse' }, 0)) && /0,7/.test(props({ type_cabine: 'Fosse' }, 0)), 'fosse : flux ascendant 0,7');
+  assert(props({ type_cabine: 'Semi-fermée', type_flux: 'Verticale', pulverisation: 'Liquide' }, 0) === '', 'semi-fermée : absente du Rapso');
+  // Écart de 2 m pour les camions et encombrants (Rapso), une ligne pour la fosse
+  assert(ctx.omCabineGrilleProtocole({ type_cabine: 'Camion', largeur_cabine: '5', longueur_cabine: '13' }).axes === 7, 'camion 13 m : 7 points (2 m)');
+  assert(ctx.omCabineGrilleProtocole({ type_cabine: 'Fermée', largeur_cabine: '5', longueur_cabine: '7' }).axes === 5, 'fermée 7 m : 5 points (1,50 m)');
+  const fo = ctx.omCabineGrilleProtocole({ type_cabine: 'Fosse', longueur_cabine: '8' });
+  assert(fo.axes === 1 && fo.points === 6, 'fosse 8 m : 1 × 6');
+  ['Voiture', 'Camion', 'Fosse'].forEach(t => {
+    const sc = ctx.omSchemaCabine({ type_cabine: t }), c = ctx.omContenu('cabine', { type_cabine: t }, 'cabines_peinture');
+    assert(!/NaN|undefined/.test(sc.svg + sc.legende) && /INRS ED \d/.test(c.source), 'schéma et consignes : ' + t);
+  });
+  const f = ctx.getInstallationType('decapage').fields.find(x => x.key === 'debit_extrait');
+  const h = ctx.omDecapageFumigeneHtml('decapage', f, { data: { longueur: '6', largeur: '4', hauteur: '3', debit_extrait: '7200' } });
+  assert(/108 s à 144 s/.test(h), 'décapage 72 m³ à 7 200 m³/h : 108 à 144 s');
+});
+
+test('cabines voiture, camion, encombrant : mesure avec le véhicule ou l’encombrant, cabine vide selon le Rapso', ctx => {
+  const calc = data => { const inst = { data }; ctx.applyCalculations('cabines_peinture', inst); return inst.data; };
+  // Voiture, véhicules seulement : 10 points (2 × 5), pas de cabine vide dans l'avis
+  const vo = calc({ type_cabine: 'Voiture', vehicules_subjectiles: 'Véhicules', avec_grid: [['0,5', '0,5', '0,5', '0,5', '0,5'], ['0,5', '0,5', '0,5', '0,5', '0,3']],
+    avec_moy_reference: '/', avec_moy_reco: '0,4', avec_min_reference: '/', avec_min_reco: '0,3', debit_mesure: '20000', debit_reference: '/' });
+  assert(vo.avec_nb_points === '10' && vo.avec_nb_lignes === '2' && vo.avec_nb_colonnes === '5', 'voiture : 10 points en 2 × 5');
+  assert(vo.avec_v_moy === '0.48' && vo.avec_v_min === '0.3', 'voiture : moyenne et minimum des points (' + vo.avec_v_moy + ' / ' + vo.avec_v_min + ')');
+  assert(vo.avec_moy_avis === 'Satisfaisant' && vo.avec_min_avis === 'Satisfaisant' && vo.v1_avis === '', 'voiture : avis du bloc avec, pas de cabine vide');
+  assert(vo.conclusion === 'Satisfaisant', 'voiture : conclusion ' + vo.conclusion);
+  assert(!ctx.evalShowIf(ctx.CDP_VIDE, vo) && ctx.evalShowIf(ctx.CDP_AVEC, vo), 'voiture véhicules : bloc vide masqué, bloc avec affiché');
+  // Voiture avec subjectiles : la cabine vide compte (non mesurée → impossible de se prononcer)
+  const vs = calc(Object.assign({}, vo, { vehicules_subjectiles: 'Subjectiles industriels divers' }));
+  assert(ctx.evalShowIf(ctx.CDP_VIDE, vs) && vs.conclusion === 'Impossible de se prononcer', 'voiture subjectiles : cabine vide à mesurer');
+  // Camion : 12, 14 ou 16 points selon la longueur
+  assert(calc({ type_cabine: 'Camion', avec_classe_camion: '12 à 14 m' }).avec_nb_points === '16', 'camion 12 à 14 m : 16 points');
+  assert(calc({ type_cabine: 'Camion' }).avec_nb_points === '', 'camion sans longueur : pas de grille');
+  // Encombrant : 14 points et toujours la cabine vide ; anciennes cabines fermées inchangées
+  assert(calc({ type_cabine: 'Encombrant' }).avec_nb_colonnes === '7', 'encombrant : 2 × 7');
+  const fe = calc({ type_cabine: 'Fermée', v1_mesuree: '0,5', v1_reference: '/', v1_valeur_recommandee: '0,3', debit_mesure: '1', debit_reference: '/' });
+  assert(fe.v1_avis === 'Satisfaisant' && fe.avec_moy_avis === '' && fe.conclusion === 'Satisfaisant', 'cabine fermée : comme avant');
+});
+
+test('mise à jour : aucune valeur saisie perdue au chargement et au recalcul (tous les types, démo complète)', ctx => {
+  const env = JSON.parse(fs.readFileSync(path.join(APP, 'assets/demo/mission-demo-complete.json'), 'utf8'));
+  const m = env.mission;
+  // Fiche local spécifique telle qu'enregistrée avant la v2.5 (effectif, air neuf, sans volume)
+  m.installations.local_specifique.push({ id: 9901, data: { reference_local: 'Local phyto (ancienne fiche)', mesures_realisees: 'Extraction et air neuf',
+    type_local: 'Ateliers ou Locaux avec Travail Physique Léger', effectif: '2', debit_extraction_generale: '420', mode_air_neuf: 'Bouches / grilles mesurées',
+    debit_air_neuf: '350', taux_recommande: '7', referentiel_taux: 'Demande du client', observation: 'Saisie en cours' } });
+  const champsCalcules = t => new Set((ctx.CALC_RULES[t] || []).map(r => r.target).concat(ctx.getInstallationType(t).fields.filter(f => f.type === 'computed').map(f => f.key)));
+  const avant = {};
+  Object.keys(m.installations).forEach(t => (m.installations[t] || []).forEach(i => { avant[t + i.id] = JSON.parse(JSON.stringify(i.data)); }));
+  ctx.normalizeMission(m);
+  Object.keys(m.installations).forEach(t => (m.installations[t] || []).forEach(i => {
+    if (ctx.CALC_RULES[t]) ctx.applyCalculations(t, i);
+    const calc = champsCalcules(t), a = avant[t + i.id];
+    if (!a) return;
+    Object.keys(a).forEach(k => {
+      if (calc.has(k)) return;
+      assert(JSON.stringify(i.data[k]) === JSON.stringify(a[k]), t + ' « ' + (a.reference_local || a.reference_equipement || i.id) + ' » : ' + k + ' perdu ou modifié');
+    });
+  }));
+});
+
+test('local à pollution spécifique : le taux de renouvellement prime, les occupants ne le valident jamais', ctx => {
+  const calc = data => { const inst = { data }; ctx.applyCalculations('local_specifique', inst); return inst.data; };
+  const base = { mesures_realisees: 'Air neuf seul', mode_air_neuf: 'Soufflage mécanique (CTA, centrale)', debit_air_neuf: '300', volume: '60', taux_recommande: '7', referentiel_taux: 'Demande du client' };
+  // 300 / 60 = 5 vol/h < 7 : non satisfaisant, même si le minimum par occupant est respecté
+  const d1 = calc(Object.assign({ type_local: 'Bureaux', effectif: '2' }, base));
+  assert(d1.taux_air_neuf === '5' && d1.avis_air_neuf === 'Satisfaisant' && d1.avis_taux === 'Non Satisfaisant' && d1.avis === 'Non Satisfaisant', 'occupants respectés, taux insuffisant : ' + d1.avis);
+  // Sans effectif : pas de critère par occupant
+  const d2 = calc(Object.assign({}, base, { debit_air_neuf: '480' }));
+  assert(d2.avis_air_neuf === '' && d2.avis_taux === 'Satisfaisant' && d2.avis === 'Satisfaisant', 'sans effectif, taux de 8 vol/h atteint');
+  // Extraction et soufflage : les deux taux sont vérifiés
+  const d3 = calc({ mesures_realisees: 'Extraction et air neuf', debit_extraction_generale: '600', mode_air_neuf: 'Soufflage mécanique (CTA, centrale)', debit_air_neuf: '300', volume: '60', taux_recommande: '7', valeur_reference_extraction: '/' });
+  assert(d3.taux_renouvellement === '10' && d3.avis_taux === 'Non Satisfaisant', 'extraction 10 vol/h mais soufflage 5 vol/h');
+  // Entrées d'air naturelles : taux en air neuf non mesurable
+  const d4 = calc(Object.assign({}, base, { mode_air_neuf: 'Entrées d’air naturelles (non mesurables)' }));
+  assert(d4.avis_taux === 'Impossible de se prononcer', 'air neuf naturel : impossible de se prononcer');
+  // Sans taux à atteindre : taux informatif
+  const d5 = calc(Object.assign({}, base, { taux_recommande: '' }));
+  assert(d5.taux_air_neuf === '5' && d5.avis_taux === '', 'sans taux à atteindre : informatif');
+});
+
+test('bureaux : commentaire réglementaire du Rapso (effectif maximal selon le volume ou le débit d’air neuf)', ctx => {
+  const com = data => { const inst = { data }; ctx.applyCalculations('bureaux', inst); return inst.data; };
+  const b = { type_local: 'Bureaux', effectif: '4', volume: '50' }; // 15 m³ et 25 m³/h par occupant
+  eq(com(Object.assign({ type_ventilation: 'Nat avec ouvrants' }, b)).commentaire_rapso, 'Effectif : 3 personne (s) max', 'naturelle : effectif selon le volume');
+  eq(com(Object.assign({ type_ventilation: 'Extraction', debit_total_mesure: '120' }, b)).commentaire_rapso, 'Effectif : 4 personne (s) max', 'débit suffisant : effectif selon le débit');
+  eq(com(Object.assign({ type_ventilation: 'Extraction', debit_total_mesure: '120' }, b, { volume: '300' })).commentaire_rapso, 'Effectif : 20 personne (s) max', 'débit suffisant : le volume permet davantage');
+  eq(com(Object.assign({ type_ventilation: 'Extraction', debit_total_mesure: '120' }, b, { volume: '' })).commentaire_rapso, 'Effectif : 4 personne (s) max', 'débit suffisant, volume non mesuré');
+  eq(com(Object.assign({ type_ventilation: 'Extraction', debit_total_mesure: '60' }, b, { volume: '20' })).commentaire_rapso,
+    'Le débit minimal d\'air neuf et le volume du local ne sont pas suffisants. Ce débit permet d\'accueillir 2 occupant(s).', 'débit et volume insuffisants : le plus grand des deux effectifs');
+  eq(com(Object.assign({ type_ventilation: 'Extraction', debit_total_mesure: '60' }, b)).commentaire_rapso,
+    'Le débit minimal d\'air neuf et le volume du local ne sont pas suffisants. Ce volume permet d\'accueillir 3 occupant(s).', 'débit et volume insuffisants');
+  eq(com(Object.assign({ type_ventilation: 'Extraction', debit_total_mesure: '60' }, b, { effectif: '3' })).commentaire_rapso,
+    'Le débit minimal d\'air neuf n\'est pas suffisant. Cependant le volume du local permet d\'accueillir 3 occupant(s).', 'le volume compense');
+  eq(com(Object.assign({ type_ventilation: 'Extraction', debit_total_mesure: '60' }, b, { volume: '' })).commentaire_rapso,
+    'Le débit minimal d\'air neuf n\'est pas suffisant. Il permet d\'accueillir 2 occupant(s)', 'volume non mesuré : effectif selon le débit');
+  eq(com({ type_local: 'Local occupé occasionnellement', type_ventilation: 'Extraction' }).commentaire_rapso,
+    'Le local étant occupé occasionnellement, il n\'existe pas de valeur minimale à respecter.', 'occupé occasionnellement');
+  eq(com(Object.assign({ type_ventilation: 'Nat avec ouvrants', commentaire: 'Fenêtre condamnée.' }, b)).commentaire_rapport,
+    'Effectif : 3 personne (s) max. Fenêtre condamnée.', 'rapport : commentaire de l’appli puis celui du technicien');
+  eq(com(Object.assign({ type_ventilation: 'Extraction', debit_total_mesure: '120', commentaire: 'RAS.' }, b)).commentaire_rapport, 'Effectif : 4 personne (s) max. RAS.', 'rapport : effectif puis commentaire du technicien');
+  // Phrases de l'appli recopiées par le technicien : une seule fois au rapport, avec le chiffre calculé
+  const rapport = (extra, commentaire) => com(Object.assign({ type_ventilation: 'Extraction' }, b, extra, { commentaire })).commentaire_rapport;
+  eq(rapport({ debit_total_mesure: '120' }, 'Effectif : 4 personne (s) max'), 'Effectif : 4 personne (s) max', 'même phrase');
+  eq(rapport({ debit_total_mesure: '120' }, 'Effectif : 9 personne (s) max'), 'Effectif : 4 personne (s) max', 'ancien chiffre : la valeur calculée reste');
+  eq(rapport({ debit_total_mesure: '60', volume: '20' }, 'Le débit minimal d\'air neuf et le volume du local ne sont pas suffisants. Ce volume permet d\'accueillir 1 occupant(s).'),
+    'Le débit minimal d\'air neuf et le volume du local ne sont pas suffisants. Ce débit permet d\'accueillir 2 occupant(s).', 'ancienne phrase du Rapso');
+  eq(rapport({ debit_total_mesure: '120' }, 'Effectif : 4 personne (s) max. Bouche encrassée.'), 'Effectif : 4 personne (s) max. Bouche encrassée.', 'le reste du commentaire est gardé');
+  eq(com(Object.assign({ type_ventilation: 'Extraction', debit_total_mesure: '120', commentaire: 'Effectif : 9 personne (s) max' }, b)).commentaire, 'Effectif : 9 personne (s) max', 'la saisie du technicien n’est pas modifiée');
+});
+
+test('rapport PDF : cabines encombrant, voiture et camion (bloc avec le véhicule, cabine vide selon le cas)', async ctx => {
+  const m = loadDemo(ctx);
+  initPdfAssets(ctx);
+  const base = m.installations.cabines_peinture[0];
+  const cab = (data) => { const inst = JSON.parse(JSON.stringify(base)); inst.id = Math.random(); Object.assign(inst.data, data); ctx.applyCalculations('cabines_peinture', inst); return inst; };
+  const pts = (l, c) => Array.from({ length: l }, (_, r) => Array.from({ length: c }, (_, i) => String((0.3 + 0.02 * (r * c + i)).toFixed(2)).replace('.', ',')));
+  m.installations.cabines_peinture = [
+    cab({ type_cabine: 'Encombrant', avec_grid: pts(2, 7), avec_moy_reference: '/', avec_moy_reco: '0,3', avec_min_reference: '/', avec_min_reco: '0,25', avec_recommandee_par: 'Norme 16985' }),
+    cab({ type_cabine: 'Voiture', vehicules_subjectiles: 'Véhicules', avec_grid: pts(2, 5), avec_moy_reference: '/', avec_moy_reco: '0,4', avec_min_reference: '/', avec_min_reco: '0,3' }),
+    cab({ type_cabine: 'Camion', vehicules_subjectiles: 'Subjectiles industriels divers', avec_classe_camion: '12 à 14 m', avec_grid: pts(4, 4) })
+  ];
+  const dd = ctx.pdfBuildRapportDocDefinition(m);
+  eq(badStrings(dd.content), [], 'valeurs mal formées dans le rapport');
+  const txt = JSON.stringify(dd.content);
+  assert(/cabine avec l'objet encombrant/.test(txt) && /cabine avec une voiture/.test(txt) && /cabine avec le camion/.test(txt), 'titres des blocs avec');
+  assert(/Points de mesure autour du véhicule \(16 points\)/.test(txt), 'points du camion');
+  const buf = await pdfBuffer(ctx.pdfMake.createPdf(dd));
+  fs.mkdirSync(path.join(APP, 'test-output'), { recursive: true });
+  fs.writeFileSync(path.join(APP, 'test-output/cabines-vehicules.pdf'), buf);
+});
+
+test('import Rapso des cabines : valeur recommandée et norme dans les bons champs', ctx => {
+  const h = ['CDP', 'Type de flux', 'Normes', 'Valeur de référence_1', 'Valeur recommandées par_1', 'Valeur recommandées par_2',
+    'Valeur de référence_3', 'Valeur recommandées par_3', 'Valeur recommandées par_4'];
+  const rows = [[], [], [], [], h, ['CDP Encombrant', 'Verticale', 'Norme 16985', '/', '0,3', '0,25', '/', '', ''],
+    ['CDP Fermee', 'Verticale', 'Norme 16985', '', '', '', '/', '0,4', '0,3']];
+  const [enc, fer] = ctx.rapsoSheetToInstallations('cabines_peinture', rows);
+  assert(enc.avec_moy_reco === '0,3' && enc.avec_min_reco === '0,25' && enc.avec_recommandee_par === 'Norme 16985' && enc.avec_moy_reference === '/', 'cabine encombrante : bloc _1/_2 → mesure avec l’encombrant');
+  assert(enc.v1_reference === '/' && !enc.v1_valeur_recommandee, 'cabine encombrante : bloc vide _3/_4 non rempli');
+  assert(fer.v1_valeur_recommandee === '0,4' && fer.v2_valeur_recommandee === '0,3' && fer.v1_reference === '/', 'cabine fermée : bloc _3/_4');
+  // Reprise d'une cabine voisine : chaque champ listé existe dans le schéma
+  ['cabines_peinture', 'decapage', 'fluide_coupe', 'poste_solvant', 'local_specifique', 'recyclage'].forEach(t => ctx.REPRISE_VOISINE[t].forEach(k =>
+    assert(ctx.getInstallationType(t).fields.some(f => f.key === k), 'reprise : champ ' + t + '.' + k)));
+});
+
+test('machines à bois : observation du Rapso, type « / », Validé par (Kingersheim)', ctx => {
+  const base = { vitesse_mode: 'Saisie directe', forme_conduit: 'Circulaire', debit_reference: '/', vitesse_reference: '/' };
+  const scie = calc(ctx, 'menuiserie_bis', Object.assign({}, base, { type_machine: 'Scie à panneau verticale', diametre_cote1: '15', vitesse_directe: '8.3' }));
+  eq(scie.conclusion_avis, 'Non Satisfaisant', 'scie : non satisfaisant');
+  assert(/^Vitesse de transport faible\nDébit minimum recommandé par l'INRS \(ED750\) : 1500 m3\/h\nDébit mesuré : \d+(,\d+)? m3\/h$/.test(scie.observation_rapport), 'observation du Rapso : ' + scie.observation_rapport);
+  const asp = calc(ctx, 'menuiserie_bis', Object.assign({}, base, { type_machine: '/', diametre_cote1: '4', vitesse_directe: '30', observation: 'Aspirateur mobile' }));
+  eq(asp.conclusion_avis, 'Impossible de se prononcer', 'type « / » : impossible, comme le Rapso');
+  eq(asp.observation_rapport, 'Vitesse de transport correct / Impossible de se prononcer en l’absence de valeur de référence\nAspirateur mobile', 'observation + texte du technicien');
+  const type = ctx.getInstallationType('menuiserie_bis');
+  eq(ctx.installationStatus(type, { data: asp }).state, 'done', 'type « / » mesuré : terminé, pas « en cours »');
+  eq(ctx.installationStatus(type, { data: calc(ctx, 'menuiserie_bis', Object.assign({}, base, { type_machine: '/' })) }).state, 'inprogress', 'sans mesure : en cours');
+  eq(ctx.SYNTHESE_CONFIG.menuiserie_bis.commentaire, 'observation_rapport', 'commentaire dans le tableau de synthèse');
+  const m = loadDemo(ctx);
+  m.donneesInternes.validePar = 'Relecteur Saisi';
+  initPdfAssets(ctx);
+  assert(JSON.stringify(ctx.pdfBuildRapportDocDefinition(m).content.slice(0, 20)).includes('Relecteur Saisi'), 'Validé par sur la page de garde');
+});
 
 test('calculs : non-régression face au Rapso', () => {
   const rows = path.join(APP, 'outils/non-regression-rapso/rows');
@@ -1488,6 +1910,27 @@ test('calculs : non-régression face au Rapso', () => {
 });
 
 // ————————————————————————————————————————————
+
+test('Rapso V31 : photo de la CTA au rapport, vitesses 90/140 cm des sorbonnes sur « Oui », intitulés', async ctx => {
+  const cta = ctx.getInstallationType('cta');
+  assert(cta.fields.some(f => f.key === 'photo' && f.type === 'photo'), 'champ photo de la CTA');
+  assert(ctx.WIZARD_STEPS.cta[0].fields.includes('photo'), 'photo dans l’identification de la CTA');
+  const sorb = ctx.getInstallationType('sorbonnes').fields;
+  ['v90_mesuree', 'v140_mesuree'].forEach(k => eq(sorb.find(f => f.key === k).showIf, { key: 'perturbations', equals: 'Oui' }, k));
+  const m = loadDemo(ctx);
+  initPdfAssets(ctx);
+  m.installations.cta[0].data.photo = dataUrl(ctx.CTA_SCHEMA_PATH);
+  const dd = ctx.pdfBuildRapportDocDefinition(m);
+  eq(badStrings(dd.content), [], 'valeurs mal formées dans le rapport');
+  const txt = JSON.stringify(dd.content);
+  eq((txt.match(/Photo de la centrale de traitement d'air contrôlée/g) || []).length, 2, 'bloc photo sur chaque CTA (avec ou sans photo)');
+  ['Photo de la sorbonne', 'Ref. de la sorbonne :', 'Photo de la hotte', 'BRAS ORIENTABLE ARTICULE (BOA)', 'Photo de l’extracteur contrôlé', 'Vitesse moyenne (m/s)']
+    .forEach(s => assert(txt.includes(JSON.stringify(s).slice(1, -1)), 'intitulé V31 : ' + s));
+  assert(!/moyenne\(m\/s\)/.test(txt), 'plus de « Vitesse moyenne(m/s) » collé');
+  const buf = await pdfBuffer(ctx.pdfMake.createPdf(dd));
+  fs.mkdirSync(path.join(APP, 'test-output'), { recursive: true });
+  fs.writeFileSync(path.join(APP, 'test-output/rapso-v31-cta-photo.pdf'), buf);
+});
 
 (async () => {
   let failed = 0, ran = 0;
