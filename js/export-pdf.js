@@ -439,7 +439,7 @@ function pdfConduitBlock(o) {
 
   var mesure = pdfTable([125, 125, 274], [
     [{ text: '', border: [false, false, false, false] }, L('Valeur mesurée', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.observation), { rowSpan: 2, alignment: 'left', margin: [4, 12, 4, 0] })],
-    [L('Vitesse moyenne(m/s)', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.vitesse), { fontSize: 10.7, margin: [0, 4, 0, 4] }), o.debitRow ? { text: '', border: [true, false, true, false] } : {}]
+    [L('Vitesse moyenne (m/s)', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.vitesse), { fontSize: 10.7, margin: [0, 4, 0, 4] }), o.debitRow ? { text: '', border: [true, false, true, false] } : {}]
   ].concat(o.debitRow ? [[L('Débit (m3/h)', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.debit), { fontSize: 10.7, margin: [0, 4, 0, 4] }), { text: '', border: [true, false, true, true] }]] : []));
   // Box : l'observation couvre les lignes vitesse et débit.
   if (o.debitRow) { mesure.table.body[0][2].rowSpan = 3; }
@@ -451,7 +451,7 @@ function pdfConduitBlock(o) {
     }
     out.push({ columns: [
       { width: 175, stack: [pdfTight(pdfTable([125, 50], [
-        [L('Largeur(cm)'), V(v(o.d2))], [L('Longueur(cm)'), V(v(o.d1))],
+        [L('Largeur (cm)'), V(v(o.d2))], [L('Longueur (cm)'), V(v(o.d1))],
         [L('Nombre d\'axes'), V(hasGrid ? String(rows) : '5')], [L('Nombre de points'), V(hasGrid ? String(cols) : '5')],
         [L('Nombre de points total'), V(String(rows * cols))]
       ]))] },
@@ -461,10 +461,10 @@ function pdfConduitBlock(o) {
     out.push(place(mesure));
   } else {
     out.push({ columns: [
-      { width: 175, stack: [pdfTight(pdfTable([125, 50], [[L(o.cta ? 'Diamètre(cm)' : 'Diamètre (cm)'), V(v(o.d1))]]))] },
+      { width: 175, stack: [pdfTight(pdfTable([125, 50], [[L('Diamètre (cm)'), V(v(o.d1))]]))] },
       { width: 224, stack: [pdfTight(pdfTable([125, 99], [
         [{ text: '', border: [false, false, false, false] }, L('Valeur mesurée', { fontSize: 10.7, margin: [0, 4, 0, 4] })],
-        [L('Vitesse moyenne(m/s)', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.vitesse), { fontSize: 10.7, margin: [0, 4, 0, 4] })]
+        [L('Vitesse moyenne (m/s)', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.vitesse), { fontSize: 10.7, margin: [0, 4, 0, 4] })]
       ].concat(o.debit !== undefined && o.debit !== '' ? [[L('Débit (m3/h)', { fontSize: 10.7, margin: [0, 4, 0, 4] }), V(v(o.debit), { fontSize: 10.7, margin: [0, 4, 0, 4] })]] : [])))] }
     ], columnGap: 125, margin: [8, 0, 0, 0] });
     out.push(gap(12));
@@ -510,12 +510,12 @@ function pdfFicheIdentRows(pairs) {
   return pairs.map(function (p) { return [pdfHeaderCell(p[0], { left: true }), pdfBodyCell(p[1] || '-', { center: true })]; });
 }
 
-function pdfFichePhotoBox(dataUrl, widthPt) {
-  // Cadre photo du Rapso : ~232 × 196 pt, photo centrée.
+function pdfFichePhotoBox(dataUrl, widthPt, titre) {
+  // Cadre photo du Rapso : ~232 × 196 pt, photo centrée. Titre propre à chaque fiche depuis la V31.
   var imgCell = dataUrl
     ? { image: dataUrl, fit: [widthPt - 12, 170], alignment: 'center', margin: [0, 4, 0, 4] }
     : { text: '', margin: [0, 84, 0, 84] };
-  return pdfTable([widthPt], [[pdfHeaderCell('Photo de l’équipement')], [imgCell]]);
+  return pdfTable([widthPt], [[pdfHeaderCell(titre || 'Photo de l’équipement')], [imgCell]]);
 }
 
 function pdfFicheTwoCol(leftContent, rightContent, leftWidthPt, rightWidthPt) {
@@ -579,7 +579,7 @@ function pdfFicheVtTable(d) {
     pdfTight(pdfTable([129, 77, 77, 51, 103, 103], [
       [{ text: '', border: [false, false, false, false] }, L('Valeur mesurée', { margin: [1, 9, 1, 9] }), L('Type de polluants'), L('Valeur de référence'),
         L('Valeur recommandée par l\'INRS(ED 695)'), L('Avis par rapport aux valeurs de référence')],
-      [L('Vitesse moyenne(m/s)', { margin: [1, 12, 1, 12] }), V(v(d.vt_mesuree), { margin: [1, 12, 1, 12] }), V(v(d.vt_type_polluant)), V(v(d.vt_reference), { margin: [1, 12, 1, 12] }),
+      [L('Vitesse moyenne (m/s)', { margin: [1, 12, 1, 12] }), V(v(d.vt_mesuree), { margin: [1, 12, 1, 12] }), V(v(d.vt_type_polluant)), V(v(d.vt_reference), { margin: [1, 12, 1, 12] }),
         V(v(d.vt_inrs), { margin: [1, 12, 1, 12] }), V(v(d.avis_vt), { margin: [1, 12, 1, 12] })]
     ].concat(d.debit_vt !== undefined && d.debit_vt !== '' ? [[L('Débit (m3/h)', { margin: [1, 6, 1, 6] }), V(v(d.debit_vt), { margin: [1, 6, 1, 6] }),
       { text: '', border: [true, false, false, false], colSpan: 4 }, {}, {}, {}]] : [])))
@@ -1074,11 +1074,11 @@ function pdfBuildAnnexeExtracteur(list, logoDataUrl) {
       [L('Bâtiment', tall(5)), V(v(d.batiment), { colSpan: 2, margin: [2, 5, 2, 5] }), {}],
       [L('Locaux extraits', tall(12)), V(v(d.locaux_extraits), { colSpan: 2, margin: [2, 12, 2, 12] }), {}],
       [L('Date du contrôle', { fontSize: 9, margin: [3, 6, 0, 6] }), V(v(d.date_controle), { colSpan: 2, margin: [2, 6, 2, 6] }), {}],
-      [L('Ref. de l\'équipement et/ou Implantation', { colSpan: 2, margin: [6, 6, 2, 6] }), {}, V(v(d.reference_equipement), { margin: [2, 12, 2, 6] })]
+      [L('Ref. de l\'extracteur et/ou Implantation', { colSpan: 2, margin: [6, 6, 2, 6] }), {}, V(v(d.reference_equipement), { margin: [2, 12, 2, 6] })]
     ]));
     content.push({ columns: [
       { width: 284, stack: [ident] },
-      { width: 231, stack: [pdfFichePhotoBox(d.photo, 231)] }
+      { width: 231, stack: [pdfFichePhotoBox(d.photo, 231, 'Photo de l’extracteur contrôlé')] }
     ], columnGap: 25 });
     content.push({ text: '', margin: [0, 0, 0, 13] });
 
@@ -1158,7 +1158,7 @@ function pdfBuildAnnexeHottes(list, logoDataUrl) {
     ]));
     content.push(t([155, 155, 77, 153], [
       [L('Date d\'installation', { margin: [1, 6, 1, 6] }), V(v(d.date_installation), { margin: [1, 6, 1, 6] }),
-        L('Ref. de l\'équipement :', { rowSpan: 2, margin: [1, 14, 1, 0] }), V(v(d.reference_equipement), { rowSpan: 2, margin: [1, 18, 1, 0] })],
+        L('Ref. de la hotte contrôlée :', { rowSpan: 2, margin: [1, 14, 1, 0] }), V(v(d.reference_equipement), { rowSpan: 2, margin: [1, 18, 1, 0] })],
       [L('Mesures réalisées :', { margin: [1, 6, 1, 6] }), V(choixTxt, { margin: [1, 6, 1, 6] }), {}, {}]
     ]));
     content.push(gap(12));
@@ -1166,7 +1166,7 @@ function pdfBuildAnnexeHottes(list, logoDataUrl) {
     var photo = d.photo ? { image: d.photo, fit: [300, 170], alignment: 'center', margin: [0, 4, 0, 4] } : { text: '', margin: [0, 84, 0, 84] };
     content.push({ columns: [
       { width: 309, stack: [
-        { table: { widths: [202], body: [[L('Photo de l\'équipement')]] }, layout: pdfBorderedLayout() },
+        { table: { widths: [202], body: [[L('Photo de la hotte')]] }, layout: pdfBorderedLayout() },
         { table: { widths: [304], body: [[photo]] }, layout: pdfBorderedLayout() }
       ] },
       { width: 231, stack: [
@@ -1183,7 +1183,7 @@ function pdfBuildAnnexeHottes(list, logoDataUrl) {
       content.push(t([129, 77, 129, 77, 128], [
         [{ text: '', border: NONE }, L('Valeurs mesurées'), L('Valeurs recommandées par l\'INRS (ED 695)'), L('Valeurs de référence'), L('Avis par rapport aux valeurs de référence')],
         [L('Vitesse minimale (m/s)'), V(v(d.vpe_min)), V(v(d.vpe_min_inrs)), V(v(d.vpe_min_reference)), V(v(d.avis_vpe_min))],
-        [L('Vitesse moyenne(m/s)'), V(v(d.vpe_moyenne)), V(v(d.vpe_moy_inrs)), V(v(d.vpe_moy_reference)), V(v(d.avis_vpe_moy))],
+        [L('Vitesse moyenne (m/s)'), V(v(d.vpe_moyenne)), V(v(d.vpe_moy_inrs)), V(v(d.vpe_moy_reference)), V(v(d.avis_vpe_moy))],
         [L('Débit d\'air extrait (m3/h)'), V(v(d.vpe_debit)), { text: '', border: [true, false, false, false], colSpan: 3 }, {}, {}]
       ]));
       content.push(gap(24));
@@ -1245,7 +1245,7 @@ function pdfBoaLabelValueTable(rows, labelW, valueW) {
 }
 
 function pdfBuildAnnexeBrasAspiration(list, logoDataUrl) {
-  var titre = 'Bras articulé', sousTitre = 'BRAS ARTICULE';
+  var titre = 'Bras articulé', sousTitre = 'BRAS ORIENTABLE ARTICULE (BOA)';
   var content = [];
   if (!list || list.length === 0) {
     content.push(pdfAnnexePageHeader(titre, sousTitre, logoDataUrl));
@@ -1338,7 +1338,7 @@ function pdfBuildAnnexeBrasAspiration(list, logoDataUrl) {
     if (d.debit_precedent) {
       content.push(pdfBoaTitre('Evolution des valeurs par rapport aux mesures précédentes', { top: 18 }));
       var evoT = pdfTable([128, 128, 77, 181], [
-        [hdr('Débit mesuré précédemment en m3/h'), hdr('Débit mesurés cette année en m3/h'), hdr('Evolution en %'), hdr('Commentaire')],
+        [hdr('Débit mesuré l\'année précédente en m3/h'), hdr('Débit mesuré cette année en m3/h'), hdr('Evolution en %'), hdr('Commentaire')],
         [val(v(d.debit_precedent)), val(v(d.debit_calcule)), val(v(d.evolution_pct)), val(v(d.commentaire_2))]
       ]);
       evoT.margin = [PDF_BOA_INDENT, 0, 0, 0];
@@ -1726,10 +1726,20 @@ function pdfBuildAnnexeCTA(list, logoDataUrl, ctaSchemaDataUrl) {
       if (p === 'rep' && d.rep_active !== 'Oui') return false;
       return !!d[p + '_forme'];
     });
+    // Rapso V31 (Inserer_Annexes, Modele_CTA_4) : bloc photo entre la fiche et les mesures de vitesse,
+    // titre sur toute la largeur et cadre centré (colonnes 6 à 16 sur 21, 9 lignes), présent même sans photo.
+    content.push({ text: '', pageBreak: 'before' });
+    var photoTitre = pdfTable([524], [[L('Photo de la centrale de traitement d\'air contrôlée', 10.7)]]);
+    photoTitre.margin = IND;
+    pdfTight(photoTitre);
+    content.push(photoTitre);
+    var photoCell = d.photo
+      ? { image: d.photo, fit: [267, 109], alignment: 'center', margin: [0, 2, 0, 2] }
+      : { text: '', margin: [0, 56, 0, 56] };
+    content.push({ table: { widths: [271], body: [[photoCell]] }, layout: pdfBorderedLayout(), margin: [8 + 125, 0, 0, 0] });
     if (reseauxPage2.length) {
-      content.push({ text: '', pageBreak: 'before' });
       reseauxPage2.forEach(function (prefix, ri) {
-        if (ri > 0) content.push({ text: '', margin: [0, 0, 0, 40] });
+        content.push({ text: '', margin: [0, 0, 0, ri > 0 ? 40 : 20] });
         var label = prefix === 'neuf' ? 'neuf' : (prefix === 'souf' ? 'soufflé' : 'repris');
         var surGrille = d.mesure_debit === 'Sur la surface de la grille';
         content = content.concat(pdfConduitBlock({
@@ -1776,7 +1786,7 @@ function pdfBuildAnnexeSorbonnes(list, logoDataUrl) {
     // Identification sur deux lignes
     content.push(t([153, 203, 51, 127], [[L('Activité et référence du local', { margin: [1, 6, 1, 6] }), V(v(d.localisation), { margin: [1, 6, 1, 6] }),
       L('Bâtiment :', { margin: [0, 6, 0, 6], fontSize: 9 }), V(v(d.batiment), { margin: [1, 6, 1, 6] })]]));
-    content.push(t([153, 101, 128, 152], [[L('Date de mesures :'), V(v(d.date_controle)), L('Ref. de l\'équipement :'), V(v(d.reference_equipement), { margin: [1, 4, 1, 4] })]]));
+    content.push(t([153, 101, 128, 152], [[L('Date de mesures :'), V(v(d.date_controle)), L('Ref. de la sorbonne :'), V(v(d.reference_equipement), { margin: [1, 4, 1, 4] })]]));
     content.push(gap(10));
 
     // Photo à gauche, contexte de mesures à droite
@@ -1786,7 +1796,7 @@ function pdfBuildAnnexeSorbonnes(list, logoDataUrl) {
     var photo = d.photo ? { image: d.photo, fit: [297, 170], alignment: 'center', margin: [0, 4, 0, 4] } : { text: '', margin: [0, 84, 0, 84] };
     content.push({ columns: [
       { width: 305, stack: [
-        { table: { widths: [200], body: [[L('Photo de l\'équipement')]] }, layout: pdfBorderedLayout() },
+        { table: { widths: [200], body: [[L('Photo de la sorbonne')]] }, layout: pdfBorderedLayout() },
         { table: { widths: [297], body: [[photo]] }, layout: pdfBorderedLayout() }
       ] },
       { width: 229, stack: [
@@ -1888,7 +1898,7 @@ function pdfBuildAnnexeSorbonnes(list, logoDataUrl) {
     var A = function (x) { return V(v(x)); };
     content.push(t([127, 51, 51, 51, 127, 127], [
       [{ text: '', border: [false, false, true, false] }, N('Valeurs mesurées', { rowSpan: 2, margin: [1, 8, 1, 0] }), N('Valeurs de référence', { rowSpan: 2, margin: [1, 8, 1, 0] }),
-        N('Valeurs normes', { rowSpan: 2, margin: [1, 8, 1, 0] }), N('Avis', { colSpan: 2, margin: [1, 4, 1, 4] }), {}],
+        N('Valeurs de la norme', { rowSpan: 2, margin: [1, 8, 1, 0] }), N('Avis', { colSpan: 2, margin: [1, 4, 1, 4] }), {}],
       [{ text: '', border: [false, false, true, false] }, {}, {}, {}, N('par rapport aux valeurs de référence'), N('par rapport aux valeurs normatives')],
       [N('Vitesse minimale (m/s)', { margin: [1, 6, 1, 6] }), A(d.vitesse_min_mesuree), A(d.vitesse_min_reference), A(d.vitesse_min_norme_valeur), A(d.vitesse_min_avis_reference), A(d.vitesse_min_avis_norme)],
       [N('Vitesse moyenne (m/s)', { margin: [1, 6, 1, 6] }), A(d.vitesse_moy_mesuree), A(d.vitesse_moy_reference), V('/'), A(d.vitesse_moy_avis_reference), V('/')],
@@ -2112,7 +2122,7 @@ function pdfBuildAnnexeBoxPeinture(list, logoDataUrl) {
     var photo = d.photo ? { image: d.photo, fit: [300, 170], alignment: 'center', margin: [0, 2, 0, 2] } : { text: '', margin: [0, 84, 0, 84] };
     content.push({ columns: [
       { width: 309, stack: [
-        { table: { widths: [202], body: [[L('Photo de l\'équipement', { fontSize: 11 })]] }, layout: pdfBorderedLayout() },
+        { table: { widths: [202], body: [[L('Photo du box', { fontSize: 11 })]] }, layout: pdfBorderedLayout() },
         { table: { widths: [304], body: [[photo]] }, layout: pdfBorderedLayout() }
       ] },
       { width: 231, stack: [
@@ -2141,12 +2151,12 @@ function pdfBuildAnnexeBoxPeinture(list, logoDataUrl) {
     if (caps.length) {
       content.push(t([78].concat(caps.map(function () { return 77; })), [
         [{ text: '', border: NONE }].concat(caps.map(function (c) { return L('Captage n°' + c, m6); })),
-        [L('Vitesse moyenne(m/s)', m6)].concat(caps.map(function (c) { return V(v(d['captage' + c + '_vitesse_moyenne']), m12); })),
+        [L('Vitesse moyenne (m/s)', m6)].concat(caps.map(function (c) { return V(v(d['captage' + c + '_vitesse_moyenne']), m12); })),
         [L('Débit mesuré (m3/h)', m6)].concat(caps.map(function (c) { return V(v(d['captage' + c + '_debit']), m12); }))
       ], 26));
       content.push(gap(12));
     }
-    content.push(t([104, 78, 128, 103], [[L('Débit d\'extraction du box', { margin: [1, 2, 1, 2] }), V(v(d.debit_extraction_box), m6),
+    content.push(t([104, 78, 128, 103], [[L('Débit d\'extraction du box (m3/h)', { margin: [1, 2, 1, 2] }), V(v(d.debit_extraction_box), m6),
       L('Débit minimal (m3/h) pour 50 volumes/heure', { margin: [1, 2, 1, 2] }), V(v(d.debit_minimal_50vh), m6)]], 26));
     content.push(gap(48));
     content.push(bar('Conclusion'));
@@ -2300,10 +2310,10 @@ function pdfBuildAnnexeGazEchappement(list, logoDataUrl) {
           [L('Ref. de l\'équipement et/ou Implantation', m6), V(v(d.reference_equipement), m12)], [L('Date du contrôle', m6), V(v(d.date_controle), m6)]
         ]),
         gap(12),
-        t([284], [[L('Type d\'équipement')], [V(typeVehicule, Object.assign({ fontSize: 11 }, m6))], [V(v(d.type_captage), m6)]])
+        t([284], [[L('Type de dispositif de captage')], [V(typeVehicule, Object.assign({ fontSize: 11 }, m6))], [V(v(d.type_captage), m6)]])
       ] },
       { width: 232, stack: [
-        { table: { widths: [228], body: [[L('Photo de l\'équipement')], [photo]] }, layout: pdfBorderedLayout() }
+        { table: { widths: [228], body: [[L('Photo du dispositif de captage')], [photo]] }, layout: pdfBorderedLayout() }
       ] }
     ], columnGap: 24 });
 
@@ -2356,7 +2366,7 @@ function pdfBuildAnnexeGazEchappement(list, logoDataUrl) {
 // 5.12 — Menuiserie (réseau d'aspiration)
 // ————————————————————————————————————————————
 function pdfBuildAnnexeMenuiserie(list, logoDataUrl) {
-  var titre = 'Menuiserie', sousTitre = 'Machine à bois extracteur';
+  var titre = 'Menuiserie', sousTitre = 'Machine à bois : extracteur général';
   var legal = [
     pdfLegalParagraph('RÉFÉRENTIEL', { bold: true, center: true, size: 20, after: 100 }),
     pdfLegalParagraph('Guide INRS ED6750 - Février 2011', { center: true, size: 18 }),
@@ -2382,7 +2392,7 @@ function pdfBuildAnnexeMenuiserie(list, logoDataUrl) {
       ['Nombre de machines reliées au dispositif', formatCrosstabValue(d.nb_machines_reliees)],
       ['Date du contrôle', formatCrosstabValue(d.date_controle)]
     ]));
-    content.push(pdfFicheTwoCol(identTable, pdfFichePhotoBox(d.photo, W_PHOTO), W_IDENT, W_PHOTO));
+    content.push(pdfFicheTwoCol(identTable, pdfFichePhotoBox(d.photo, W_PHOTO, 'Photo du dispositif d’extraction'), W_IDENT, W_PHOTO));
     content.push({ text: '', margin: [0, 0, 0, PT(120)] });
 
     if (d.simultaneites) {
@@ -2499,7 +2509,7 @@ function pdfBuildAnnexeMenuiserieMAB(list, logoDataUrl) {
     var photo = d.photo ? { image: d.photo, fit: [300, 210], alignment: 'center', margin: [0, 2, 0, 2] } : { text: '', margin: [0, 104, 0, 104] };
     content.push({ columns: [
       { width: 308, stack: [
-        { table: { widths: [206], body: [[L('Photo de l\'équipement')]] }, layout: pdfBorderedLayout() },
+        { table: { widths: [206], body: [[L('Photo de la machine contrôlée')]] }, layout: pdfBorderedLayout() },
         { table: { widths: [303], body: [[photo]] }, layout: pdfBorderedLayout() }
       ] },
       { width: 232, stack: [
@@ -2517,14 +2527,14 @@ function pdfBuildAnnexeMenuiserieMAB(list, logoDataUrl) {
     content.push(gap(8));
     content.push(t([127, 78, 78, 51, 103, 103], [
       [{ text: '', border: NONE }, L('Valeur mesurée', big), L('Type de polluants', { margin: [1, 6, 1, 6] }), L('Valeur de référence', { margin: [1, 6, 1, 6] }),
-        L('Valeur recommandée par l\'INRS(ED750)', { margin: [1, 6, 1, 6] }), L('Avis par rapport aux valeurs de référence', { margin: [1, 6, 1, 6] })],
-      [L('Vitesse moyenne(m/s)', big), V(v(d.vitesse_moyenne), big), V('-', big), V(v(d.vitesse_reference), big), V(v(d.vitesse_inrs_ed750), big), V(v(d.vitesse_avis), big)]
+        L('Valeur recommandée par l\'INRS (ED750)', { margin: [1, 6, 1, 6] }), L('Avis par rapport aux valeurs de référence', { margin: [1, 6, 1, 6] })],
+      [L('Vitesse moyenne (m/s)', big), V(v(d.vitesse_moyenne), big), V('-', big), V(v(d.vitesse_reference), big), V(v(d.vitesse_inrs_ed750), big), V(v(d.vitesse_avis), big)]
     ]));
     content.push(gap(16));
     content.push(t([463], [[L('Calcul du débit', { fontSize: 11 })]]));
     content.push(gap(8));
     content.push(t([127, 78, 52, 103, 103], [
-      [{ text: '', border: NONE }, L('Valeur mesurée', big), L('Valeur de référence', { margin: [1, 6, 1, 6] }), L('Valeur recommandée par l\'INRS(ED750)', { margin: [1, 6, 1, 6] }),
+      [{ text: '', border: NONE }, L('Valeur mesurée', big), L('Valeur de référence', { margin: [1, 6, 1, 6] }), L('Valeur recommandée par l\'INRS (ED750)', { margin: [1, 6, 1, 6] }),
         L('Avis par rapport aux valeurs de référence', { margin: [1, 6, 1, 6] })],
       [L('Débit calculé (m3/h)', { fontSize: 11, margin: [1, 12, 1, 12] }), V(v(d.debit), big), V(v(d.debit_reference), big), V(d.debit_inrs_ed750 === '/' ? '-' : v(d.debit_inrs_ed750), big), V(v(d.debit_avis), big)]
     ]));
@@ -2866,7 +2876,7 @@ function pdfBuildAnnexeLocauxCharge(list, logoDataUrl) {
 
     content.push(t([155, 154, 77, 154], [
       [L('Localisation :', { margin: [1, 6, 1, 6] }), B(v(d.localisation), { margin: [1, 6, 1, 6] }), L('Bâtiment :', { margin: [1, 6, 1, 6] }), B(v(d.batiment), { margin: [1, 6, 1, 6] })],
-      [L('Ref. de l\'équipement :', { margin: [1, 6, 1, 6] }), B(v(d.reference_equipement)), L('Date de contrôle :'), B(v(d.date_controle), { margin: [1, 6, 1, 6] })]
+      [L('Ref. du local de charge :', { margin: [1, 6, 1, 6] }), B(v(d.reference_equipement)), L('Date de contrôle :'), B(v(d.date_controle), { margin: [1, 6, 1, 6] })]
     ]));
     content.push(gap(12));
 
@@ -2921,7 +2931,7 @@ function pdfBuildAnnexeLocauxCharge(list, logoDataUrl) {
         content.push(bar('Grille ' + (gi + 1)));
         content.push(gap(12));
         content.push({ columns: [
-          { width: 104, stack: [t([104], [[L('Dimension(cm)', { margin: [1, 6, 1, 6] })]])] },
+          { width: 104, stack: [t([104], [[L('Dimension (cm)', { margin: [1, 6, 1, 6] })]])] },
           { width: 385, stack: [t([77, 77, 77, 154], [
             [L('Largeur', { margin: [1, 6, 1, 6] }), L('Longueur', { margin: [1, 6, 1, 6] }), L('Diamètre', { margin: [1, 6, 1, 6] }), L('Débit mesuré à l\'aide d\'un cône')],
             [V(v(d[pg + '_largeur'])), V(v(d[pg + '_longueur'])), V(v(d[pg + '_diametre'])), V(v(d[pg + '_debit_cone']))]
@@ -2929,7 +2939,7 @@ function pdfBuildAnnexeLocauxCharge(list, logoDataUrl) {
         ], columnGap: 51 });
         content.push(gap(12));
         content.push(t([103, 103, 103], [
-          [{ text: '', border: NONE }, L('Vitesse mesurée(m/s)', { margin: [1, 2, 1, 2] }), L('Débit obtenu(m3/h)', { margin: [1, 8, 1, 8] })],
+          [{ text: '', border: NONE }, L('Vitesse mesurée (m/s)', { margin: [1, 2, 1, 2] }), L('Débit obtenu (m3/h)', { margin: [1, 8, 1, 8] })],
           [L('Valeurs', { margin: [1, 6, 1, 6] }), V(v(d[pg + '_valeur_mesuree']), { margin: [1, 6, 1, 6] }), V(v(d[pg + '_debit_obtenu']), { margin: [1, 6, 1, 6] })]
         ], 52));
       });
@@ -2944,7 +2954,7 @@ function pdfBuildAnnexeLocauxCharge(list, logoDataUrl) {
             gap(12), bar('Chargeurs type ' + (ci + 1)), gap(12),
             { columns: [
               { width: 206, stack: [t([129, 77], [[L('Nombre'), V(v(c.nb))], [L('Tension de sortie (V)'), V(v(c.tension))], [L('Courant de sortie (A)'), V(v(c.courant))]])] },
-              { width: 206, stack: [t([129, 77], [[L('Débit théorique(m3/h)', { margin: [1, 8, 1, 8] }), V(v(chargerDebit(c)), { margin: [1, 8, 1, 8] })]])] }
+              { width: 206, stack: [t([129, 77], [[L('Débit théorique (m3/h)', { margin: [1, 8, 1, 8] }), V(v(chargerDebit(c)), { margin: [1, 8, 1, 8] })]])] }
             ], columnGap: 51 }
           ];
           content.push({ stack: bloc, unbreakable: true });

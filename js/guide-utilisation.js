@@ -5,7 +5,7 @@ var GUIDE_UTILISATION_ETAPES = [
   {
     icon: 'plus',
     titre: '1. Créer ou reprendre une mission',
-    texte: '« Nouvelle mission » puis les informations générales (client, site, n° d’affaire, dates). Pour un site déjà suivi : « Charger un site précédent » (fichier de la mission de l’an dernier) ou « Importer un fichier Rapso (V29) ». Reviennent les installations, le plan, les schémas, les documents, les étiquettes QR, les notes pratiques, les photos de plaque et de l’an dernier, l’historique des mesures ; les mesures, elles, repartent à zéro.'
+    texte: '« Nouvelle mission » puis les informations générales (client, site, n° d’affaire, dates). Pour un site déjà suivi : « Charger un site précédent » (fichier de la mission de l’an dernier) ou « Importer un fichier Rapso (V29 à V31) ». Reviennent les installations, le plan, les schémas, les documents, les étiquettes QR, les notes pratiques, les photos de plaque et de l’an dernier, l’historique des mesures ; les mesures, elles, repartent à zéro.'
   },
   {
     icon: 'list',

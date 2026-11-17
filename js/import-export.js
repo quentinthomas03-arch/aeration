@@ -334,7 +334,7 @@ function importRapsoLoaded(buf, fileName) {
     var totalFound = 0;
     Object.keys(result.typesFound).forEach(function (k) { totalFound += result.typesFound[k]; });
     if (totalFound === 0) {
-      alert('Aucune donnée reconnue dans ce fichier.\n\nVérifiez qu’il s’agit bien d’un classeur Rapso Aération (V27/V29) rempli.');
+      alert('Aucune donnée reconnue dans ce fichier.\n\nVérifiez qu’il s’agit bien d’un classeur Rapso Aération (V27 à V31) rempli.');
       return;
     }
 

@@ -435,6 +435,8 @@ var INSTALLATION_TYPES = [
       { key: 'reference_equipement', label: 'Réf. de l\u2019équipement et/ou Implantation', type: 'text' },
       { key: 'mode_fonctionnement', label: 'Mode de fonctionnement', type: 'select',
         options: ['AIR NEUF / AIR RECYCLE', 'AIR NEUF UNIQUEMENT'] },
+      // Photo de la CTA : ajoutée par le Rapso V31 (bloc « Photo de la centrale de traitement d'air contrôlée » au rapport).
+      { key: 'photo', label: 'Photo', type: 'photo' },
 
       { key: 'section_visuel', label: 'État du reste de l\u2019installation', type: 'section' },
       { key: 'etat_general', label: 'État général (propreté, corrosion, chocs, etc.)', type: 'select',
@@ -604,8 +606,10 @@ var INSTALLATION_TYPES = [
       { key: 'zones_turbulentes', label: 'Présence de zones turbulentes', type: 'select', options: ['Oui', 'Non'] },
       { key: 'zones_mortes', label: 'Présence de zones mortes', type: 'select', options: ['Oui', 'Non'] },
       { key: 'perturbations', label: 'Le test au fumigène met-il en évidence des perturbations susceptibles de gêner le bon fonctionnement de la sorbonne ?', type: 'select', options: ['Oui', 'Non'] },
-      { key: 'v90_mesuree', label: 'Vitesse (m/s) distance 90 cm (recommandation < 0,2 m/s)', type: 'number', showIf: { key: 'perturbations', equals: 'Non' } },
-      { key: 'v140_mesuree', label: 'Vitesse (m/s) distance 140 cm (recommandation < 0,2 m/s)', type: 'number', showIf: { key: 'perturbations', equals: 'Non' } },
+      // Rapso V31 (UserForm_SORBONNE, CB6) : les vitesses à 90/140 cm s'affichent quand le test met en évidence
+      // des perturbations (« si oui » au rapport) ; la V29 les montrait à tort sur « Non ».
+      { key: 'v90_mesuree', label: 'Vitesse (m/s) distance 90 cm (recommandation < 0,2 m/s)', type: 'number', showIf: { key: 'perturbations', equals: 'Oui' } },
+      { key: 'v140_mesuree', label: 'Vitesse (m/s) distance 140 cm (recommandation < 0,2 m/s)', type: 'number', showIf: { key: 'perturbations', equals: 'Oui' } },
 
       { key: 'remarques_complementaires', label: 'Remarques complémentaires', type: 'select',
         options: ['-', 'défaut d\u2019aspiration de la sorbonne', 'La sorbonne est mal entretenue', 'Etat défectueux de la gaine', 'la sorbonne est encombrée'] },

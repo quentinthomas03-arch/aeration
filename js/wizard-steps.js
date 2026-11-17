@@ -250,7 +250,7 @@ var WIZARD_STEPS = {
   // gated les champs filt_*_… dans le schéma existant (buildCtaFiltreFields ne pose aucun showIf) —
   // comportement inchangé, pas une régression introduite ici.
   cta: [
-    { title: 'Identification', fields: ['batiment', 'localisation', 'locaux_alimentes', 'date_controle', 'reference_equipement', 'mode_fonctionnement'] },
+    { title: 'Identification', fields: ['batiment', 'localisation', 'locaux_alimentes', 'date_controle', 'reference_equipement', 'mode_fonctionnement', 'photo'] },
     { title: 'État visuel (1/2)', fields: ['etat_general', 'prise_air_neuf', 'batterie_froide', 'batterie_chaude'] },
     { title: 'État visuel (2/2)', fields: ['canalisations_gaines', 'ventilateur_courroie', 'fiche_maintenance', 'date_derniere_maintenance'] },
     { title: 'Filtration — pré-filtre', fields: ['afficher_filtration', 'filt_pre_etat', 'filt_pre_type', 'filt_pre_nombre_dimensions', 'filt_pre_classe', 'filt_pre_perte_charge'] },

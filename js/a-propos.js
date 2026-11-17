@@ -64,7 +64,7 @@ function renderAPropos() {
   h += '<div class="section-title">Normes</div><div class="card">' + aproposList(APROPOS.normes) + '</div>';
   h += '<div class="section-title">Guides pratiques de ventilation de l’INRS</div><div class="card">' + aproposList(APROPOS.guides) +
     '<p class="subtitle" style="margin-top:8px;">Les valeurs tirées des guides INRS sont des valeurs recommandées : les fiches le précisent et les avis sont rendus « par rapport aux valeurs recommandées ».</p></div>';
-  h += '<div class="section-title">Méthode</div><div class="card"><p class="apropos-text">Les calculs reprennent ceux de l’outil Excel d’origine (Rapso Aération V29) et sont comparés automatiquement à des classeurs Rapso réels. ' +
+  h += '<div class="section-title">Méthode</div><div class="card"><p class="apropos-text">Les calculs reprennent ceux de l’outil Excel d’origine (Rapso Aération V29, inchangés en V31) et sont comparés automatiquement à des classeurs Rapso réels. ' +
     'Une valeur n’est jamais jugée sur un seuil sans texte vérifié ; sans règle écrite, l’appli demande un constat au technicien.</p></div>';
   h += '<div class="section-title">Données</div><div class="card"><p class="apropos-text">Les missions et les photos restent sur cet appareil : rien n’est envoyé sur un serveur. ' +
     'Une sauvegarde automatique est enregistrée à chaque installation terminée, et chaque mission peut être exportée en fichier.</p></div>';

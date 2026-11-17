@@ -4,10 +4,16 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.13';
+var APP_VERSION = '2.14';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.14', date: '17/11/2026', items: [
+    'Alignement sur le Rapso Aération V31. CTA : une photo de la centrale peut être prise dans l’identification ; elle sort au rapport en tête des mesures de vitesse (« Photo de la centrale de traitement d’air contrôlée »).',
+    'Sorbonnes : les vitesses d’air du local à 90 et 140 cm sont demandées quand le test au fumigène montre des perturbations (« Oui »), comme l’indique le rapport (« si oui »). Avant, elles étaient demandées sur « Non ».',
+    'Rapport : intitulés repris du Rapso V31 (photo et référence propres à chaque fiche, « Bras orientable articulé (BOA) », « Machine à bois : extracteur général », unités espacées…).',
+    'L’import d’un classeur Rapso accepte aussi la V31.'
+  ] },
   { version: '2.13', date: '02/11/2026', items: [
     'Autres locaux : l’appli écrit toujours son commentaire dans le rapport ; la case du dessous sert seulement à ajouter autre chose. Une phrase de l’appli recopiée à la main n’y apparaît plus en double.'
   ] },

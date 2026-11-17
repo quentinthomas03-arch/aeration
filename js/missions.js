@@ -21,7 +21,7 @@ function renderHome() {
   h += '<button type="button" class="home-action-row" onclick="triggerImportRapso();">' +
     '<span class="home-action-row-icon" style="color:var(--accent-magenta);">' +
     '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>' +
-    '<div><div class="home-action-row-title">Importer un fichier Rapso (V29)</div><div class="home-action-row-sub">Ancien classeur Excel rempli</div></div></button>';
+    '<div><div class="home-action-row-title">Importer un fichier Rapso (V29 à V31)</div><div class="home-action-row-sub">Ancien classeur Excel rempli</div></div></button>';
   h += '</div>';
 
   if (state.missions.length === 0) {
