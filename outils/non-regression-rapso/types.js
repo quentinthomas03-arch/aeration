@@ -28,7 +28,7 @@ module.exports = {
     input: [['Vitesse (en m/s)_1', 'vitesse']],
     prepare(d) { d.vitesse_mode = 'Vitesse moyenne directe'; },
     compare: [['Surface (m²)_1', 'surface_m2', 'num'], ['Débit mesuré (en m³/h)_1', 'debit_mesure', 'num'],
-      ['Débit minimum calculé (en m³/h)_1', 'debit_min_calcule', 'num'], ['Avis par rapport aux données constructeurs_1', 'avis_constructeur']],
+      ['Débit minimum préconisé \nINRS\n(en m³/h)_1', 'debit_min_inrs', 'num'], ['Débit minimum calculé (en m³/h)_1', 'debit_min_calcule', 'num'], ['Avis par rapport aux données constructeurs_1', 'avis_constructeur']],
     show: (r, c, d) => `[${d.forme_section} ${d.diametre_cote1} v=${d.vitesse} ref=${d.debit_reference} inrs=${d.debit_min_inrs} V=${d.cylindree} n=${d.regime_moteur}]`
   },
   TAB_MENUISERIE_MAB: {
@@ -52,28 +52,47 @@ module.exports = {
     show: (r, c, d) => `[vn=${d.ventilation_naturelle} as=${d.asservissement} tv=${d.type_ventilation} vol=${d.volume_local}]`
   },
   TAB_CDP: {
+    // 2026-10-08 : blocs séparés comme le Rapso. _1/_2 = mesure avec le véhicule ou l'encombrant (points de
+    // « Tableau Valeur_1 », moyenne et minimum recalculés par l'appli) ; _3/_4 = cabine vide.
     prepare(d, row, col) {
       const g = l => { try { return String(row[col(l)] || '').trim(); } catch (e) { return ''; } };
-      const pick = (a, b) => g(a) || g(b);
-      d.v1_mesuree = pick('Valeur mesurée_1', 'Valeur mesurée_3');
-      d.v1_reference = pick('Valeur de référence_1', 'Valeur de référence_3');
-      d.v1_valeur_recommandee = pick('Valeur recommandées par_1', 'Valeur recommandées par_3');
-      d.v2_mesuree = pick('Valeur mesurée_2', 'Valeur mesurée_4');
-      d.v2_reference = pick('Valeur de référence_2', 'Valeur de référence_4');
-      d.v2_valeur_recommandee = pick('Valeur recommandées par_2', 'Valeur recommandées par_4');
+      d.v1_mesuree = g('Valeur mesurée_3');
+      d.v1_reference = g('Valeur de référence_3');
+      d.v1_valeur_recommandee = g('Valeur recommandées par_3');
+      d.v2_mesuree = g('Valeur mesurée_4');
+      d.v2_reference = g('Valeur de référence_4');
+      d.v2_valeur_recommandee = g('Valeur recommandées par_4');
       d.v2_active = d.v2_mesuree ? 'Oui' : 'Non';
+      d.avec_moy_reference = g('Valeur de référence_1');
+      d.avec_moy_reco = g('Valeur recommandées par_1');
+      d.avec_min_reference = g('Valeur de référence_2');
+      d.avec_min_reco = g('Valeur recommandées par_2');
+      // Points autour du véhicule ou de l'encombrant, rangés dans la grille de saisie de l'appli
+      const pts = g('Tableau Valeur_1').split(';').map(x => x.trim()).filter(Boolean);
+      const dims = { 10: [2, 5], 12: [2, 6], 14: [2, 7], 16: [4, 4] }[pts.length];
+      if (dims) d.avec_grid = Array.from({ length: dims[0] }, (_, r) => pts.slice(r * dims[1], (r + 1) * dims[1]));
+      d._mes1 = g('Valeur mesurée_1'); d._mes2 = g('Valeur mesurée_2');
       d.debit_mesure = g('Valeur mesurée (m3/h)_1');
+      // 2026-11-27 : débit recalculé par l'appli (3600 × vitesse moyenne × largeur × longueur), comparé au Rapso
+      d.largeur_cabine = g('Largeur (m)/Hauteur (m)'); d.longueur_cabine = g('Longueur (m)');
       d.debit_reference = g('Valeur de référence_5');
-      d._avis1 = pick('Avis par rapport aux valeurs de référence_1', 'Avis par rapport aux valeurs de référence_3');
-      d._avis2 = pick('Avis par rapport aux valeurs de référence_2', 'Avis par rapport aux valeurs de référence_4');
+      d._avis1 = g('Avis par rapport aux valeurs de référence_1');
+      d._avis2 = g('Avis par rapport aux valeurs de référence_2');
+      d._avis3 = g('Avis par rapport aux valeurs de référence_3');
+      d._avis4 = g('Avis par rapport aux valeurs de référence_4');
       d.etat_visuel_cabine = /satisfaisant/i.test(g('Etat visuel de la cabine')) ? 'Satisfaisant' : (g('Etat visuel de la cabine') ? 'Non Satisfaisant' : '');
     },
     compare: [
       ['Avis_1', 'debit_avis'],
-      ['Avis par rapport à la réglementation et/ou aux préconisations', 'conclusion']
+      ['Avis par rapport à la réglementation et/ou aux préconisations', 'conclusion'],
+      ['Valeur mesurée_1', 'avec_v_moy', 'num'], ['Valeur mesurée_2', 'avec_v_min', 'num'],
+      ['Avis par rapport aux valeurs de référence_1', 'avec_moy_avis'], ['Avis par rapport aux valeurs de référence_2', 'avec_min_avis'],
+      ['Avis par rapport aux valeurs de référence_3', 'v1_avis'],
+      ['Valeur mesurée (m3/h)_1', 'debit_mesure', 'num']
     ],
-    extra: [['_avis1', 'v1_avis'], ['_avis2', 'v2_avis']],
-    show: (r, c, d) => `[v1=${d.v1_mesuree}/${d.v1_reference}/${d.v1_valeur_recommandee} a1=${d._avis1}→${d.v1_avis} v2=${d.v2_mesuree}/${d.v2_valeur_recommandee} a2=${d._avis2}→${d.v2_avis} deb=${d.debit_mesure} vis=${d.etat_visuel_cabine} filt=${d.etat_filtres} flux=${d.direction_flux||''}]`
+    show: (r, c, d) => '[type=' + d.type_cabine + ' avec=' + d.avec_v_moy + '/' + d.avec_v_min + ' a1=' + d._avis1 + '→' + d.avec_moy_avis +
+      ' a2=' + d._avis2 + '→' + d.avec_min_avis + ' v1=' + d.v1_mesuree + '/' + d.v1_reference + '/' + d.v1_valeur_recommandee +
+      ' a3=' + d._avis3 + '→' + d.v1_avis + ' v2=' + d.v2_mesuree + ' a4=' + d._avis4 + '→' + d.v2_avis + ' deb=' + d.debit_mesure + ']'
   },
   TAB_CTA: {
     input: [['Vitesse (m/s)_1', 'neuf_vitesse'], ['Vitesse (m/s)_2', 'souf_vitesse'], ['Vitesse (m/s)_3', 'rep_vitesse']],
@@ -113,6 +132,7 @@ module.exports = {
     compare: [
       ['Vitesse minimale (m/s)', 'vpe_min', 'num'], ['Vitesse moyenne (m/s)', 'vpe_moyenne', 'num'],
       ["Débit d'air extrait (m3/h)", 'vpe_debit', 'num'],
+      ["Valeur recommandée par l'INRS(ED 835)_1", 'vpe_min_inrs', 'num'], ["Valeur recommandée par l'INRS(ED 835)_2", 'vpe_moy_inrs', 'num'],
       ['Avis par rapport aux valeurs de référence_1', 'avis_vpe_min'], ['Avis par rapport aux valeurs de référence_2', 'avis_vpe_moy'],
       ['Avis par rapport aux valeurs de référence_3', 'avis_vt'], ['Avis par rapport aux valeurs de référence_4', 'conclusion']
     ],
@@ -148,7 +168,7 @@ module.exports = {
     input: [['Mesures réalisées : ', 'mesures_choisies', v => v.split(';').map(x => x.trim()).filter(Boolean)],
       ['Valeur mesurée_1', 'vpe_mesuree'], ['Valeur mesurée_2', 'vt_mesuree']],
     compare: [
-      ['Avis par rapport aux valeurs de référence_1', 'avis_vpe'],
+      ["Valeur recommandée par l'INRS(ED695)_1", 'vpe_inrs'], ['Avis par rapport aux valeurs de référence_1', 'avis_vpe'],
       ["Valeur recommandée par l'INRS(ED695)_2", 'vt_inrs'],
       ['Avis par rapport aux valeurs de référence_2', 'avis_vt'],
       ['Avis par rapport aux valeurs de référence_4', 'avis']
@@ -174,7 +194,8 @@ module.exports = {
       ['type de ventilation', 'type_ventilation_libelle'],
       ["Débit minimum d'air neuf (m3/h)", 'debit_min_air_neuf', 'num'],
       ['Volume minimal (m3)', 'volume_min', 'num'],
-      ['Avis par rapport aux valeurs réglementaires', 'avis']
+      ['Avis par rapport aux valeurs réglementaires', 'avis'],
+      ['Commentaires', 'commentaire_rapso', 'effectif'] // « / » du Rapso remplacé par l'effectif permis (2026-10-30)
     ],
     show: (r, c, d) => `[loc=${d.type_local} vent=${d.type_ventilation} vol=${d.volume} eff=${d.effectif} deb=${d.debit_total_mesure||d.debit_soufflage||''} pct=${d.pourcentage_air_neuf||''} ouv=${d.ouvrant_exterieur||''} ea=${d.entree_air_exterieur||''} eap=${d.entree_air_permanente||''}]`
   }
