@@ -47,9 +47,11 @@ const TYPES = [
     ['Air neuf introduit', 'Extraction : débit total mesuré. Soufflage : débit total × % d’air neuf. Double flux : débit soufflé × % d’air neuf.', RAPSO],
     ['% d’air neuf non renseigné', 'En soufflage / double flux, tout l’air soufflé est compté comme air neuf (100 %).', APPLI + ' (retour terrain du 05/10/2026)'],
     ['Avis — ventilation naturelle', 'Satisfaisant si volume du local ≥ volume minimal. « Sans ouvrants » et pas d’entrée d’air permanente = Non satisfaisant.', RAPSO],
+    ['« Sans ouvrants », entrée d’air permanente non renseignée', 'Impossible de se prononcer tant que la question n’a pas de réponse (le Rapso, bouton à « Non » par défaut, conclut Non satisfaisant). Sans entrée d’air permanente, le volume n’est pas demandé.', APPLI + ' (retour terrain du 20/10/2026)'],
     ['Avis — ventilation mécanique', 'Satisfaisant si air neuf ≥ débit minimal ; sinon satisfaisant quand même si volume ≥ volume minimal. Débit non mesuré : jugé sur le volume.', RAPSO],
     ['Extraction sans entrée d’air', 'Extraction, sans ouvrant ni entrée d’air sur l’extérieur (réponses « Non ») = Non satisfaisant. Ne s’applique pas en soufflage ni en double flux.', RAPSO + ' ; limité à l’extraction le 05/10/2026'],
-    ['Local occupé occasionnellement', 'Avis « Sans objet ».', RAPSO]
+    ['Local occupé occasionnellement', 'Avis « Sans objet ».', RAPSO],
+    ['Commentaire', 'Effectif maximal que permet le volume (volume ÷ volume par occupant, arrondi à l’unité inférieure) ou le débit d’air neuf (débit ÷ débit par occupant) ; si le débit suffit, l’appli donne le plus grand des deux là où le Rapso écrit « / » ; motif si une donnée manque. Mêmes phrases que le Rapso, suivies du commentaire du technicien (une phrase de l’appli qu’il aurait recopiée ne ressort qu’une fois, avec la valeur calculée).', RAPSO]
   ], exemple: { type_local: 'Bureaux', effectif: '4', volume: '45', type_ventilation: 'Extraction', ouvrant_exterieur: 'Oui', debit_total_mesure: '110' },
   sorties: ['volume_min', 'debit_min_air_neuf', 'debit_air_neuf_introduit', 'type_ventilation_libelle', 'avis'] },
 
@@ -107,17 +109,18 @@ const TYPES = [
   { id: 'hottes', titre: 'Hottes', regles: [
     ['Vitesse au point d’émission', 'Grille de points sur la face de la hotte : minimum et moyenne.', RAPSO],
     ['Débit extrait', '(largeur / 100) × (hauteur / 100) × vitesse moyenne non arrondie × 3 600.', RAPSO],
-    ['Avis vitesses minimale et moyenne', 'Mesure ≥ 0,8 × référence ; référence « / » : mesure ≥ valeur recommandée INRS saisie.', RAPSO],
+    ['Valeurs recommandées INRS', 'Écrites d’office comme dans le Rapso : 0,25 m/s pour la vitesse minimale, 0,5 m/s pour la vitesse moyenne.', RAPSO + ' (UserForm_HOTTE)'],
+    ['Avis vitesses minimale et moyenne', 'Mesure ≥ 0,8 × référence ; référence « / » ou laissée vide : mesure ≥ valeur recommandée INRS.', RAPSO],
     ['Vitesse de transport recommandée', 'Selon le type de polluant (INRS ED 695, tableau VI) : fumées 7 à 10 m/s, poussières très fines 10 à 13, sèches 13 à 18, industrielles moyennes 18 à 20, lourdes 20 à 23, lourdes ou humides > 23, gaz et vapeurs : pas de minimum.', RAPSO + ' ; valeurs vérifiées sur l’ED 695 (2022)'],
-    ['Avis vitesse de transport', 'Avec référence : mesure ≥ 0,8 × référence. Sans référence : mesure ≥ borne basse de la plage (« > 23 » : strictement au-dessus). Gaz et vapeurs : sans objet.', RAPSO],
+    ['Avis vitesse de transport', 'Avec référence : mesure ≥ 0,8 × référence. Sans référence (« / » ou vide) : mesure ≥ borne basse de la plage (« > 23 » : strictement au-dessus). Gaz et vapeurs : sans objet.', RAPSO],
     ['Conclusion', 'Le moins favorable des avis des mesures choisies.', RAPSO]
-  ], exemple: { mesures_choisies: ["Vitesse au point d'émission", 'Vitesse de transport'], vpe_largeur_cm: '120', vpe_hauteur_cm: '60', vpe_nb_points_largeur: '3', vpe_nb_points_hauteur: '2', vpe_grid: [['0.62', '0.58', '0.55'], ['0.51', '0.60', '0.57']], vpe_min_reference: '/', vpe_min_inrs: '0.5', vpe_moy_reference: '/', vpe_moy_inrs: '0.5', vt_type_polluant: 'Fumées', vt_mesuree: '8.2', vt_reference: '/' },
-  sorties: ['vpe_min', 'vpe_moyenne', 'vpe_debit', 'avis_vpe_min', 'avis_vpe_moy', 'vt_inrs', 'avis_vt', ['conclusion', 'Conclusion']] },
+  ], exemple: { mesures_choisies: ["Vitesse au point d'émission", 'Vitesse de transport'], vpe_largeur_cm: '120', vpe_hauteur_cm: '60', vpe_nb_points_largeur: '3', vpe_nb_points_hauteur: '2', vpe_grid: [['0.62', '0.58', '0.55'], ['0.51', '0.60', '0.57']], vpe_min_reference: '/', vpe_moy_reference: '/', vt_type_polluant: 'Fumées', vt_mesuree: '8.2', vt_reference: '/' },
+  sorties: ['vpe_min', 'vpe_moyenne', 'vpe_debit', 'vpe_min_inrs', 'vpe_moy_inrs', 'avis_vpe_min', 'avis_vpe_moy', 'vt_inrs', 'avis_vt', ['conclusion', 'Conclusion']] },
 
   { id: 'bras_aspiration', titre: 'Bras d’aspiration (bras orientables articulés)', regles: [
     ['Vitesse de captage recherchée', 'Imposée par la condition de dispersion choisie : émission sans vitesse initiale en air calme 0,25 m/s ; faible vitesse en air modérément calme 0,5 ; génération active en zone agitée 1 ; grande vitesse initiale 2,5 ; gaz et vapeurs : saisie du technicien.', LISTE + ' (LISTBOX_BOA_1_6)'],
     ['Surface de la bouche', 'Circulaire π × (D / 200)² ; ovale π × (l / 200) × (L / 200) ; autre : surface saisie.', RAPSO],
-    ['Débit calculé', 'Surface × vitesse moyenne × 3 600, arrondi à l’unité.', RAPSO],
+    ['Débit calculé', 'Surface × vitesse moyenne × 3 600, arrondi à l’unité. Surface de la bouche, ou du conduit π × (D / 200)² quand la vitesse est mesurée dans le conduit (« Localisation du point de mesure » = Conduit).', RAPSO],
     ['Distance maximale de captage x', 'Formules INRS du captage ponctuel, Q en m³/s, A = surface : sans collerette Q = Vc (10x² + A) ; avec collerette Q = 0,75 Vc (10x² + A) ; reposant sur un plan : 5x² au lieu de 10x². Donc x = √((Q / (f × Vc) − A) / n), en cm, arrondi.', RAPSO],
     ['« Sans collerette reposant sur un plan »', 'Formule par analogie : aucun cas réel dans les classeurs fournis.', APPLI],
     ['Conclusion', 'Satisfaisant si distance d’utilisation < distance maximale (strictement). Recyclage = Oui : toujours Non satisfaisant.', RAPSO],
@@ -126,27 +129,31 @@ const TYPES = [
   sorties: ['vitesse_captage', 'surface_bouche', 'debit_calcule', 'distance_max_captage', 'conclusion_distance', 'evolution_pct'] },
 
   { id: 'cabines_peinture', titre: 'Cabines de peinture', regles: [
-    ['Vitesse moyenne de la grille', 'Moyenne des points de mesure.', RAPSO],
+    ['Vitesse moyenne de la grille', 'Moyenne des points de mesure ; reprise comme vitesse moyenne mesurée (V1, 2 décimales), le plus petit point comme vitesse minimale (V2). Sans grille, la vitesse saisie est gardée.', RAPSO],
+    ['Débit de la cabine vide', '3 600 × vitesse moyenne × largeur × longueur ; fosse : largeur prise à 1 m. Dimensions absentes : débit saisi gardé.', RAPSO],
     ['Avis vitesses (V1 et V2 si ajoutée)', 'Mesure ≥ 0,8 × référence ; référence « / » : mesure ≥ valeur recommandée saisie (norme NF EN 16985, guides INRS ED 835 / ED 928).', RAPSO],
+    ['Voiture, camion, encombrant : points autour du véhicule ou de l’encombrant', '10 points (voiture), 12, 14 ou 16 (camion de moins de 10 m, 10 à 12 m, 12 à 14 m), 14 (encombrant) ; vitesse moyenne et minimale calculées sur ces points, avis comme ci-dessus.', RAPSO],
+    ['Cabine vide', 'Toujours mesurée, sauf pour une voiture ou un camion où l’on ne peint que des véhicules.', RAPSO],
     ['Avis débit', 'Débit ≥ 0,8 × référence ; sans référence : « Sans objet ».', RAPSO],
-    ['Conclusion', 'Le moins favorable des avis ; vitesse saisie mais débit non mesuré : Impossible de se prononcer.', RAPSO]
-  ], exemple: { vitesse_nb_axes: '2', vitesse_nb_points: '3', vitesse_grid: [['0.42', '0.38', '0.40'], ['0.36', '0.41', '0.39']], v1_mesuree: '0.39', v1_reference: '/', v1_valeur_recommandee: '0.3', debit_mesure: '28000', debit_reference: '30000' },
-  sorties: ['vitesse_moyenne_grille', ['v1_avis', 'Avis vitesse V1'], ['debit_avis', 'Avis débit'], ['conclusion', 'Conclusion']] },
+    ['Conclusion', 'Le moins favorable des avis (bloc avec le véhicule ou l’encombrant, cabine vide quand elle s’applique, débit) ; vitesse saisie mais débit non mesuré : Impossible de se prononcer.', RAPSO]
+  ], exemple: { type_cabine: 'Fermée', largeur_cabine: '4', longueur_cabine: '7', vitesse_nb_axes: '2', vitesse_nb_points: '3', vitesse_grid: [['0.42', '0.38', '0.40'], ['0.36', '0.41', '0.39']], v1_reference: '/', v1_valeur_recommandee: '0.3', debit_reference: '30000' },
+  sorties: ['vitesse_moyenne_grille', ['v1_mesuree', 'Vitesse moyenne V1 (m/s)'], ['v2_mesuree', 'Vitesse minimale V2 (m/s)'], ['debit_mesure', 'Débit (m³/h)'], ['v1_avis', 'Avis vitesse V1'], ['debit_avis', 'Avis débit'], ['conclusion', 'Conclusion']] },
 
   { id: 'installations_diverses', titre: 'Installations diverses (captages)', regles: [
-    ['Vitesse au point d’émission', 'Avis : mesure ≥ 0,8 × référence ; référence « / » : mesure ≥ valeur recommandée saisie. La liste des conditions de dispersion affiche la plage INRS (0,25 à 0,5 m/s, etc.).', RAPSO + ' ; plages : ' + LISTE],
+    ['Vitesse au point d’émission', 'Valeur recommandée INRS imposée par la condition de dispersion : 0,25 - 0,5 m/s, 0,5 - 1, 1 - 2,5, 2,5 - 10 ; gaz et vapeurs « / ». Avis : mesure ≥ 0,8 × référence ; référence « / » ou vide : mesure ≥ borne basse de la plage ; gaz et vapeurs : impossible de se prononcer.', RAPSO + ' (UserForm_EQUIP) ; plages : ' + LISTE + ' (LISTBOX_EQUIP_1_11)'],
     ['Vitesse de transport', 'Mêmes règles que les hottes (table INRS ED 695).', RAPSO],
     ['Débit dans le conduit de transport', 'Surface de la section × vitesse de transport mesurée × 3 600.', RAPSO],
     ['Avis', 'Le moins favorable des avis des mesures choisies.', RAPSO]
-  ], exemple: { mesures_choisies: ["Vitesse au point d'émission", 'Vitesse de transport'], vpe_mesuree: '0.45', vpe_reference: '/', vpe_inrs: '0.5', vt_type_polluant: 'Poussières industrielles moyennes', vt_mesuree: '19.5', vt_reference: '/', forme_section: 'Circulaire', diametre_cote1: '20' },
-  sorties: ['avis_vpe', 'vt_inrs', 'avis_vt', 'debit_vt', 'avis'] },
+  ], exemple: { mesures_choisies: ["Vitesse au point d'émission", 'Vitesse de transport'], vpe_mesuree: '0.45', vpe_conditions_dispersion: 'Emission sans vitesse initiale en air calme', vpe_reference: '/', vt_type_polluant: 'Poussières industrielles moyennes', vt_mesuree: '19.5', vt_reference: '/', forme_section: 'Circulaire', diametre_cote1: '20' },
+  sorties: ['vpe_inrs', 'avis_vpe', 'vt_inrs', 'avis_vt', 'debit_vt', 'avis'] },
 
   { id: 'gaz_echappement', titre: 'Captage des gaz d’échappement', regles: [
     ['Surface, débit mesuré', 'Surface de la section × vitesse (directe ou moyenne de grille) × 3 600.', RAPSO],
     ['Débit minimal calculé', '1,2 × cylindrée (L) × 0,0363 × régime (tr/min).', RAPSO],
-    ['Avis', 'Satisfaisant si le débit atteint chacune des valeurs connues : 0,8 × référence, débit minimal INRS saisi, débit minimal calculé.', RAPSO]
-  ], exemple: { forme_section: 'Circulaire', diametre_cote1: '10', vitesse_mode: 'Vitesse moyenne directe', vitesse: '15', debit_reference: '/', debit_min_inrs: '300', cylindree: '2', regime_moteur: '1500' },
-  sorties: ['surface_m2', 'debit_mesure', 'debit_min_calcule', 'avis_constructeur'] },
+    ['Débit minimum préconisé INRS', 'Écrit d’office selon le véhicule et le captage : véhicule léger 400 m³/h (enveloppant) ou 1 000 (récepteur) ; poids lourd et bus 1 000 ou 2 000 ; autres « / ».', RAPSO + ' (UserForm_Choix_ECHAP)'],
+    ['Avis', 'Captage non adapté : non satisfaisant. Sinon le débit est comparé à 0,8 × référence si elle existe, à défaut au débit minimum INRS, à défaut au débit minimum calculé.', RAPSO + ' (UserForm_ECHAP)']
+  ], exemple: { forme_section: 'Circulaire', diametre_cote1: '10', vitesse_mode: 'Vitesse moyenne directe', vitesse: '15', debit_reference: '/', type_vehicule: 'VEHICULE LEGER', type_captage: 'Captage récepteur (non fixé à l’échappement)', type_captage_adapte: 'Oui', cylindree: '2', regime_moteur: '1500' },
+  sorties: ['surface_m2', 'debit_mesure', 'debit_min_inrs', 'debit_min_calcule', 'avis_constructeur'] },
 
   { id: 'menuiserie', titre: 'Menuiserie — réseau d’aspiration', regles: [
     ['Surface, débit', 'Surface de la section × vitesse (directe ou moyenne de grille) × 3 600.', RAPSO],
@@ -158,6 +165,7 @@ const TYPES = [
     ['Vitesse, débit', 'Vitesse directe ou moyenne de grille ; débit = surface × vitesse × 3 600 (2 décimales).', RAPSO],
     ['Valeurs recommandées', 'Vitesse 20 m/s ; débit selon le type de machine (table annexe A, INRS ED 750).', LISTE],
     ['Avis vitesse', 'Avec référence : vitesse ≥ 0,8 × référence. Sans référence : vitesse ≥ 20 m/s (sans le coefficient 0,8).', RAPSO + ' (vérifié sur 18 machines réelles)'],
+    ['Référence inférieure à la valeur INRS', 'Règle du Rapso gardée (une référence de 8 m/s fait viser 6,4 m/s) ; l’appli l’écrit sous la case au technicien et propose « / » pour comparer aux 20 m/s.', RAPSO + ' (avertissement : appli)'],
     ['Avis débit sans référence', 'Débit ≥ valeur de la table, sans coefficient 0,8, par analogie avec la vitesse : aucun cas réel ne permet de trancher.', APPLI],
     ['Conclusion', 'Satisfaisant si vitesse et débit sont satisfaisants.', RAPSO]
   ], exemple: { type_machine: 'Scie circulaire de diamètre <315mm', forme_conduit: 'Circulaire', diametre_cote1: '12', vitesse_mode: 'Vitesse moyenne directe', vitesse_directe: '22.5', vitesse_reference: '/', debit_reference: '/' },
@@ -201,11 +209,11 @@ const HORS_RAPSO = [
   { id: 'local_specifique', titre: 'Local à pollution spécifique (extraction / air neuf)', regles: [
     ['Débit global extrait', 'Débit des captages + extraction générale.', 'Arrêté du 8 octobre 1987, art. 4'],
     ['Avis extraction', 'Débit ≥ 0,8 × valeur de référence ; sans référence : « Sans objet ».', 'Règle du Rapso appliquée'],
-    ['Taux de renouvellement', 'Débit / volume ; avis seulement si le technicien saisit un taux recommandé et sa source (aucun taux réglementaire).', 'Appli'],
-    ['Débit minimal d’air neuf', 'Débit par occupant (R4222-6) × (occupants du local + occupants des locaux d’où vient l’air).', 'Code du travail R4222-11'],
-    ['Avis', 'Le moins favorable des avis contrôlés.', 'Appli']
-  ], exemple: { mesures_realisees: '', debit_captages: '1200', debit_extraction_generale: '800', valeur_reference_extraction: '2200', volume: '300', type_local: 'Ateliers ou Locaux avec Travail Physique Léger', effectif: '6', mode_air_neuf: '', debit_air_neuf: '300' },
-  sorties: ['debit_global_extrait', 'avis_extraction', 'taux_renouvellement', 'debit_min_air_neuf', 'avis_air_neuf', 'avis'] },
+    ['Taux de renouvellement', 'Débit extrait / volume et, si l’air neuf est soufflé, débit d’air neuf / volume. Comparé au taux à atteindre propre à l’activité, saisi par le technicien avec sa source (demande du client, dossier de l’installation, guide INRS) ; aucune valeur par défaut. Entrées d’air naturelles : impossible de se prononcer. Sans taux à atteindre : informatif. Repère : INRS ED 6015 (2019), local de stockage de produits chimiques, 4 à 6 vol/h. L’INRS (ED 695) rappelle qu’en général un taux de renouvellement n’est pas un critère de ventilation suffisant.', 'Appli (09/10/2026)'],
+    ['Débit minimal d’air neuf par occupant', 'Facultatif : seulement si l’effectif est renseigné. Débit par occupant (R4222-6) × (occupants du local + occupants des locaux d’où vient l’air).', 'Code du travail R4222-11'],
+    ['Avis', 'Le moins favorable des avis contrôlés : un minimum par occupant respecté ne rend jamais satisfaisant un taux de renouvellement insuffisant.', 'Appli']
+  ], exemple: { mesures_realisees: '', debit_captages: '1200', debit_extraction_generale: '800', valeur_reference_extraction: '2200', volume: '300', taux_recommande: '6', type_local: 'Ateliers ou Locaux avec Travail Physique Léger', effectif: '6', mode_air_neuf: '', debit_air_neuf: '300' },
+  sorties: ['debit_global_extrait', 'avis_extraction', 'taux_renouvellement', 'taux_air_neuf', 'avis_taux', 'debit_min_air_neuf', 'avis_air_neuf', 'avis'] },
   { id: 'recyclage', titre: 'Recyclage de l’air (contrôle semestriel)', regles: [
     ['Destination de l’air', 'Même local : satisfaisant ; vers un local à pollution non spécifique : non satisfaisant (R4222-9) ; autre local spécifique : selon même nature de polluant.', 'Code du travail R4222-9 et R4222-14'],
     ['Concentration retenue en gaine', 'Photomètre (DustTrak) : fraction alvéolaire = moyenne du canal RESP, fraction inhalable = moyenne du canal TOTAL (majorant), multipliées par le facteur de correction s’il y en a un (sinon 1). Gravimétrie : valeurs saisies.', 'Appli — à valider'],
@@ -327,7 +335,9 @@ const EXPLICATIONS_ECARTS = [
   ['Sanitaires (29)', 'Tous dans un même classeur où les avis ont été forcés à la main, incohérents avec les saisies.'],
   ['Bras d’aspiration (7)', 'Fiches incomplètes dans le classeur source (bouche non renseignée) : le Rapso conclut, l’appli répond « Impossible de se prononcer ».'],
   ['Cabines de peinture (2)', 'Ancien classeur V27, dont la règle « débit non mesuré » diffère du V29.'],
-  ['Hottes (2), machines à bois (2), gaz d’échappement (1), box (1)', 'Fiche incomplète, valeur INRS effacée à la main, « / » au lieu de vide, libellé de conclusion différent.']
+  ['Bureaux, commentaire (3)', 'Soufflage sans % d’air neuf saisi : l’appli compte tout l’air soufflé comme air neuf (retour terrain du 05/10/2026), le Rapso écrit « débit non mesurable ». L’avis est le même.'],
+  ['Hottes (2), machines à bois (2), gaz d’échappement (1), box (1)', 'Fiche incomplète, valeur INRS effacée à la main, « / » au lieu de vide, libellé de conclusion différent.'],
+  ['Installations diverses (3), hottes (1)', 'Référence laissée vide dans le classeur : le Rapso répond « Impossible de se prononcer », l’appli compare à la valeur INRS comme pour « / » (demande du 16/10/2026). Une hotte a sa référence et sa valeur INRS inversées dans le classeur.']
 ];
 
 function construire() {
