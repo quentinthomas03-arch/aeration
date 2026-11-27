@@ -63,7 +63,9 @@ test('démo : statuts et avis', ctx => {
   eq(st, { done: 26, inprogress: 1, todo: 0 }, 'statuts');
   const c = { ok: 0, bad: 0, na: 0, open: 0 };
   items.forEach(it => c[ctx.bilanCategory(it)]++);
-  eq(c, { ok: 9, bad: 16, na: 1, open: 1 }, 'catégories du bilan');
+  // 2026-11-27 : la cabine de la démo passe satisfaisante — sa vitesse minimale (0,1 saisie à la main)
+  // est désormais celle de la grille (0,82), comme le Rapso
+  eq(c, { ok: 10, bad: 15, na: 1, open: 1 }, 'catégories du bilan');
 });
 
 test('démo : vérification avant départ', ctx => {
@@ -829,7 +831,8 @@ test('torches : un point tant que le nombre n’est pas choisi ; reprise depuis 
     { id: 'c', data: { reference_equipement: 'P1', etat_visuel: 'En bon état', etat_conduits: 'En bon état', test_fumigene: 'Non réalisé', conditions_dispersion: 'Gaz et vapeurs', vitesse_moyenne: '8' } },
     { id: 'd', data: { reference_equipement: 'P2', test_fumigene: 'Non réalisé' } }] }, typesSelectionnes: ['sorbonnes', 'bras_aspiration'] };
   ctx.state.missions = [m]; ctx.state.currentMissionId = 'm1'; ctx.state.currentInstIndex = 1;
-  const steps = ctx.WIZARD_STEPS.sorbonnes, etape = steps.findIndex(s => s.title === 'Mesures ambiantes');
+  // Écrans repérés par champ, pas par titre (écrans regroupés le 2026-11-27)
+  const steps = ctx.WIZARD_STEPS.sorbonnes, etape = steps.findIndex(s => s.fields.includes('temperature'));
   const html = ctx.repriseVoisineHtml('sorbonnes', steps, etape, m.installations.sorbonnes[1]);
   assert(html.includes('SO-01') && html.includes('21,5 °C'), 'bouton de reprise : ' + html.slice(0, 120));
   ctx.repriseVoisineAppliquer('sorbonnes', 0, etape);
@@ -837,14 +840,15 @@ test('torches : un point tant que le nombre n’est pas choisi ; reprise depuis 
   eq(m.installations.sorbonnes[1].data.appareils_mesure, 'KIMO', 'appareils repris');
   eq(ctx.repriseVoisineHtml('sorbonnes', steps, etape, m.installations.sorbonnes[1]), '', 'plus de bouton une fois repris');
   // Bras : constats repris, jamais la mesure ; un seul champ à gagner = pas de bouton
-  const sb = ctx.WIZARD_STEPS.bras_aspiration, ev = sb.findIndex(s => s.title === 'État visuel');
+  const sb = ctx.WIZARD_STEPS.bras_aspiration, ev = sb.findIndex(s => s.fields.includes('etat_visuel'));
   const hb = ctx.repriseVoisineHtml('bras_aspiration', sb, ev, m.installations.bras_aspiration[1]);
   assert(hb.includes('P1') && !hb.includes('Non réalisé'), 'bouton bras sans le champ déjà identique : ' + hb.slice(0, 160));
   ctx.repriseVoisineAppliquer('bras_aspiration', 0, ev);
   const d = m.installations.bras_aspiration[1].data;
-  eq([d.etat_visuel, d.etat_conduits, d.conditions_dispersion, d.vitesse_moyenne], ['En bon état', 'En bon état', 'Gaz et vapeurs', undefined], 'constats repris, pas la mesure');
-  const ad = sb.findIndex(s => s.title === 'Adaptation & recyclage');
-  eq(ctx.repriseVoisineHtml('bras_aspiration', sb, ad, d), '', 'rien à reprendre');
+  eq([d.etat_visuel, d.etat_conduits, d.vitesse_moyenne], ['En bon état', 'En bon état', undefined], 'constats repris, pas la mesure');
+  // Condition de dispersion : seule sur l'écran des références, un seul champ à gagner = pas de bouton
+  const cd = sb.findIndex(s => s.fields.includes('conditions_dispersion'));
+  eq(ctx.repriseVoisineHtml('bras_aspiration', sb, cd, d), '', 'un seul champ : pas de bouton');
 });
 
 test('recyclage : rapport semestriel autonome, synthèse sans « conforme » non contrôlé', async ctx => {
@@ -1417,7 +1421,7 @@ test('conditions de mesure : modèle d’incertitude INRS PR 49 et rappel', ctx 
   const m = loadDemo(ctx);
   ctx.state.missions = [m]; ctx.state.currentMissionId = m.id;
   const ext = m.installations.extracteur[0], steps = ctx.WIZARD_STEPS.extracteur;
-  const iv = steps.findIndex(s => s.title === 'Vitesse');
+  const iv = steps.findIndex(s => s.fields.includes('vitesse_grid'));
   Object.assign(ext.data, { vitesse_mode: 'Grille de points', vitesse_nb_axes: '1', vitesse_nb_points: '2', _ld: 4 });
   const h = ctx.conditionsMesureHtml('extracteur', steps, iv, ext);
   assert(h.includes('erreur maximale estimée <b>16 %</b>') && h.includes('1 diamètre de 10 points'), 'erreur et schéma conseillé : ' + h.slice(0, 200));
@@ -1570,6 +1574,91 @@ test('objectif avant la mesure : déduit du calcul de l’appli', ctx => {
   eq(r[0].ok, false, 'valeur saisie sous l’objectif');
 });
 
+test('retours terrain du 27/11 : débit de cabine calculé, ordre des écrans, référence des machines à bois, import des conduits', ctx => {
+  const calc = (type, d) => { const inst = { data: Object.assign({}, d) }; ctx.applyCalculations(type, inst); return inst.data; };
+  // Cabine : valeurs volontairement différentes par point, débit = 3600 × moyenne × largeur × longueur
+  let c = calc('cabines_peinture', { type_cabine: 'Fermée', largeur_cabine: '4', longueur_cabine: '7', vitesse_nb_axes: '2', vitesse_nb_points: '3',
+    vitesse_grid: [['0,31', '0,42', '0,27'], ['0,36', '/', '0,29']], v2_active: 'Oui', v1_reference: '/', v1_valeur_recommandee: '0,3' });
+  eq([c.v1_mesuree, c.v2_mesuree], ['0.33', '0.27'], 'vitesses moyenne et minimale depuis la grille');
+  eq(c.debit_mesure, String(Math.round(3600 * 0.33 * 4 * 7 * 100) / 100), 'débit cabine vide');
+  c = calc('cabines_peinture', { type_cabine: 'Fosse', largeur_cabine: '9', longueur_cabine: '6', v1_mesuree: '0,45' });
+  eq(c.debit_mesure, String(3600 * 0.45 * 6), 'fosse : largeur prise à 1 m, vitesse saisie sans grille');
+  c = calc('cabines_peinture', { type_cabine: 'Ouverte', v1_mesuree: '0,5', debit_mesure: '12000' });
+  eq(c.debit_mesure, '12000', 'dimensions absentes : débit saisi conservé');
+  // Ordre des écrans : références avant les mesures, constats en dernier
+  const titres = t => ctx.WIZARD_STEPS[t].map(s => s.title);
+  eq(titres('menuiserie_bis'), ['Machine', 'Valeurs de référence', 'Mesure dans le conduit', 'Constat'], 'machine à bois en 4 écrans');
+  const pos = (t, k) => ctx.WIZARD_STEPS[t].findIndex(s => s.fields.includes(k));
+  assert(pos('menuiserie_bis', 'diametre_cote1') < pos('menuiserie_bis', 'conclusion_avis'), 'diamètre avant le constat');
+  assert(pos('cabines_peinture', 'v1_reference') < pos('cabines_peinture', 'vitesse_grid') && pos('cabines_peinture', 'vitesse_grid') < pos('cabines_peinture', 'etat_visuel_cabine'),
+    'cabine : références, mesures, constats');
+  // Machine à bois : rappel de la règle quand la référence est sous les 20 m/s INRS ; objectif de débit nommé
+  const fv = ctx.getInstallationType('menuiserie_bis').fields.find(x => x.key === 'vitesse_reference');
+  const n = fv.note({ vitesse_reference: '8' });
+  assert(n.alerte && /6,4 m\/s/.test(n.texte) && /20 m\/s/.test(n.texte), 'référence 8 m/s : alerte et 6,4 m/s expliqués');
+  assert(!fv.note({ vitesse_reference: '25' }).alerte, 'référence au-dessus de l’INRS : simple rappel');
+  const fd = ctx.getInstallationType('menuiserie_bis').fields.find(x => x.key === 'vitesse_directe');
+  const o = ctx.seuilsPourChamp('menuiserie_bis', fd, { data: { type_machine: 'Toupie pour réalisation de tenon', forme_conduit: 'Circulaire', diametre_cote1: '16',
+    vitesse_mode: 'Vitesse moyenne directe', vitesse_reference: '/', debit_reference: '/' } }).map(r => r.libelle + ' : ' + r.texte);
+  // 1 400 m³/h dans un conduit de 16 cm : 1400 / (π × 0,08² × 3600) = 19,34 m/s
+  assert(o.some(x => /^Vitesse pour un débit satisfaisant : [≥>] 19,3\d? m\/s$/.test(x)), 'objectif de débit en vitesse : ' + o.join(' | '));
+  // Import Rapso : conduit et références des machines à bois, dimensions de cabine repris
+  const mab = ctx.rapsoSheetToInstallations('menuiserie_bis', [[], [], [], [], ['Référence de la machine à bois', 'Type de conduit_1', 'Diamètre (cm)_2', 'Valeur de référence', 'Date du contrôle'],
+    ['Scie 1', 'Circulaire', '12', '/', '01/02/2026']])[0];
+  eq(ctx.buildInstallationDataFromPrevious('menuiserie_bis', mab), { reference_machine: 'Scie 1', vitesse_reference: '/', forme_conduit: 'Circulaire', diametre_cote1: '12' }, 'machine à bois reprise');
+  const cab = ctx.buildInstallationDataFromPrevious('cabines_peinture', { type_cabine: 'Fermée', largeur_cabine: '4', longueur_cabine: '7', v1_mesuree: '0,3', etat_filtres: 'Encrassé', date_controle: '01/01/2026' });
+  eq(cab, { type_cabine: 'Fermée', largeur_cabine: '4', longueur_cabine: '7', v1_mesuree_n1: '0,3' }, 'cabine : dimensions reprises, mesure en N-1, constat et date non');
+});
+
+test('retours terrain du 27/11, lot 2 : même trame pour les captages, points sur un écran, reprise par champs', ctx => {
+  const types = ['installations_diverses', 'bras_aspiration', 'extracteur', 'gaz_echappement', 'hottes', 'menuiserie', 'sorbonnes', 'tts',
+    'torches_aspirantes', 'locaux_charge', 'box_peinture', 'cta'];
+  const titres = t => ctx.WIZARD_STEPS[t].map(s => s.title);
+  types.forEach(t => {
+    assert(ctx.WIZARD_STEPS[t].length <= 7, t + ' : ' + ctx.WIZARD_STEPS[t].length + ' écrans');
+    assert(/^Constat/.test(titres(t)[titres(t).length - 1]), t + ' : constat en dernier');
+    const champs = ctx.WIZARD_STEPS[t].flatMap(s => s.fields).filter(k => k[0] !== '#');
+    eq(champs.filter((k, i) => champs.indexOf(k) !== i), [], t + ' : aucun champ sur deux écrans');
+    assert(ctx.DUPLICATION_KEEP_FIELDS[t], t + ' : reprise par liste de champs');
+  });
+  // Références avant les mesures (l'objectif s'affiche pendant la mesure)
+  const pos = (t, k) => ctx.WIZARD_STEPS[t].findIndex(s => s.fields.includes(k));
+  assert(pos('hottes', 'vpe_min_reference') < pos('hottes', 'vpe_grid') && pos('hottes', 'vpe_grid') < pos('hottes', 'etat_visuel_reseau'), 'hotte : références, mesures, constats');
+  assert(pos('sorbonnes', 'vitesse_min_reference') < pos('sorbonnes', 'grille') && pos('sorbonnes', 'grille') < pos('sorbonnes', 'zones_turbulentes'), 'sorbonne : idem');
+  // Points de torche sur un écran : le sous-titre d'un point masqué disparaît avec lui
+  const st = ctx.WIZARD_STEPS.torches_aspirantes.find(s => s.title === 'Points de mesure');
+  const h = ctx.gwStepBodyHtml('torches_aspirantes', st, { data: { nombre_points_mesure: '2' } });
+  assert(h.includes('Point de mesure n°2') && !h.includes('Point de mesure n°3'), 'points 1 et 2 seulement');
+  // Reprise : champs structurels ajoutés, mesures et constats toujours exclus
+  const r = (t, d) => ctx.buildInstallationDataFromPrevious(t, d);
+  eq(r('torches_aspirantes', { torche1_point_mesure: 'Poste 3', torche1_diametre_tube: '28', torche1_vitesse_centre: '12' }), { torche1_point_mesure: 'Poste 3', torche1_diametre_tube: '28' }, 'torche : point et diamètre repris, pas la vitesse');
+  eq(r('hottes', { vt_type_polluant: 'Fumées', vt_reference: '/', vt_mesuree: '9', etat_visuel_reseau: 'En bon état' }).vt_type_polluant, 'Fumées', 'hotte : polluant repris');
+  assert(!('vt_mesuree' in r('hottes', { vt_mesuree: '9' })), 'hotte : vitesse non reprise');
+  eq(r('locaux_charge', { grille2_largeur: '30', grille2_longueur: '20', grille2_valeur_mesuree: '1,2' }), { grille2_largeur: '30', grille2_longueur: '20' }, 'grille : dimensions reprises');
+  // Critère nommé par le sous-titre de sa rubrique ou par le schéma
+  const nom = (t, k) => ctx.reasonLabel(ctx.getInstallationType(t), ctx.getInstallationType(t).fields.find(f => f.key === k));
+  eq([nom('installations_diverses', 'avis_vt'), nom('hottes', 'avis_vpe_min'), nom('extracteur', 'avis_constructeur')],
+    ['Vitesse de transport', 'Vitesse minimale au point d’émission', 'Débit'], 'noms des critères');
+});
+
+test('retours terrain du 27/11, lot 3 : outils de la fiche derrière « Plus »', ctx => {
+  const m = loadDemo(ctx);
+  ctx.state.missions = [m]; ctx.state.currentMissionId = m.id; ctx.state.currentInstIndex = 0;
+  ctx.state.outilsFicheOuverts = false; ctx.state.ncOuvert = null; ctx.state.noteOuverte = null;
+  const cta = m.installations.cta[0];
+  let h = ctx.outilsFicheHtml('cta', cta);
+  assert(/Plus : .*bilan d’air neuf.*plaque.*étiquette QR.*note/.test(h) && !h.includes('outils-fiche-contenu'), 'fermé : un bouton qui liste les outils');
+  cta.data._note = 'Clé à l’accueil';
+  assert(ctx.outilsFicheHtml('cta', cta).includes('note saisie'), 'note déjà saisie signalée');
+  ctx.state.ncOuvert = 'cta:0';
+  assert(ctx.outilsFicheHtml('cta', cta).includes('nc-form'), 'formulaire « non contrôlée » en cours : déplié');
+  ctx.state.ncOuvert = null; ctx.state.outilsFicheOuverts = true;
+  assert(ctx.outilsFicheHtml('cta', cta).includes('note-champ'), 'ouvert : la note est là');
+  ctx.state.outilsFicheOuverts = false;
+  const s = ctx.outilsFicheHtml('sanitaires', m.installations.sanitaires[0]);
+  assert(s.includes('Plus') && !s.includes('plaque'), 'sanitaires : pas de plaque');
+});
+
 test('sanitaires à usage individuel : débit minimal limité à 15 m³/h (R4212-6)', ctx => {
   const f = d => ctx.debitMinSanitaires(Object.assign({ chambre_erp_individuelle: 'Non' }, d));
   eq(f({ wc_urinoirs: '1', individuel_collectif: 'Collectif' }), 30, 'WC collectif');
@@ -1655,7 +1744,7 @@ test('local spécifique et recyclage : rapport PDF, synthèse, anciennes mission
 // ————————————————————————————————————————————
 
 // Écarts connus et expliqués au 2026-10-03 (cf. en-tête de compare.js) : le test échoue s'il y en a plus.
-const ECARTS_RAPSO_CONNUS = 17; // dont 3 commentaires de bureaux en soufflage sans % d’air neuf (règle du 05/10/2026), 3 installations diverses à référence vide comparées à l’INRS (16/10/2026), 1 hotte de Verdun à valeurs INRS / référence inversées
+const ECARTS_RAPSO_CONNUS = 16; // 2026-11-27 : -1 (conclusion des 2 cabines V27 sans débit saisi : débit désormais calculé) ; dont 3 commentaires de bureaux en soufflage sans % d’air neuf (règle du 05/10/2026), 3 installations diverses à référence vide comparées à l’INRS (16/10/2026), 1 hotte de Verdun à valeurs INRS / référence inversées
 
 test('où et comment mesurer : schémas proposés aux bonnes étapes, tracés sans valeur manquante', ctx => {
   const m = loadDemo(ctx);
@@ -1927,6 +2016,8 @@ test('Rapso V31 : photo de la CTA au rapport, vitesses 90/140 cm des sorbonnes s
   ['Photo de la sorbonne', 'Ref. de la sorbonne :', 'Photo de la hotte', 'BRAS ORIENTABLE ARTICULE (BOA)', 'Photo de l’extracteur contrôlé', 'Vitesse moyenne (m/s)']
     .forEach(s => assert(txt.includes(JSON.stringify(s).slice(1, -1)), 'intitulé V31 : ' + s));
   assert(!/moyenne\(m\/s\)/.test(txt), 'plus de « Vitesse moyenne(m/s) » collé');
+  assert(!/Centrales de Traitement d/.test(txt), 'plus de page de méthodologie CTA (retirée par la V31)');
+  assert(txt.includes('Méthodologie de vérification des sorbonnes'), 'les autres pages de méthodologie restent');
   const buf = await pdfBuffer(ctx.pdfMake.createPdf(dd));
   fs.mkdirSync(path.join(APP, 'test-output'), { recursive: true });
   fs.writeFileSync(path.join(APP, 'test-output/rapso-v31-cta-photo.pdf'), buf);
