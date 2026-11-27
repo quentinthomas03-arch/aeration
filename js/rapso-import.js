@@ -250,7 +250,11 @@ var RAPSO_FIELD_MAP = {
     ['Référence de la machine à bois', 'reference_machine'], ['Date du contrôle', 'date_controle'],
     // Ramené au libellé exact de nos options (espaces insécables / casse du Rapso, cf. machineBoisCanon).
     ['Type de machine à bois', 'type_machine', function (v) { return (typeof machineBoisCanon === 'function' && machineBoisCanon(v)) || v; }], ["Etat visuel du réseau d'aspiration", 'etat_visuel_reseau'],
-    ['Valeur de référence', 'vitesse_reference'], ['Débit de référence (m3/h)', 'debit_reference']
+    ['Valeur de référence', 'vitesse_reference'], ['Débit de référence (m3/h)', 'debit_reference'],
+    // Conduit (retour terrain du 2026-11-27 : diamètres jamais repris) — mêmes colonnes que TAB_EQUIP,
+    // vérifiées sur Verdun 2026 (18 machines : « Circulaire », diamètre 12 / 18 / 15 cm…)
+    ['Type de conduit_1', 'forme_conduit'], ['Diamètre (cm)_2', 'diametre_cote1'],
+    ['Largeur (cm)_1', 'diametre_cote1'], ['Longueur (cm)_1', 'cote2']
   ],
 
   box_peinture: [

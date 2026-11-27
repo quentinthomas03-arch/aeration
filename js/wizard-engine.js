@@ -57,6 +57,8 @@ function gwBigText(typeId, f, inst) {
 
 function gwBigNumber(typeId, f, inst) {
   var val = inst.data[f.key] !== undefined ? inst.data[f.key] : '';
+  // Valeur écrite par le calcul (0.87) affichée à la française (0,87), comme une saisie
+  if (/^-?\d+\.\d+$/.test(String(val))) val = String(val).replace('.', ',');
   var st = fieldState(f, inst);
   var champ = '<input type="text" inputmode="decimal" class="input-big state-' + st + '" value="' + escapeHtml(val) +
     '" onchange="gwField(\'' + typeId + '\',\'' + f.key + '\',this.value);">';
@@ -162,12 +164,23 @@ function seuilAvant(typeId, f, inst) {
   return (typeof seuilObjectifHtml === 'function') ? seuilObjectifHtml(typeId, f, inst) : '';
 }
 
+// Rappel sous un champ (f.note(data) -> texte, ou { texte, alerte }) : ex. ce qu'implique la valeur de
+// référence saisie pour l'avis (machines à bois, retour terrain du 2026-11-27)
+function gwNoteChamp(f, inst) {
+  if (typeof f.note !== 'function') return '';
+  var n;
+  try { n = f.note(inst.data); } catch (e) { return ''; }
+  if (!n) return '';
+  if (typeof n === 'string') n = { texte: n };
+  return '<div class="field-hint field-note' + (n.alerte ? ' field-hint-warn' : '') + '">' + escapeHtml(n.texte) + '</div>';
+}
+
 function gwRenderField(typeId, f, inst) {
   if (f.showIf && !evalShowIf(f.showIf, inst.data)) return '';
   switch (f.type) {
     case 'computed': return gwComputedBadge(typeId, f, inst);
-    case 'text': return gwBigText(typeId, f, inst);
-    case 'number': return seuilAvant(typeId, f, inst) + gwBigNumber(typeId, f, inst);
+    case 'text': return gwBigText(typeId, f, inst) + gwNoteChamp(f, inst);
+    case 'number': return seuilAvant(typeId, f, inst) + gwBigNumber(typeId, f, inst) + gwNoteChamp(f, inst);
     case 'textarea': return gwTextarea(typeId, f, inst);
     case 'checkbox-group': return gwChoiceButtonsMulti(typeId, f, inst);
     case 'select':
@@ -190,6 +203,38 @@ function gwRenderField(typeId, f, inst) {
 function gwStepFields(typeId, stepDef) {
   var t = getInstallationType(typeId);
   return stepDef.fields.map(function (k) { return t.fields.find(function (f) { return f.key === k; }); }).filter(Boolean);
+}
+
+// Sous-titres dans un écran (2026-11-27) : une entrée « #Titre » dans fields (js/wizard-steps.js) ouvre
+// une rubrique, affichée seulement si l'un de ses champs l'est. Les écrans regroupés restent lisibles.
+function gwEstRubrique(k) { return typeof k === 'string' && k.charAt(0) === '#'; }
+
+function gwStepBodyHtml(typeId, stepDef, inst) {
+  var t = getInstallationType(typeId), h = '', titre = null, bloc = '';
+  var vider = function () {
+    if (bloc) h += (titre ? '<div class="wizard-rubrique">' + escapeHtml(titre) + '</div>' : '') + bloc;
+    bloc = '';
+  };
+  stepDef.fields.forEach(function (k) {
+    if (gwEstRubrique(k)) { vider(); titre = k.slice(1); return; }
+    var f = t.fields.find(function (x) { return x.key === k; });
+    if (f) bloc += gwRenderField(typeId, f, inst);
+  });
+  vider();
+  return h;
+}
+
+// Nom de la rubrique qui porte un champ : son sous-titre dans l'écran, sinon le titre de l'écran
+// (sert à nommer un critère ou une mesure au libellé trop vague : « Avis », « Valeur mesurée »)
+function gwChampRubrique(typeId, key) {
+  var steps = (typeof WIZARD_STEPS !== 'undefined' && WIZARD_STEPS[typeId]) || [];
+  for (var i = 0; i < steps.length; i++) {
+    var j = steps[i].fields.indexOf(key);
+    if (j === -1) continue;
+    for (var k = j - 1; k >= 0; k--) if (gwEstRubrique(steps[i].fields[k])) return steps[i].fields[k].slice(1);
+    return steps[i].title;
+  }
+  return '';
 }
 
 function gwStepVisible(typeId, stepDef, inst) {
@@ -316,7 +361,7 @@ function renderGenericWizard(m, t, inst) {
   if (typeof conditionsMesureHtml === 'function') h += conditionsMesureHtml(t.id, steps, step, inst); // conditions de mesure (js/conditions-mesure.js)
   if (typeof ouMesurerHtml === 'function') h += ouMesurerHtml(t.id, steps, step, inst); // schéma « où et comment mesurer » (js/ou-mesurer.js)
   if (typeof repriseVoisineHtml === 'function') h += repriseVoisineHtml(t.id, steps, step, inst); // reprise d'une installation voisine (js/terrain-assist.js)
-  gwStepFields(t.id, steps[step]).forEach(function (f) { h += gwRenderField(t.id, f, inst); });
+  h += gwStepBodyHtml(t.id, steps[step], inst);
   h += '</div>';
 
   h += '<div class="wizard-nav row">';
@@ -332,15 +377,46 @@ function renderGenericWizard(m, t, inst) {
   h += '</div>';
   if (posInVisible === visibleIdx.length - 1) h += nextInstallationButtonHtml(t.id);
   h += liveVerdictBarHtml(t.id, inst);
-  if (typeof histoCarteHtml === 'function') h += histoCarteHtml(t.id, inst); // historique (js/bilans.js)
-  if (typeof bilanCtaCarteHtml === 'function') h += bilanCtaCarteHtml(t.id, inst); // bilan d'air neuf de la CTA
-  if (typeof plaqueHtml === 'function') h += plaqueHtml(t.id, inst); // photo de la plaque (js/plaque.js)
-  if (typeof plaqueDonneesHtml === 'function') h += plaqueDonneesHtml(t.id, inst); // débit nominal, facteur K (js/aides-mesure.js)
-  if (typeof ncChampHtml === 'function') h += ncChampHtml(t.id, inst); // installation non contrôlée (js/qualite.js)
-  if (typeof etiquetteFicheHtml === 'function') h += etiquetteFicheHtml(t.id, inst); // étiquette QR à l'unité (js/finitions.js)
-  if (typeof noteInstallationChampHtml === 'function') h += noteInstallationChampHtml(t.id, inst); // note pour la prochaine visite
+  h += outilsFicheHtml(t.id, inst);
 
   return h;
+}
+
+// Outils de la fiche (retour terrain du 2026-11-27, lot 3) : historique, bilan d'air neuf, plaque,
+// non contrôlée, étiquette QR, note s'empilaient sous chaque écran. Ils sont regroupés derrière un
+// seul bouton « Plus », qui se déplie sur place (un toucher, pas de menu) et liste ce qu'il contient.
+// Il reste ouvert d'une fiche à l'autre une fois ouvert, et s'ouvre de lui-même quand on y travaille
+// (formulaire « non contrôlée » ou note en cours de saisie).
+var OUTILS_FICHE = [
+  { nom: 'historique', fn: 'histoCarteHtml' },          // js/bilans.js
+  { nom: 'bilan d’air neuf', fn: 'bilanCtaCarteHtml' },  // CTA
+  { nom: 'plaque', fn: 'plaqueHtml' },                   // photo de la plaque (js/plaque.js)
+  { nom: '', fn: 'plaqueDonneesHtml' },                  // débit nominal, facteur K (js/aides-mesure.js)
+  { nom: 'non contrôlée', fn: 'ncChampHtml' },           // js/qualite.js
+  { nom: 'étiquette QR', fn: 'etiquetteFicheHtml' },     // js/finitions.js
+  { nom: 'note', fn: 'noteInstallationChampHtml' }       // note pour la prochaine visite (js/visite.js)
+];
+
+function outilsFicheHtml(typeId, inst) {
+  if (!inst) return '';
+  var contenu = '', noms = [];
+  OUTILS_FICHE.forEach(function (o) {
+    var fn = (typeof window !== 'undefined' ? window : this)[o.fn];
+    if (typeof fn !== 'function') return;
+    var x = fn(typeId, inst);
+    if (!x) return;
+    contenu += x;
+    if (o.nom && noms.indexOf(o.nom) === -1) noms.push(o.nom);
+  });
+  if (!contenu) return '';
+  var cle = typeId + ':' + state.currentInstIndex;
+  var ouvert = state.outilsFicheOuverts || state.ncOuvert === cle || state.noteOuverte === cle;
+  var signal = inst.data && inst.data._note ? ' · note saisie' : '';
+  var h = '<div class="outils-fiche' + (ouvert ? ' ouvert' : '') + '"><button type="button" class="btn btn-gray btn-small outils-fiche-btn" aria-expanded="' + ouvert +
+    '" onclick="state.outilsFicheOuverts=!' + (ouvert ? 'true' : 'false') + ';state.ncOuvert=null;state.noteOuverte=null;render();">' +
+    (ouvert ? '▴ Moins' : '▾ Plus') + ' : ' + escapeHtml(noms.join(', ')) + escapeHtml(signal) + '</button>';
+  if (ouvert) h += '<div class="outils-fiche-contenu">' + contenu + '</div>';
+  return h + '</div>';
 }
 
 console.log('✓ Moteur d\'assistant générique chargé');

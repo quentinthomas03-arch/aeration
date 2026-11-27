@@ -82,7 +82,9 @@ function materielPourType(t) {
     if (/^conc_/.test(k)) out.concentration = true;
     if (/largeur|longueur|hauteur|diametre|cote|_mm/.test(k)) out.metre = true;
   });
-  if (etapes.some(function (s) { return /fumig/i.test(s.title); })) out.fumigene = true;
+  // Test au fumigène demandé par la fiche : titre d'écran, sous-titre (« #Test au fumigène ») ou champ
+  // (test_fumigene…) — les écrans regroupés le 2026-11-27 n'ont plus d'écran « Test au fumigène »
+  if (etapes.some(function (s) { return /fumig/i.test(s.title) || s.fields.some(function (k) { return /fumig/i.test(k); }); })) out.fumigene = true;
   return out;
 }
 

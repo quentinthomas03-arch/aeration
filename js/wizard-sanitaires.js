@@ -92,10 +92,8 @@ function renderSanitairesWizard(m, t, inst) {
   h += '</div>';
   if (step === SANITAIRES_STEP_LABELS.length - 1) h += nextInstallationButtonHtml('sanitaires');
   h += liveVerdictBarHtml('sanitaires', inst);
-  if (typeof histoCarteHtml === 'function') h += histoCarteHtml('sanitaires', inst); // historique (js/bilans.js)
-  if (typeof ncChampHtml === 'function') h += ncChampHtml('sanitaires', inst); // installation non contrôlée (js/qualite.js)
-  if (typeof etiquetteFicheHtml === 'function') h += etiquetteFicheHtml('sanitaires', inst); // étiquette QR à l'unité (js/finitions.js)
-  if (typeof noteInstallationChampHtml === 'function') h += noteInstallationChampHtml('sanitaires', inst); // note pour la prochaine visite
+  // Historique, non contrôlée, étiquette QR, note : derrière « Plus » (outilsFicheHtml, js/wizard-engine.js)
+  if (typeof outilsFicheHtml === 'function') h += outilsFicheHtml('sanitaires', inst);
 
   return h;
 }

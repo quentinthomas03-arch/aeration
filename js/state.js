@@ -415,26 +415,108 @@ function isDuplicationFindingField(f) {
 var DUPLICATION_EXTRA_KEEP_STEPS = {
   bureaux: ['Type de ventilation', 'Débits mesurés'],
   erp: ['Occupation', 'Type de ventilation', 'Débits mesurés'],
-  locaux_fumeurs: ['Dimensions du local', "Ratio avec l'établissement"],
-  bras_aspiration: ["Bouche d'aspiration — forme", "Bouche d'aspiration — implantation", 'Mesures & captage'],
-  extracteur: ['Section du conduit', 'Taux de renouvellement (optionnel)', 'Débit & avis', 'Mesure dans le conduit'],
-  gaz_echappement: ["Type d'équipement", 'Section du conduit', 'Débits & données constructeur', 'Mesure dans le conduit'],
-  hottes: ['VPE — dimensions & grille', 'VPE — avis vs référence'],
-  installations_diverses: ["Vitesse au point d'émission", 'Vitesse de transport', 'Mesure dans le conduit'],
-  menuiserie: ['Machines reliées', 'Caractéristique du réseau', 'Dépoussiéreur', 'Section du conduit', 'Débit', 'Mesure dans le conduit'],
-  menuiserie_bis: ['Conduit — section'],
-  sorbonnes: ['Ouverture de travail', 'Dispositif de sécurité', 'Résultats — vitesse', 'Résultats — débit'],
-  tts: ['Type & état visuel', 'Cuve — caractéristiques', 'Cuve — dimensions', 'Procédé', 'Mesure dans le conduit'],
-  locaux_charge: ['Ventilation', 'Mesure du débit'],
-  box_peinture: ['État visuel & ventilation', 'Taux de renouvellement',
-    'Captage n°1 — conduit', 'Captage n°2 — conduit', 'Captage n°3 — conduit', 'Captage n°4 — conduit'],
-  cabines_peinture: ['Caractéristiques', 'Débit dans la cabine vide', 'Vitesse moyenne', 'Vitesse minimale (optionnel)'],
-  cta: ['Filtration — pré-filtre', 'Filtration — filtre', 'Filtration — filtre absolu',
-    'Réseau neuf — section', 'Réseau soufflé — section', 'Réseau repris (optionnel) — section',
-    'Réseau neuf — mesures', 'Réseau soufflé — mesures', 'Réseau repris — mesures']
+  locaux_fumeurs: ['Dimensions du local', "Ratio avec l'établissement"]
+  // Types de captage : liste de champs (DUPLICATION_KEEP_FIELDS ci-dessous), indépendante des titres d'écran
+};
+
+// Champs repris (duplication, site précédent, import Rapso) donnés champ par champ plutôt que par titre
+// d'étape : renommer ou regrouper les écrans ne doit plus rien faire perdre à la reprise (retour terrain
+// du 2026-11-27 : diamètres, dimensions de cabine et valeurs de référence perdus à l'import Rapso).
+// Les mêmes protections s'appliquent ensuite (mesures appariées N-1, constats, champs calculés).
+var DUPLICATION_KEEP_FIELDS = {
+  menuiserie_bis: ['reference_machine', 'date_controle', 'type_machine', 'vitesse_reference', 'debit_reference',
+    'forme_conduit', 'diametre_cote1', 'cote2', 'vitesse_mode', 'vitesse_nb_axes', 'vitesse_nb_points'],
+  cabines_peinture: ['batiment', 'niveau', 'marque', 'type_cabine', 'date_controle', 'reference_equipement',
+    'type_flux', 'nature_produits', 'pulverisation', 'zone_travail', 'vehicules_subjectiles', 'avec_classe_camion',
+    'avec_moy_reference', 'avec_moy_reco', 'avec_min_reference', 'avec_min_reco', 'avec_recommandee_par',
+    'v1_reference', 'v1_valeur_recommandee', 'v1_recommandee_par', 'v2_active', 'v2_reference', 'v2_valeur_recommandee', 'v2_recommandee_par',
+    'debit_reference', 'largeur_cabine', 'longueur_cabine', 'vitesse_nb_axes', 'vitesse_nb_points', 'gaine'],
+  // Lot 2 (2026-11-27) : listes figées à l'identique de la reprise par étapes d'avant la réorganisation des
+  // écrans, plus les champs structurels qui manquaient (signalés « ajouts »).
+  installations_diverses: [
+    'batiment', 'niveau', 'localisation', 'type_installation', 'date_controle', 'reference_equipement',
+    'vpe_reference', 'vt_type_polluant', 'vt_reference', 'gaine', 'forme_section', 'diametre_cote1', 'cote2'
+  ],
+  bras_aspiration: [
+    'batiment', 'niveau', 'activite', 'atelier', 'reference_equipement', 'type_bouche', 'forme_bouche',
+    'diametre_bouche', 'largeur_bouche_ovale', 'longueur_bouche_ovale', 'surface_bouche_autre',
+    'localisation_point_mesure', 'diametre_conduit', 'diametre_bras_cone', 'vitesse_captage'
+  ],
+  extracteur: [
+    'batiment', 'niveau', 'locaux_extraits', 'date_controle', 'reference_equipement', 'mesure_debit',
+    'forme_section', 'diametre_cote1', 'cote2', 'valeur_reference_recommandee', 'afficher_taux',
+    'valeur_recommandee', 'referentiel', 'volume_local'
+  ],
+  gaz_echappement: [
+    'type_vehicule', 'type_vehicule_autre', 'type_captage', 'batiment', 'niveau', 'atelier', 'date_controle',
+    'reference_equipement', 'forme_section', 'diametre_cote1', 'cote2', 'debit_reference', 'cylindree',
+    'regime_moteur', 'gaine'
+  ],
+  hottes: [
+    'batiment', 'niveau', 'localisation', 'date_installation', 'date_mesure', 'reference_equipement',
+    'vpe_largeur_cm', 'vpe_hauteur_cm', 'vpe_nb_points_largeur', 'vpe_nb_points_hauteur', 'vpe_min_reference',
+    'vpe_moy_reference', 'vt_type_polluant', 'vt_reference' // + ajouts du 2026-11-27
+  ],
+  menuiserie: [
+    'batiment', 'niveau', 'localisation', 'nb_machines_reliees', 'date_controle', 'reseau_forme',
+    'reseau_forme_si_autres', 'presence_trappes', 'ouverture_trappes', 'entree_air_additionnelle', 'reseau_debit',
+    'afficher_depoussiereur', 'type_filtre', 'position', 'mesure_localisation', 'forme_section', 'diametre_cote1',
+    'cote2', 'valeur_reference_recommandee'
+  ],
+  sorbonnes: [
+    'batiment', 'niveau', 'localisation', 'date_controle', 'reference_equipement', 'largeur_mm',
+    'annee_construction', 'h_mm_autre', 'verrouillage_paroi', 'parachute_paroi', 'mesure_vitesse_frontale',
+    'alarme_sonore', 'alarme_visuelle', 'eclairage_interieur', 'vitesse_min_reference', 'vitesse_min_norme_valeur',
+    'vitesse_moy_reference', 'debit_reference'
+  ],
+  tts: [
+    'batiment', 'niveau', 'date_mesure', 'reference_equipement', 'aspiration_type', 'procede_famille',
+    'procede_type', 'procede_constituants', 'procede_conditions', 'procede_niveau_vitesse', 'type_ventilation',
+    'type_cuve', 'forme_cuve', 'coef_a', 'coef_b', 'coef_n', 'diametre_cuve', 'longueur_l', 'largeur_l',
+    'surface_ouvertures', 'gaine', 'debit_reference', 'nb_fentes', 'longueur_fente', 'largeur_fente',
+    'debit_reference_fentes' // + ajouts du 2026-11-27
+  ],
+  torches_aspirantes: [
+    'batiment', 'niveau', 'date_controle', 'reference_equipement', 'nombre_points_mesure', 'torche1_point_mesure',
+    'torche1_diametre_tube', 'torche1_valeur_reference', 'torche2_point_mesure', 'torche2_diametre_tube',
+    'torche2_valeur_reference', 'torche3_point_mesure', 'torche3_diametre_tube', 'torche3_valeur_reference',
+    'torche4_point_mesure', 'torche4_diametre_tube', 'torche4_valeur_reference', 'torche5_point_mesure',
+    'torche5_diametre_tube', 'torche5_valeur_reference', 'torche6_point_mesure', 'torche6_diametre_tube',
+    'torche6_valeur_reference', 'torche7_point_mesure', 'torche7_diametre_tube', 'torche7_valeur_reference',
+    'torche8_point_mesure', 'torche8_diametre_tube', 'torche8_valeur_reference', 'torche9_point_mesure',
+    'torche9_diametre_tube', 'torche9_valeur_reference', 'torche10_point_mesure', 'torche10_diametre_tube',
+    'torche10_valeur_reference' // + ajouts du 2026-11-27
+  ],
+  locaux_charge: [
+    'localisation', 'batiment', 'niveau', 'date_controle', 'reference_equipement', 'ventilation_permanente',
+    'ventilation_asservie', 'debit_variable', 'reglage_variateur', 'valeur_reference', 'grille1_largeur',
+    'grille1_longueur', 'grille1_diametre', 'grille2_largeur', 'grille2_longueur', 'grille2_diametre',
+    'grille3_largeur', 'grille3_longueur', 'grille3_diametre', 'grille4_largeur', 'grille4_longueur',
+    'grille4_diametre', 'grille5_largeur', 'grille5_longueur', 'grille5_diametre', 'grille6_largeur',
+    'grille6_longueur', 'grille6_diametre', 'grille7_largeur', 'grille7_longueur', 'grille7_diametre',
+    'grille8_largeur', 'grille8_longueur', 'grille8_diametre', 'grille9_largeur', 'grille9_longueur',
+    'grille9_diametre', 'grille10_largeur', 'grille10_longueur', 'grille10_diametre' // + ajouts du 2026-11-27
+  ],
+  box_peinture: [
+    'nombre_captage', 'batiment', 'niveau', 'date_controle', 'reference_equipement', 'ventilation_naturelle',
+    'asservissement', 'type_ventilation', 'volume_local', 'captage1_forme_conduit', 'captage1_diametre_cote1',
+    'captage1_cote2', 'captage2_forme_conduit', 'captage2_diametre_cote1', 'captage2_cote2',
+    'captage3_forme_conduit', 'captage3_diametre_cote1', 'captage3_cote2', 'captage4_forme_conduit',
+    'captage4_diametre_cote1', 'captage4_cote2'
+  ],
+  cta: [
+    'batiment', 'niveau', 'localisation', 'locaux_alimentes', 'date_controle', 'reference_equipement',
+    'mode_fonctionnement', 'afficher_filtration', 'mesure_debit', 'filt_pre_type', 'filt_pre_nombre_dimensions',
+    'filt_pre_classe', 'filt_pre_perte_charge', 'filt_filtre_type', 'filt_filtre_nombre_dimensions',
+    'filt_filtre_classe', 'filt_filtre_perte_charge', 'filt_absolu_type', 'filt_absolu_nombre_dimensions',
+    'filt_absolu_classe', 'neuf_forme', 'neuf_diametre_cote1', 'neuf_cote2', 'neuf_reference', 'souf_forme',
+    'souf_diametre_cote1', 'souf_cote2', 'souf_reference', 'rep_active', 'rep_forme', 'rep_diametre_cote1',
+    'rep_cote2', 'rep_reference'
+  ]
 };
 
 function duplicationFieldKeys(typeId) {
+  if (DUPLICATION_KEEP_FIELDS[typeId]) return DUPLICATION_KEEP_FIELDS[typeId].slice();
   if (typeId === 'sanitaires') {
     return ['batiment', 'niveau', 'repere', 'nom_usage', 'chambre_erp_individuelle', 'wc_urinoirs', 'douches',
       'lavabos', 'individuel_collectif', 'nombre_bouches'];

@@ -48,6 +48,27 @@ Object.keys(MACHINE_BOIS_DEBIT_REF).forEach(function (k) {
   if (MACHINE_BOIS_DEBIT_REF[k] !== null) MACHINE_BOIS_DEBIT_TEXTE[k] = MACHINE_BOIS_DEBIT_REF[k] + ' m³/h';
 });
 
+// Machines à bois : ce qu'implique la valeur de référence saisie (retour terrain du 2026-11-27, une
+// référence de 8 m/s faisait viser 6,4 m/s sans que le technicien comprenne pourquoi). La règle de
+// calcul reste celle du Rapso (UserForm_MENUISERIE_MAB) : référence saisie -> mesure ≥ 80 % de la
+// référence ; « / » -> mesure ≥ valeur INRS (20 m/s, débit du tableau par type de machine).
+function mabNombre(v) { var x = parseFloat(String(v === undefined || v === null ? '' : v).replace(',', '.')); return isNaN(x) ? null : x; }
+function mabFr(x) { return String(Math.round(x * 100) / 100).replace('.', ','); }
+function noteReferenceMAB(ref, inrs, unite, quoi, compare) {
+  var r = mabNombre(ref);
+  if (r === null) {
+    return String(ref || '').trim() === '/' && inrs !== null ? 'Sans référence : ' + quoi + ' ' + compare + ' à la valeur INRS, ' + mabFr(inrs) + ' ' + unite + '.' : '';
+  }
+  var cible = 'L’avis comparera ' + quoi + ' à 80 % de cette référence : ≥ ' + mabFr(r * 0.8) + ' ' + unite + ' (règle du Rapso).';
+  if (inrs !== null && r < inrs) {
+    return { alerte: true, texte: 'Référence inférieure à la valeur recommandée par l’INRS (' + mabFr(inrs) + ' ' + unite + '). ' + cible +
+      ' Saisissez « / » pour comparer à la valeur INRS.' };
+  }
+  return cible;
+}
+function noteReferenceMABVitesse(d) { return noteReferenceMAB(d.vitesse_reference, 20, 'm/s', 'la vitesse', 'comparée'); }
+function noteReferenceMABDebit(d) { return noteReferenceMAB(d.debit_reference, mabNombre(d.debit_inrs_ed750), 'm³/h', 'le débit', 'comparé'); }
+
 // Conditions de dispersion du polluant, reprises de la feuille LISTE du Rapso V29 (libellés exacts) :
 //  - bras d'aspiration (LISTBOX_BOA_1_6) : vitesse de captage imposée, en m/s ;
 //  - installations diverses (LISTBOX_EQUIP_1_11) : plage recommandée par l'INRS (ED 695), en m/s.
@@ -99,7 +120,7 @@ function buildBoxCaptageFields(n) {
     { key: p + '_vitesse_nb_points', label: 'Nombre de points par axe', type: 'number', showIf: combine(modeGrille) },
     { key: p + '_vitesse_grid', label: 'Valeurs mesurées (m/s) — « / » pour exclure un point', type: 'grid',
       colsKey: p + '_vitesse_nb_points', rowsKey: p + '_vitesse_nb_axes', showIf: combine(modeGrille), pointEntry: true },
-    { key: p + '_vitesse_directe', label: 'Vitesse (m/s)', type: 'number', showIf: combine(modeDirecte) },
+    { key: p + '_vitesse_directe', label: 'Vitesse (m/s)', raison: 'Vitesse — captage n°' + n, type: 'number', showIf: combine(modeDirecte) },
     { key: p + '_vitesse_moyenne', label: 'Vitesse moyenne mesurée (m/s)', type: 'computed', showIf: showIf },
     { key: p + '_debit', label: 'Débit mesuré (m³/h)', type: 'computed', showIf: showIf }
   ];
@@ -110,7 +131,8 @@ function buildBoxCaptageFields(n) {
 function buildCtaReseauFields(prefix, label, optional) {
   var showIf = optional ? { key: prefix + '_active', equals: 'Oui' } : undefined;
   var f = [{ key: 'section_' + prefix, label: 'Mesure de la vitesse dans le conduit d\u2019air ' + label, type: 'section' }];
-  if (optional) f.push({ key: prefix + '_active', label: 'Mesurer ce réseau', type: 'select', options: ['Oui', 'Non'] });
+  // Libellé complet : la question est posée sur l'écran « Installation », loin des champs du réseau (2026-11-27)
+  if (optional) f.push({ key: prefix + '_active', label: 'Mesurer le réseau d’air ' + label, type: 'select', options: ['Oui', 'Non'] });
   f = f.concat([
     { key: prefix + '_forme', label: 'Forme de la section', type: 'select', options: ['Circulaire', 'Rectangulaire'], showIf: showIf },
     { key: prefix + '_diametre_cote1', label: 'Diamètre ou côte 1 (cm)', type: 'number', showIf: showIf },
@@ -120,7 +142,7 @@ function buildCtaReseauFields(prefix, label, optional) {
     { key: prefix + '_pression_statique', label: 'Pression statique dans le conduit (Pa)', type: 'number', showIf: showIf },
     { key: prefix + '_masse_volumique', label: 'Masse volumique dans les conditions réelles (kg/m³)', type: 'computed', showIf: showIf },
     { key: prefix + '_vitesse_n1', label: 'Vitesse année N-1 (m/s)', type: 'number', showIf: showIf },
-    { key: prefix + '_vitesse', label: 'Vitesse (m/s)', type: 'number', showIf: showIf },
+    { key: prefix + '_vitesse', label: 'Vitesse (m/s)', raison: 'Vitesse — air ' + label, type: 'number', showIf: showIf },
     { key: prefix + '_reference', label: 'Débit de référence (m³/h)', type: 'number', showIf: showIf },
     { key: prefix + '_debit_n1', label: 'Débit année N-1 (m³/h)', type: 'number', showIf: showIf },
     { key: prefix + '_debit', label: 'Débit année en cours (m³/h)', type: 'computed', showIf: showIf }
@@ -180,7 +202,7 @@ function buildTorcheRowFields(i) {
     { key: p + '_distance_l', label: 'Distance L (mm)', type: 'number', showIf: showIf },
     { key: p + '_vitesse_point_emission', label: "Vitesse au point d'émission (m/s)", type: 'computed', showIf: showIf },
     { key: p + '_valeur_preconisee', label: 'Valeur préconisée (m/s)', type: 'computed', showIf: showIf },
-    { key: p + '_constat', label: 'Constat', type: 'computed', showIf: showIf }
+    { key: p + '_constat', label: 'Constat', raison: 'Point de mesure n°' + i, type: 'computed', showIf: showIf }
   ];
 }
 
@@ -273,6 +295,8 @@ var CDP_CLASSES_CAMION = ['Inférieure à 10 m', '10 à 12 m', '12 à 14 m'];
 var CDP_AVEC = { key: 'type_cabine', in: ['Voiture', 'Camion', 'Encombrant'] };
 var CDP_VIDE = { or: [{ key: 'type_cabine', in: ['', 'Fermée', 'Ouverte', 'Semi-fermée', 'Encombrant', 'Fosse'] },
   { key: 'vehicules_subjectiles', in: [CDP_OBJETS[1], CDP_OBJETS[2]] }] };
+// Fosse : largeur prise à 1 m dans le débit, case masquée (Rapso : cellule noircie, UserForm_CDP)
+var CDP_VIDE_LARGEUR = { and: [CDP_VIDE, { key: 'type_cabine', in: ['', 'Fermée', 'Ouverte', 'Semi-fermée', 'Encombrant', 'Voiture', 'Camion'] }] };
 var CDP_VIDE_V2 = { and: [CDP_VIDE, { key: 'v2_active', equals: 'Oui' }] };
 
 var INSTALLATION_TYPES = [
@@ -704,14 +728,14 @@ var INSTALLATION_TYPES = [
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_min_inrs', label: 'Vitesse minimale — valeur recommandée guide INRS (ED 695)', type: 'computed',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
-      { key: 'avis_vpe_min', label: 'Avis vitesse minimale', type: 'computed',
+      { key: 'avis_vpe_min', label: 'Avis vitesse minimale', raison: 'Vitesse minimale au point d’émission', type: 'computed',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
 
       { key: 'vpe_moy_reference', label: 'Vitesse moyenne — valeur de référence (m/s, « / » si aucune)', type: 'text',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
       { key: 'vpe_moy_inrs', label: 'Vitesse moyenne — valeur recommandée guide INRS (ED 695)', type: 'computed',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
-      { key: 'avis_vpe_moy', label: 'Avis vitesse moyenne', type: 'computed',
+      { key: 'avis_vpe_moy', label: 'Avis vitesse moyenne', raison: 'Vitesse moyenne au point d’émission', type: 'computed',
         showIf: { key: 'mesures_choisies', contains: "Vitesse au point d'émission" } },
 
       { key: 'operateur_hors_volume',
@@ -859,7 +883,7 @@ var INSTALLATION_TYPES = [
 
       // Cabine vide : toujours, sauf voiture ou camion où l'on ne peint que des véhicules (Rapso)
       { key: 'section_dimensions', label: 'Mesure de la cabine vide', type: 'section', showIf: CDP_VIDE },
-      { key: 'largeur_cabine', label: 'Largeur (m)', type: 'number', showIf: CDP_VIDE },
+      { key: 'largeur_cabine', label: 'Largeur (m)', type: 'number', showIf: CDP_VIDE_LARGEUR },
       { key: 'longueur_cabine', label: 'Longueur (m)', type: 'number', showIf: CDP_VIDE },
       { key: 'vitesse_nb_axes', label: 'Nombre d’axes', type: 'number', showIf: CDP_VIDE },
       { key: 'vitesse_nb_points', label: 'Nombre de points par axe', type: 'number', showIf: CDP_VIDE },
@@ -868,26 +892,26 @@ var INSTALLATION_TYPES = [
 
       { key: 'section_v1', label: 'Vitesse d’air — Vitesse moyenne', type: 'section', showIf: CDP_VIDE },
       { key: 'v1_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number', showIf: CDP_VIDE },
-      { key: 'v1_mesuree', label: 'Valeur mesurée (m/s)', type: 'number', showIf: CDP_VIDE },
+      { key: 'v1_mesuree', label: 'Vitesse moyenne mesurée (m/s) — calculée depuis la grille', type: 'number', showIf: CDP_VIDE },
       { key: 'v1_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text', showIf: CDP_VIDE },
       { key: 'v1_valeur_recommandee', label: 'Valeur recommandée (m/s)', type: 'number', showIf: CDP_VIDE },
       { key: 'v1_recommandee_par', label: 'Valeur recommandée par (ex : Norme 16985, guide INRS ED 835/ED 928)', type: 'text', showIf: CDP_VIDE },
-      { key: 'v1_avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed', showIf: CDP_VIDE },
+      { key: 'v1_avis', label: 'Avis par rapport aux valeurs de référence', raison: 'Vitesse moyenne', type: 'computed', showIf: CDP_VIDE },
 
       { key: 'section_v2', label: 'Vitesse d’air — Vitesse minimale', type: 'section', showIf: CDP_VIDE },
       { key: 'v2_active', label: 'Ajouter la vitesse minimale', type: 'select', options: ['Oui', 'Non'], showIf: CDP_VIDE },
       { key: 'v2_mesuree_n1', label: 'Valeur mesurée année N-1 (m/s)', type: 'number', showIf: CDP_VIDE_V2 },
-      { key: 'v2_mesuree', label: 'Valeur mesurée (m/s)', type: 'number', showIf: CDP_VIDE_V2 },
+      { key: 'v2_mesuree', label: 'Vitesse minimale mesurée (m/s) — calculée depuis la grille', type: 'number', showIf: CDP_VIDE_V2 },
       { key: 'v2_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text', showIf: CDP_VIDE_V2 },
       { key: 'v2_valeur_recommandee', label: 'Valeur recommandée (m/s)', type: 'number', showIf: CDP_VIDE_V2 },
       { key: 'v2_recommandee_par', label: 'Valeur recommandée par', type: 'text', showIf: CDP_VIDE_V2 },
-      { key: 'v2_avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed', showIf: CDP_VIDE_V2 },
+      { key: 'v2_avis', label: 'Avis par rapport aux valeurs de référence', raison: 'Vitesse minimale', type: 'computed', showIf: CDP_VIDE_V2 },
 
       { key: 'section_debit', label: 'Débit d\u2019air dans la cabine vide', type: 'section' },
       { key: 'debit_mesure_n1', label: 'Débit mesuré année N-1 (m³/h)', type: 'number' },
-      { key: 'debit_mesure', label: 'Débit mesuré (m³/h)', type: 'number' },
+      { key: 'debit_mesure', label: 'Débit (m³/h) — calculé : vitesse moyenne × largeur × longueur × 3600', type: 'number' },
       { key: 'debit_reference', label: 'Débit de référence (m³/h, « / » si aucune)', type: 'text' },
-      { key: 'debit_avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed' },
+      { key: 'debit_avis', label: 'Avis par rapport aux valeurs de référence', raison: 'Débit de la cabine vide', type: 'computed' },
 
       { key: 'section_conclusion', label: 'Conclusion', type: 'section' },
       { key: 'conclusion', label: 'Avis global', type: 'computed' },
@@ -1108,16 +1132,16 @@ var INSTALLATION_TYPES = [
 
       { key: 'section_vitesse', label: 'Mesure de la vitesse de transport', type: 'section' },
       { key: 'vitesse_moyenne', label: 'Vitesse moyenne (m/s)', type: 'computed' },
-      { key: 'vitesse_reference', label: 'Valeur de référence (m/s, « / » si aucune)', type: 'text' },
+      { key: 'vitesse_reference', label: 'Valeur de référence constructeur ou client (m/s, « / » si aucune)', type: 'text', note: noteReferenceMABVitesse },
       { key: 'vitesse_inrs_ed750', label: 'Valeur recommandée par le guide INRS (ED 750)', type: 'computed' },
-      { key: 'vitesse_avis', label: 'Avis', type: 'computed' },
+      { key: 'vitesse_avis', label: 'Avis vitesse de transport', raison: 'Vitesse de transport', type: 'computed' },
 
       { key: 'section_debit', label: 'Calcul du débit', type: 'section' },
       { key: 'debit_n1', label: 'Débit année N-1 (m³/h)', type: 'number' },
       { key: 'debit', label: 'Débit (m³/h)', type: 'computed' },
-      { key: 'debit_reference', label: 'Valeur de référence (m³/h, « / » si aucune)', type: 'text' },
+      { key: 'debit_reference', label: 'Débit de référence constructeur ou client (m³/h, « / » si aucune)', type: 'text', note: noteReferenceMABDebit },
       { key: 'debit_inrs_ed750', label: 'Valeur recommandée par le guide INRS (ED 750)', type: 'computed' },
-      { key: 'debit_avis', label: 'Avis', type: 'computed' },
+      { key: 'debit_avis', label: 'Avis débit', raison: 'Débit', type: 'computed' },
 
       { key: 'section_etat_visuel', label: 'État visuel du réseau d\u2019aspiration', type: 'section' },
       { key: 'etat_visuel_reseau', label: 'État visuel du réseau d\u2019aspiration', type: 'checkbox-group',
@@ -1292,7 +1316,7 @@ var INSTALLATION_TYPES = [
       { key: 'debit_mesure_n1', label: 'Débit mesuré année N-1 (m³/h)', type: 'number' },
       { key: 'debit_mesure', label: 'Débit mesuré (m³/h)', type: 'number' },
       { key: 'debit_reference', label: 'Débit de référence (m³/h, « / » si aucune)', type: 'text' },
-      { key: 'avis', label: 'Avis par rapport aux valeurs de référence', type: 'computed' },
+      { key: 'avis', label: 'Avis par rapport aux valeurs de référence', raison: 'Débit mesuré', type: 'computed' },
       { key: 'observation', label: 'Observation', type: 'textarea' },
 
       { key: 'section_fentes', label: 'Mesure dans les fentes', type: 'section',

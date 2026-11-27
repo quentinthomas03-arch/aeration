@@ -515,6 +515,17 @@
 
 /* === Contrôles de vraisemblance (js/controles.js) === */
 .field-hint-warn { color: var(--status-warn-fg); background: var(--status-warn-bg); border-radius: 8px; padding: 4px 8px; }
+/* Rappel sous un champ (f.note, js/wizard-engine.js) : détaché du libellé suivant */
+.field-note { margin: -6px 0 16px; text-align: center; }
+/* Outils de la fiche derrière « Plus » (outilsFicheHtml, js/wizard-engine.js) */
+.outils-fiche { margin-top: 12px; }
+.outils-fiche-btn { width: 100%; justify-content: center; text-align: center; }
+.outils-fiche-contenu { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.outils-fiche-contenu > .card { margin: 0; }
+/* Sous-titre d'une rubrique dans un écran regroupé (gwStepBodyHtml, js/wizard-engine.js) */
+.wizard-rubrique { font-size: 12px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px;
+  margin: 20px 0 10px; padding-top: 12px; border-top: 1px solid var(--border, rgba(0,0,0,.08)); text-align: center; }
+.card > .wizard-rubrique:first-child, .card > div:first-child + .wizard-rubrique { border-top: 0; padding-top: 0; margin-top: 4px; }
 .verif-line-link { cursor: pointer; }
 
 /* === Accueil : filtres et avancement des missions === */

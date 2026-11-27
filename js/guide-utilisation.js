@@ -35,12 +35,12 @@ var GUIDE_UTILISATION_ETAPES = [
   {
     icon: 'tool',
     titre: '7. Installation non contrôlée',
-    texte: 'En bas de la fiche, « Installation non contrôlée ? » : choisissez le motif (accès impossible, à l’arrêt, démontée, absence du client, sécurité…) et une précision. Elle compte comme terminée, n’apparaît plus dans « à compléter » et figure dans le rapport comme non contrôlée, avec son motif, au lieu d’une fiche vide.'
+    texte: 'Sous l’avis, le bouton « Plus » déplie les outils de la fiche (historique, plaque, étiquette QR, note, non contrôlée). « Installation non contrôlée ? » : choisissez le motif (accès impossible, à l’arrêt, démontée, absence du client, sécurité…) et une précision. Elle compte comme terminée, n’apparaît plus dans « à compléter » et figure dans le rapport comme non contrôlée, avec son motif, au lieu d’une fiche vide.'
   },
   {
     icon: 'camera',
     titre: '8. Photos, plaque et notes',
-    texte: 'Le crayon sur une photo permet de l’annoter au doigt (entourer, flécher, écrire) ; l’original est conservé. À la visite suivante, la photo de l’an dernier (repère « N-1 ») aide à reprendre le même cadrage. En bas de la fiche d’un équipement : « Photographier la plaque signalétique » (marque, modèle, débit nominal, hors rapport) et « Note pour la prochaine visite », rappelée en tête de fiche l’année suivante.'
+    texte: 'Le crayon sur une photo permet de l’annoter au doigt (entourer, flécher, écrire) ; l’original est conservé. À la visite suivante, la photo de l’an dernier (repère « N-1 ») aide à reprendre le même cadrage. Dans « Plus », sous l’avis de la fiche d’un équipement : « Photographier la plaque signalétique » (marque, modèle, débit nominal, hors rapport) et « Note pour la prochaine visite », rappelée en tête de fiche l’année suivante.'
   },
   {
     icon: 'map',

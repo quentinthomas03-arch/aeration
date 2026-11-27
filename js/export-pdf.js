@@ -1613,18 +1613,13 @@ function pdfFicheCtaReseauRow(label, d, prefix) {
 
 function pdfBuildAnnexeCTA(list, logoDataUrl, ctaSchemaDataUrl) {
   var titre = 'CTA', sousTitre = 'CENTRALE DE TRAITEMENT D\'AIR';
-  var legal = [
-    pdfLegalParagraph('Méthodologie de vérification des Centrales de Traitement d’Air', { bold: true, center: true, size: 20, after: 120 }),
-    pdfLegalParagraph('La vérification du bon fonctionnement des centrales de traitement d’air consiste principalement à vérifier l’état des filtres et à s’assurer que la vitesse de l’air dans les gaines est satisfaisante par rapport aux valeurs figurant dans le dossier de valeurs de référence ou, à défaut, des contrôles précédents.', { size: 18 })
-  ];
+  // Rapso V31 : plus de page de méthodologie en tête de l'annexe CTA (la fiche suit directement l'intercalaire).
   var content = [];
   if (!list || list.length === 0) {
     content.push(pdfAnnexePageHeader(titre, sousTitre, logoDataUrl));
     content.push({ text: 'Aucun local renseigné.', italics: true, fontSize: FS(20) });
     return content;
   }
-  content = content.concat(pdfMethodoPage(legal, { titre: 'Méthodologie de vérification des\nCentrales de Traitement d\'Air' }));
-  content.push({ text: '', pageBreak: 'after' });
   var W_LABEL = PT(3200);
   list.forEach(function (inst, idx) {
     var d = inst.data;

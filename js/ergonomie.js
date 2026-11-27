@@ -73,9 +73,12 @@ function verdictReasons(type, inst, avisKey, wanted) {
 // Libellé « Avis » / « Conclusion » trop vague : remplacé par le titre de l'étape de saisie qui
 // porte ce critère (ex. « Vitesse de transport »).
 function reasonLabel(type, f) {
+  // Nom du critère donné par le schéma : plusieurs avis peuvent partager un même écran (2026-11-27)
+  if (f.raison) return f.raison;
   if (!/^(avis|conclusion)\b/i.test(f.label) || typeof WIZARD_STEPS === 'undefined') return f.label;
-  var step = (WIZARD_STEPS[type.id] || []).filter(function (s) { return s.fields.indexOf(f.key) !== -1; })[0];
-  return step ? step.title.replace(/\s*\(optionnel\)\s*$/i, '') : f.label;
+  // Sous-titre de la rubrique dans l'écran, sinon titre de l'écran (js/wizard-engine.js)
+  var r = typeof gwChampRubrique === 'function' ? gwChampRubrique(type.id, f.key) : '';
+  return r ? r.replace(/\s*\(optionnel\)\s*$/i, '') : f.label;
 }
 
 function liveVerdictBarHtml(typeId, inst) {

@@ -138,6 +138,9 @@ function seuilsCalculer(typeId, type, f, base, meta) {
       lib = (typeof reasonLabel === 'function') ? reasonLabel(type, champ) : lib;
     }
     lib = lib.replace(/^Calcul du /i, '').replace(/^Avis\s+/i, '').replace(/\s*\/\s*(valeur|minimum).*$/i, '');
+    // Critère de débit vu depuis une vitesse (machines à bois : « Débit : ≥ 19,3 m/s », retour terrain du
+    // 2026-11-27) : c'est la vitesse qu'il faut, avec la section saisie, pour que le débit soit satisfaisant
+    if (/^d[ée]bit/i.test(lib) && u === ' m/s') lib = 'Vitesse pour un débit satisfaisant';
     res.push({ key: k, global: k === global, libelle: lib.charAt(0).toUpperCase() + lib.slice(1), texte: texte, min: b, max: h, minIncl: bIncl, maxIncl: hIncl });
   });
   // L'avis global reprend souvent le même seuil qu'un critère : on garde le critère, plus parlant

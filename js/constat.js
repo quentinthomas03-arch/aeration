@@ -52,11 +52,12 @@ function constatChamp(type, inst) {
 }
 
 function constatLibelle(f, typeId) {
+  if (f.raison) return f.raison; // nom donné par le schéma (2026-11-27)
   var lib = String(f.label).replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+—.*$/, '').trim();
-  // Libellé trop vague (« Valeur mesurée », « Vitesse ») : titre de l'étape qui porte le champ
+  // Libellé trop vague (« Valeur mesurée », « Vitesse ») : sous-titre de la rubrique ou titre de l'étape
   if (/^(valeur mesurée|valeur|vitesse|débit|mesure)$/i.test(lib) && typeof WIZARD_STEPS !== 'undefined' && WIZARD_STEPS[typeId]) {
-    var step = WIZARD_STEPS[typeId].filter(function (st) { return st.fields.indexOf(f.key) !== -1; })[0];
-    var titre = step ? step.title.replace(/\s*\(optionnel\)\s*$/i, '').replace(/\s+—.*$/, '') : '';
+    var r = typeof gwChampRubrique === 'function' ? gwChampRubrique(typeId, f.key) : '';
+    var titre = r.replace(/\s*\(optionnel\)\s*$/i, '').replace(/\s+—.*$/, '');
     if (titre && titre.toLowerCase() !== lib.toLowerCase() && !/^(identification|constat|mesures?)$/i.test(titre)) lib = titre + (/^valeur/i.test(lib) ? '' : ' (' + lib.toLowerCase() + ')');
   }
   return lib;

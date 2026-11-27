@@ -4,10 +4,32 @@
 //    rapport), proposant ensuite la mission de démonstration. Relançable depuis le Guide.
 //  - Nouveautés : après une mise à jour, une carte sur l'accueil résume ce qui a changé.
 
-var APP_VERSION = '2.14';
+var APP_VERSION = '2.18';
 
 // Du plus récent au plus ancien. Une entrée par version publiée aux techniciens.
 var NOUVEAUTES = [
+  { version: '2.18', date: '27/11/2026', items: [
+    'Sous l’avis de chaque fiche, un seul bouton « Plus » remplace la pile de blocs (historique, bilan d’air neuf, plaque, non contrôlée, étiquette QR, note). Un toucher les déplie sur place ; le bouton dit ce qu’il contient et signale une note déjà saisie. Une fois ouvert, il le reste d’une fiche à l’autre.'
+  ] },
+  { version: '2.17', date: '27/11/2026', items: [
+    'Toutes les installations de captage suivent maintenant le même ordre : installation, valeurs de référence, mesures (avis juste sous la mesure), constat en dernier. Hottes, installations diverses, extracteurs, gaz d’échappement : 4 écrans ; bras, menuiserie, sorbonnes, TTS : 5 ; CTA : 6 ou 7 selon le réseau repris.',
+    'Torches aspirantes et locaux de charge : tous les points (ou toutes les grilles) sur un seul écran, un sous-titre par point. Seuls les points choisis s’affichent, et la grille suivante apparaît dès que la précédente est remplie.',
+    'Box de préparation : un écran par captage, et le taux de renouvellement après les captages, puisqu’il en découle.',
+    'Les écrans regroupés ont des sous-titres (« Vitesse au point d’émission », « Vitesse de transport », « Débit »…), et l’avis en bas de l’écran nomme le critère en cause.',
+    'Visite suivante et import Rapso : sont aussi repris le type de polluant et la référence de vitesse de transport des hottes, les débits de référence et les fentes des TTS, le point et le diamètre du tube des torches, les dimensions des grilles des locaux de charge. Corrigé : le niveau des cabines de peinture n’était plus repris depuis la 2.16.',
+    'Préparer la visite : le générateur de fumée est proposé pour toutes les installations qui demandent un test au fumigène.'
+  ] },
+  { version: '2.16', date: '27/11/2026', items: [
+    'Cabines de peinture : la vitesse moyenne et la vitesse minimale se remplissent depuis la grille, et le débit se calcule tout seul (vitesse moyenne × largeur × longueur × 3 600, largeur prise à 1 m pour une fosse), comme le Rapso.',
+    'Cabines de peinture : 5 écrans au lieu de 11, dans l’ordre cabine, valeurs de référence, mesures (avis juste sous la mesure), constats et conclusion.',
+    'Machines à bois : 4 écrans au lieu de 8 (machine, valeurs de référence, mesure dans le conduit, constat). Le diamètre et la vitesse se saisissent avant le constat, et vitesse, débit et avis s’affichent juste en dessous.',
+    'Machines à bois : sous la valeur de référence, l’appli rappelle la règle du Rapso (la vitesse doit atteindre 80 % de la référence) et prévient quand la référence est sous les 20 m/s de l’INRS. Saisissez « / » pour comparer aux 20 m/s.',
+    'Objectif avant la mesure : « Vitesse pour un débit satisfaisant » remplace « Débit … m/s » (c’est la vitesse qu’il faut, avec ce diamètre, pour atteindre le débit recommandé).',
+    'Import d’un classeur Rapso : les machines à bois reprennent le type de conduit, le diamètre et les valeurs de référence, et les cabines leurs dimensions (avant, seuls la référence et le type de machine étaient repris).'
+  ] },
+  { version: '2.15', date: '17/11/2026', items: [
+    'Rapport : comme le Rapso V31, l’annexe CTA n’a plus de page de méthodologie ; la première fiche suit directement l’intercalaire.'
+  ] },
   { version: '2.14', date: '17/11/2026', items: [
     'Alignement sur le Rapso Aération V31. CTA : une photo de la centrale peut être prise dans l’identification ; elle sort au rapport en tête des mesures de vitesse (« Photo de la centrale de traitement d’air contrôlée »).',
     'Sorbonnes : les vitesses d’air du local à 90 et 140 cm sont demandées quand le test au fumigène montre des perturbations (« Oui »), comme l’indique le rapport (« si oui »). Avant, elles étaient demandées sur « Non ».',

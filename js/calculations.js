@@ -359,6 +359,15 @@ function cdpVide(d) {
   if (d.type_cabine !== 'Voiture' && d.type_cabine !== 'Camion') return true;
   return /subjectile/i.test(d.vehicules_subjectiles || '');
 }
+// Débit de la cabine vide (Rapso, Tbx_Debit_1_1) : 3600 × vitesse moyenne × largeur × longueur,
+// largeur à 1 m pour une fosse. NaN si une donnée manque (le débit saisi à la main est alors gardé).
+function cdpDebitCabineVide(d) {
+  if (!cdpVide(d)) return NaN;
+  var v = num(d.v1_mesuree), lo = num(d.longueur_cabine);
+  var la = d.type_cabine === 'Fosse' ? 1 : num(d.largeur_cabine);
+  if (isNaN(v) || isNaN(lo) || isNaN(la)) return NaN;
+  return 3600 * v * la * lo;
+}
 function cdpNbPointsAvec(d) {
   if (d.type_cabine === 'Voiture') return 10;
   if (d.type_cabine === 'Encombrant') return 14;
@@ -1367,6 +1376,20 @@ var CALC_RULES = {
         if (!s || s.incomplete) return '';
         return s.moyenne;
       } },
+    // Retour terrain du 2026-11-27 : vitesses et débit de la cabine vide n'étaient pas calculés.
+    // Comme le Rapso (UserForm_CDP, l. 7022-7036) : grille complète -> vitesse moyenne et minimale
+    // reprises dans « Valeur mesurée » (2 décimales) ; débit = 3600 × vitesse moyenne × largeur ×
+    // longueur (fosse : largeur prise à 1 m). Grille vide : la vitesse saisie reste et sert au débit.
+    // NaN = rien à calculer : la saisie du technicien est conservée.
+    { target: 'v1_mesuree', decimals: 2, fn: function (d) {
+        var s = gridStats(d.vitesse_grid, d.vitesse_nb_axes, d.vitesse_nb_points);
+        return (cdpVide(d) && s && !s.incomplete) ? s.moyenne : NaN;
+      } },
+    { target: 'v2_mesuree', decimals: 2, fn: function (d) {
+        var s = gridStats(d.vitesse_grid, d.vitesse_nb_axes, d.vitesse_nb_points);
+        return (cdpVide(d) && s && !s.incomplete) ? s.min : NaN;
+      } },
+    { target: 'debit_mesure', fn: function (d) { return cdpDebitCabineVide(d); } },
     // Bloc « avec le véhicule ou l'encombrant » (Rapso, UserForm_CDP : Nb_Cas 10 / 12-14-16 / 14 points)
     { target: 'avec_nb_points', fn: function (d) { return String(cdpNbPointsAvec(d) || ''); } },
     { target: 'avec_nb_lignes', fn: function (d) { var g = cdpGrilleAvec(d); return g ? String(g[0]) : ''; } },
